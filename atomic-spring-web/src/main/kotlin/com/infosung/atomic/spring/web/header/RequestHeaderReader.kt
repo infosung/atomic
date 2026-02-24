@@ -1,0 +1,41 @@
+package com.infosung.atomic.spring.web.header
+
+import com.infosung.atomic.contract.header.ApiHeaderNames
+import jakarta.servlet.http.HttpServletRequest
+import java.util.Enumeration
+
+object RequestHeaderReader {
+  fun getRequestHeaders(request: HttpServletRequest): Enumeration<String> = request.headerNames
+
+  fun getRequestHeader(request: HttpServletRequest, key: String): String? = request.getHeader(key)
+
+  fun getAppVersion(request: HttpServletRequest): String? =
+      getFirstHeader(request, ApiHeaderNames.HEADER_X_APP_VERSION)
+
+  fun getDeviceId(request: HttpServletRequest): String? =
+      request.getHeader(ApiHeaderNames.HEADER_X_DEVICE_ID)?.takeIf { it.isNotBlank() }
+
+  fun getPlatformString(request: HttpServletRequest): String? =
+      getFirstHeader(request, ApiHeaderNames.HEADER_X_PLATFORM)
+
+  fun getServiceString(request: HttpServletRequest): String? =
+      getFirstHeader(request, ApiHeaderNames.HEADER_X_SERVICE_NAME)
+
+  fun getTraceId(request: HttpServletRequest): String? =
+      getFirstHeader(request, ApiHeaderNames.HEADER_X_TRACE_ID)
+
+  fun getCustomLanguage(request: HttpServletRequest): String? =
+      getFirstHeader(
+          request,
+          ApiHeaderNames.HEADER_X_CUSTOM_LANGUAGE,
+          ApiHeaderNames.HEADER_ACCEPT_LANGUAGE,
+      )
+
+  private fun getFirstHeader(request: HttpServletRequest, vararg names: String): String? {
+    for (name in names) {
+      val value = request.getHeader(name)?.takeIf { it.isNotBlank() }
+      if (value != null) return value
+    }
+    return null
+  }
+}

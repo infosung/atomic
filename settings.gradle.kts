@@ -1,0 +1,9 @@
+enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
+
+rootProject.name = "atomic"
+
+include(
+    ":atomic-contract",
+    ":atomic-spring-web",
+    ":atomic-spring-security",
+)
