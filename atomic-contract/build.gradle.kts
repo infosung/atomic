@@ -1,10 +1,10 @@
 plugins {
   `java-library`
   alias(libs.plugins.kotlin.jvm)
-  id("com.vanniktech.maven.publish")
+  alias(libs.plugins.vanniktech.maven.publish)
 }
 
-description = "atomic-contract"
+description = libs.versions.moduleDescriptionContract.get()
 
 java {
   toolchain {
@@ -35,28 +35,28 @@ kotlin {
 mavenPublishing {
   publishToMavenCentral()
   signAllPublications()
-  coordinates(group.toString(), "atomic.contract", version.toString())
+  coordinates(group.toString(), libs.versions.artifactContract.get(), version.toString())
 
   pom {
-    name.set("atomic.contract")
-    description.set("Atomic contract module")
-    url.set("https://github.com/infosung/atomic")
+    name.set(libs.versions.artifactContract.get())
+    description.set(libs.versions.pomDescriptionContract.get())
+    url.set(libs.versions.projectHomepageUrl.get())
     licenses {
       license {
-        name.set("The Apache License, Version 2.0")
-        url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+        name.set(libs.versions.licenseApacheName.get())
+        url.set(libs.versions.licenseApacheUrl.get())
       }
     }
     developers {
       developer {
-        id.set("infosung")
-        name.set("infosung")
+        id.set(libs.versions.developerId.get())
+        name.set(libs.versions.developerName.get())
       }
     }
     scm {
-      url.set("https://github.com/infosung/atomic")
-      connection.set("scm:git:git://github.com/infosung/atomic.git")
-      developerConnection.set("scm:git:ssh://git@github.com/infosung/atomic.git")
+      url.set(libs.versions.projectHomepageUrl.get())
+      connection.set(libs.versions.scmConnection.get())
+      developerConnection.set(libs.versions.scmDeveloperConnection.get())
     }
   }
 }

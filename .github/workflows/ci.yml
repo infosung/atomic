@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - springboot: "4.0.3"
+            kotlin: "2.3.10"
+            label: "baseline"
+          - springboot: "4.0.2"
+            kotlin: "2.3.10"
+            label: "compat"
+          - springboot: "4.0.1"
+            kotlin: "2.3.10"
+            label: "compat"
+          - springboot: "4.0.3"
+            kotlin: "2.3.0"
+            label: "compat"
+    permissions:
+      contents: read
+    name: verify (boot=${{ matrix.springboot }}, kotlin=${{ matrix.kotlin }}, ${{ matrix.label }})
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Apply matrix versions
+        run: |
+          perl -0pi -e 's/^kotlin = ".*"$/kotlin = "${{ matrix.kotlin }}"/m; s/^springboot = ".*"$/springboot = "${{ matrix.springboot }}"/m' gradle/libs.versions.toml
+          rg -n '^(kotlin|springboot) = ' gradle/libs.versions.toml
+
+      - name: Verify format and tests
+        run: ./gradlew spotlessCheck test

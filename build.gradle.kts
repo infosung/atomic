@@ -1,12 +1,16 @@
 import com.diffplug.gradle.spotless.SpotlessExtension
 
+val ktfmtVersion = libs.versions.ktfmt.get()
+val projectGroup = libs.versions.projectGroup.get()
+val projectVersion = libs.versions.projectVersion.get()
+
 plugins {
   alias(libs.plugins.kotlin.jvm) apply false
   alias(libs.plugins.kotlin.spring) apply false
   alias(libs.plugins.springboot) apply false
   alias(libs.plugins.spring.dependency.management) apply false
-  id("com.vanniktech.maven.publish") version "0.34.0" apply false
-  id("com.diffplug.spotless") version "7.2.1" apply false
+  alias(libs.plugins.vanniktech.maven.publish) apply false
+  alias(libs.plugins.spotless) apply false
 }
 
 allprojects {
@@ -25,12 +29,12 @@ allprojects {
     kotlin {
       target("src/**/*.kt")
       targetExclude("**/build/**")
-      ktfmt("0.54")
+      ktfmt(ktfmtVersion)
     }
 
     kotlinGradle {
       target("*.gradle.kts", "settings.gradle.kts")
-      ktfmt("0.54")
+      ktfmt(ktfmtVersion)
     }
 
     format("misc") {
@@ -57,6 +61,6 @@ allprojects {
 }
 
 subprojects {
-  group = "com.infosung"
-  version = "0.0.1"
+  group = projectGroup
+  version = projectVersion
 }

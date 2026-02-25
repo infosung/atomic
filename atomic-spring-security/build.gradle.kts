@@ -3,10 +3,10 @@ plugins {
   alias(libs.plugins.kotlin.jvm)
   alias(libs.plugins.kotlin.spring)
   alias(libs.plugins.spring.dependency.management)
-  id("com.vanniktech.maven.publish")
+  alias(libs.plugins.vanniktech.maven.publish)
 }
 
-description = "atomic-spring-security"
+description = libs.versions.moduleDescriptionSpringSecurity.get()
 
 java {
   toolchain {
@@ -26,11 +26,8 @@ dependencies {
 
   api(libs.spring.boot.starter.webmvc)
   api(libs.spring.boot.starter.security)
+  api(libs.spring.security.oauth2.jose)
   implementation(libs.jackson.module.kotlin)
-
-  api(libs.jjwt.api)
-  runtimeOnly(libs.jjwt.impl)
-  runtimeOnly(libs.jjwt.jackson)
 
   testImplementation(libs.spring.boot.starter.test)
   testImplementation(libs.spring.boot.starter.webmvc.test)
@@ -42,9 +39,7 @@ dependencies {
 }
 
 dependencyManagement {
-  imports {
-    mavenBom("org.springframework.boot:spring-boot-dependencies:${libs.versions.springboot.get()}")
-  }
+  imports { mavenBom(libs.spring.boot.dependencies.bom.get().toString()) }
 }
 
 kotlin {
@@ -56,28 +51,28 @@ kotlin {
 mavenPublishing {
   publishToMavenCentral()
   signAllPublications()
-  coordinates(group.toString(), "atomic.spring.security", version.toString())
+  coordinates(group.toString(), libs.versions.artifactSpringSecurity.get(), version.toString())
 
   pom {
-    name.set("atomic.spring.security")
-    description.set("Atomic Spring Security module")
-    url.set("https://github.com/infosung/atomic")
+    name.set(libs.versions.artifactSpringSecurity.get())
+    description.set(libs.versions.pomDescriptionSpringSecurity.get())
+    url.set(libs.versions.projectHomepageUrl.get())
     licenses {
       license {
-        name.set("The Apache License, Version 2.0")
-        url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+        name.set(libs.versions.licenseApacheName.get())
+        url.set(libs.versions.licenseApacheUrl.get())
       }
     }
     developers {
       developer {
-        id.set("infosung")
-        name.set("infosung")
+        id.set(libs.versions.developerId.get())
+        name.set(libs.versions.developerName.get())
       }
     }
     scm {
-      url.set("https://github.com/infosung/atomic")
-      connection.set("scm:git:git://github.com/infosung/atomic.git")
-      developerConnection.set("scm:git:ssh://git@github.com/infosung/atomic.git")
+      url.set(libs.versions.projectHomepageUrl.get())
+      connection.set(libs.versions.scmConnection.get())
+      developerConnection.set(libs.versions.scmDeveloperConnection.get())
     }
   }
 }

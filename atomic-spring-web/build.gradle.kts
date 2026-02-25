@@ -3,10 +3,10 @@ plugins {
   alias(libs.plugins.kotlin.jvm)
   alias(libs.plugins.kotlin.spring)
   alias(libs.plugins.spring.dependency.management)
-  id("com.vanniktech.maven.publish")
+  alias(libs.plugins.vanniktech.maven.publish)
 }
 
-description = "atomic-spring-web"
+description = libs.versions.moduleDescriptionSpringWeb.get()
 
 java {
   toolchain { languageVersion = JavaLanguageVersion.of(libs.versions.java.get().toInt()) }
@@ -33,9 +33,7 @@ dependencies {
 }
 
 dependencyManagement {
-  imports {
-    mavenBom("org.springframework.boot:spring-boot-dependencies:${libs.versions.springboot.get()}")
-  }
+  imports { mavenBom(libs.spring.boot.dependencies.bom.get().toString()) }
 }
 
 kotlin {
@@ -47,28 +45,28 @@ kotlin {
 mavenPublishing {
   publishToMavenCentral()
   signAllPublications()
-  coordinates(group.toString(), "atomic.spring.web", version.toString())
+  coordinates(group.toString(), libs.versions.artifactSpringWeb.get(), version.toString())
 
   pom {
-    name.set("atomic.spring.web")
-    description.set("Atomic Spring Web module")
-    url.set("https://github.com/infosung/atomic")
+    name.set(libs.versions.artifactSpringWeb.get())
+    description.set(libs.versions.pomDescriptionSpringWeb.get())
+    url.set(libs.versions.projectHomepageUrl.get())
     licenses {
       license {
-        name.set("The Apache License, Version 2.0")
-        url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+        name.set(libs.versions.licenseApacheName.get())
+        url.set(libs.versions.licenseApacheUrl.get())
       }
     }
     developers {
       developer {
-        id.set("infosung")
-        name.set("infosung")
+        id.set(libs.versions.developerId.get())
+        name.set(libs.versions.developerName.get())
       }
     }
     scm {
-      url.set("https://github.com/infosung/atomic")
-      connection.set("scm:git:git://github.com/infosung/atomic.git")
-      developerConnection.set("scm:git:ssh://git@github.com/infosung/atomic.git")
+      url.set(libs.versions.projectHomepageUrl.get())
+      connection.set(libs.versions.scmConnection.get())
+      developerConnection.set(libs.versions.scmDeveloperConnection.get())
     }
   }
 }
