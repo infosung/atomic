@@ -38,9 +38,7 @@ dependencies {
   testRuntimeOnly(libs.jupiter)
 }
 
-dependencyManagement {
-  imports { mavenBom(libs.spring.boot.dependencies.bom.get().toString()) }
-}
+dependencyManagement { imports { mavenBom(libs.spring.boot.dependencies.bom.get().toString()) } }
 
 kotlin {
   compilerOptions {

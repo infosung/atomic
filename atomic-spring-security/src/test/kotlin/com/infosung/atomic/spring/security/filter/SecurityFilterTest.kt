@@ -2,7 +2,6 @@ package com.infosung.atomic.spring.security.filter
 
 import com.infosung.atomic.contract.time.TimeProvider
 import com.infosung.atomic.spring.security.channel.ClientChannel
-import com.infosung.atomic.spring.security.channel.ClientChannelResolver
 import com.infosung.atomic.spring.security.jwt.JwtProvider
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.Cookie
@@ -128,7 +127,7 @@ class SecurityFilterTest {
             jwtProvider = jwtProvider,
             objectMapper = ObjectMapper(),
             excludeUrls = emptyList(),
-            clientChannelResolver = ClientChannelResolver { ClientChannel.UNKNOWN },
+            clientChannelResolver = { ClientChannel.UNKNOWN },
             timeProvider = timeProvider,
         )
     val headerToken = jwtProvider.createJwtDto(id = "1", subject = "USER").accessToken
@@ -158,7 +157,7 @@ class SecurityFilterTest {
             jwtProvider = jwtProvider,
             objectMapper = ObjectMapper(),
             excludeUrls = emptyList(),
-            clientChannelResolver = ClientChannelResolver { ClientChannel.UNKNOWN },
+            clientChannelResolver = { ClientChannel.UNKNOWN },
             timeProvider = timeProvider,
         )
     val accessCookieToken = jwtProvider.createJwtDto(id = "2", subject = "USER").accessToken
@@ -186,7 +185,7 @@ class SecurityFilterTest {
             jwtProvider = jwtProvider,
             objectMapper = ObjectMapper(),
             excludeUrls = emptyList(),
-            clientChannelResolver = ClientChannelResolver { ClientChannel.WEB },
+            clientChannelResolver = { ClientChannel.WEB },
             timeProvider = timeProvider,
         )
     val accessToken = jwtProvider.createJwtDto(id = "123", subject = "USER").accessToken
@@ -212,7 +211,7 @@ class SecurityFilterTest {
             jwtProvider = jwtProvider,
             objectMapper = ObjectMapper(),
             excludeUrls = emptyList(),
-            clientChannelResolver = ClientChannelResolver { ClientChannel.WEB },
+            clientChannelResolver = { ClientChannel.WEB },
             timeProvider = timeProvider,
         )
     val request =
@@ -252,8 +251,8 @@ class SecurityFilterTest {
     assertTrue(!chainCalled)
     assertEquals(401, response.status)
     assertEquals("application/json", response.contentType)
-    assertEquals("UNAUTHORIZED", body["code"].asText())
-    assertEquals("UNAUTHORIZED", body["message"].asText())
+    assertEquals("UNAUTHORIZED", body["code"]?.toString()?.removeSurrounding("\""))
+    assertEquals("UNAUTHORIZED", body["message"]?.toString()?.removeSurrounding("\""))
     assertNull(SecurityContextHolder.getContext().authentication)
   }
 
@@ -266,7 +265,7 @@ class SecurityFilterTest {
             jwtProvider = jwtProvider,
             objectMapper = objectMapper,
             excludeUrls = emptyList(),
-            clientChannelResolver = ClientChannelResolver { ClientChannel.APP },
+            clientChannelResolver = { ClientChannel.APP },
             timeProvider = timeProvider,
         )
     val refreshToken = jwtProvider.createJwtDto(id = "123", subject = "USER").refreshToken
@@ -284,8 +283,8 @@ class SecurityFilterTest {
     assertTrue(!chainCalled)
     assertEquals(401, response.status)
     assertEquals("application/json", response.contentType)
-    assertEquals("UNAUTHORIZED", body["code"].asText())
-    assertEquals("UNAUTHORIZED", body["message"].asText())
+    assertEquals("UNAUTHORIZED", body["code"]?.toString()?.removeSurrounding("\""))
+    assertEquals("UNAUTHORIZED", body["message"]?.toString()?.removeSurrounding("\""))
     assertNull(SecurityContextHolder.getContext().authentication)
   }
 
@@ -296,7 +295,7 @@ class SecurityFilterTest {
             jwtProvider = jwtProvider(),
             objectMapper = ObjectMapper(),
             excludeUrls = emptyList(),
-            clientChannelResolver = ClientChannelResolver { ClientChannel.UNKNOWN },
+            clientChannelResolver = { ClientChannel.UNKNOWN },
             timeProvider = timeProvider,
         )
     val request =
@@ -322,7 +321,7 @@ class SecurityFilterTest {
             jwtProvider = jwtProvider,
             objectMapper = ObjectMapper(),
             excludeUrls = emptyList(),
-            clientChannelResolver = ClientChannelResolver { ClientChannel.APP },
+            clientChannelResolver = { ClientChannel.APP },
             timeProvider = timeProvider,
         )
     val request =

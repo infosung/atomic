@@ -132,7 +132,9 @@ class JwtProviderTest {
 
     timeProvider.configureClock(Clock.fixed(now.plusSeconds(601), ZoneOffset.UTC))
     val exception =
-        assertFailsWith<HttpInvalidTokenException> { provider.getRefreshClaims(jwtDto.refreshToken) }
+        assertFailsWith<HttpInvalidTokenException> {
+          provider.getRefreshClaims(jwtDto.refreshToken)
+        }
 
     assertTrue(
         exception.message.contains("expired", ignoreCase = true) ||
