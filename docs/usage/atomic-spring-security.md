@@ -1,26 +1,51 @@
 # atomic.spring.security Guide
 
-## Summary
+## Why Use This Module
 
-`atomic.spring.security` provides JWT-based authentication filter flow with:
+Use `atomic.spring.security` when your server issues and validates its own JWT pair (access + refresh) and wants Spring Security integration with minimal wiring.
 
-- access/refresh token issue and validation
-- channel-aware token resolution (WEB/APP/UNKNOWN)
-- cookie re-issue flow from refresh token
+It provides:
 
-## Required Beans (Typical)
+- `JwtProvider`: token issue/verify/expired-claim access
+- `JwtSecurityConfigurerAdapter`: filter registration helper
+- channel-aware token resolution (`WEB`, `APP`, `UNKNOWN`)
+- refresh-cookie based access token re-issue flow
 
-1. `JwtProvider`
-2. `JwtAuthenticationEntryPoint`
-3. `JwtAccessDeniedHandler`
-4. `SecurityFilterChain` with `JwtSecurityConfigurerAdapter`
+## Quick Start (10 Minutes)
+
+1. Register `JwtProvider`.
+2. Add `SecurityFilterChain` with `JwtSecurityConfigurerAdapter`.
+3. Add one excluded health endpoint.
+4. Verify one protected endpoint with valid/invalid token.
+
+## What You Need to Configure
+
+Required:
+
+- `JwtProvider`
+- `SecurityFilterChain` with `JwtSecurityConfigurerAdapter`
+
+Recommended:
+
+- `JwtAuthenticationEntryPoint`
+- `JwtAccessDeniedHandler`
 
 Optional:
 
-- `TimeProvider` (custom clock/timezone)
-- `ClientChannelResolver` (for domain-based WEB/APP detection)
+- `TimeProvider` for deterministic tests or custom clock behavior
+- `ClientChannelResolver` for web/app channel distinction
+- custom `SecurityCookiePolicy`
 
-## Example Configuration
+## Feature-to-Bean Matrix
+
+| Goal | Required | Optional |
+|---|---|---|
+| Basic JWT auth | `JwtProvider`, `JwtSecurityConfigurerAdapter` | custom handlers |
+| Web/App channel-aware token policy | `ClientChannelResolver` | custom domain rules |
+| Refresh-cookie access token re-issue | included via filter path | custom cookie policy |
+| Deterministic expiration tests | `TimeProvider` injection | timezone customization |
+
+## Quick Configuration
 
 ```kotlin
 import com.infosung.atomic.contract.time.TimeProvider
@@ -55,14 +80,6 @@ class AtomicSecurityConfig {
       )
 
   @Bean
-  fun authenticationEntryPoint(objectMapper: ObjectMapper) =
-      JwtAuthenticationEntryPoint(objectMapper)
-
-  @Bean
-  fun accessDeniedHandler(objectMapper: ObjectMapper) =
-      JwtAccessDeniedHandler(objectMapper)
-
-  @Bean
   fun clientChannelResolver(): ClientChannelResolver =
       HostBasedClientChannelResolver(
           webDomains = listOf("www.example.com"),
@@ -80,8 +97,8 @@ class AtomicSecurityConfig {
     http.csrf { it.disable() }
     http.sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
     http.exceptionHandling {
-      it.authenticationEntryPoint(authenticationEntryPoint(objectMapper))
-      it.accessDeniedHandler(accessDeniedHandler(objectMapper))
+      it.authenticationEntryPoint(JwtAuthenticationEntryPoint(objectMapper))
+      it.accessDeniedHandler(JwtAccessDeniedHandler(objectMapper))
     }
 
     http.with(
@@ -102,12 +119,37 @@ class AtomicSecurityConfig {
 
 ## Token Resolution Policy
 
-- `WEB`: cookie first, then refresh-cookie reissue. `Authorization` is ignored.
-- `APP`: `Authorization: Bearer` only.
-- `UNKNOWN`: backward-compatible fallback (`Authorization` -> cookie -> refresh-cookie).
+- `WEB`: `accessToken` cookie first, then refresh-cookie re-issue path
+- `APP`: `Authorization: Bearer` only
+- `UNKNOWN`: fallback (`Authorization` -> access cookie -> refresh cookie)
 
-## JwtProvider Tips
+This behavior comes from `ChannelAwareTokenResolver`.
 
-- `serviceName` defaults to `InfosungAtomic` when blank.
-- Keep access/refresh keys long and random.
-- In tests, inject `TimeProvider` with fixed clock for deterministic expiration checks.
+## JwtProvider Usage
+
+```kotlin
+val jwt = jwtProvider.createJwtDto(id = "123", subject = "USER")
+val accessClaims = jwtProvider.getAccessClaims(jwt.accessToken)
+val refreshClaims = jwtProvider.getRefreshClaims(jwt.refreshToken)
+```
+
+Useful notes:
+
+- `serviceName` blank -> default `InfosungAtomic`
+- `getExpiredClaims(...)` is for already-expired access token handling use cases
+- use long random keys for `accessKey` and `refreshKey`
+
+## Operational Checklist
+
+- Set secure, long secrets via environment variables.
+- Verify `excludeUrls` format is exact: `METHOD /path`.
+- Confirm channel resolver domain list matches runtime hosts.
+- Validate cookie policy (`secure`, `sameSite`) for deployment environment.
+- Add boundary tests around token expiration time.
+
+## Troubleshooting
+
+- Always unauthorized: check token source by channel (`WEB` cookie vs `APP` header).
+- Refresh re-issue not working: check `refreshToken` cookie and cookie policy.
+- Random expiration test failures: inject fixed `TimeProvider` in tests.
+- Public endpoint still protected: check `excludeUrls` exact method/path string.

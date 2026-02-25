@@ -1,67 +1,107 @@
 # atomic.contract Guide
 
-## Summary
+## Why Use This Module
 
-`atomic.contract` provides shared DTO, response models, exceptions, and utility classes.
+Use `atomic.contract` when you want one shared contract across API, web, security, and batch layers.
 
-## Main Packages
+It provides:
 
-- `com.infosung.atomic.contract.response`
-- `com.infosung.atomic.contract.exception`
-- `com.infosung.atomic.contract.header`
-- `com.infosung.atomic.contract.time`
-- `com.infosung.atomic.contract.random`
-- `com.infosung.atomic.contract.security`
+- common response models (`BaseResponse`, `CursorPage`, `OffsetPage`)
+- common header models/constants (`ApiHeaderDto`, `ApiHeaderNames`, `TraceIdGenerator`)
+- common domain-level exceptions (`HttpStatusException` and token-related subclasses)
+- simple utilities (`TimeProvider`, `DateUtil`, `RandomUtil`, `BasicAuthHeader`, `IpMasker`)
 
-## Typical Usage
+## Quick Start (10 Minutes)
 
-### BaseResponse
+1. Return controller responses with `BaseResponse<T>`.
+2. Use `HttpStatusException` for domain errors.
+3. Use `CursorPage` or `OffsetPage` for list endpoints.
+4. Add `TimeProvider` bean only if you need controllable clock/timezone.
 
 ```kotlin
 import com.infosung.atomic.contract.response.BaseResponse
 
-val success = BaseResponse(data = mapOf("id" to 1))
-val fail = BaseResponse.error<Any>(message = "Invalid request")
+fun health(): BaseResponse<Map<String, String>> =
+    BaseResponse.ok(mapOf("status" to "ok"))
 ```
 
-### CursorPage / OffsetPage
+## What You Usually Use First
+
+### 1) API Response Model
+
+`BaseResponse<T>` is the default response envelope.
+
+```kotlin
+import com.infosung.atomic.contract.response.BaseResponse
+
+fun success(): BaseResponse<Map<String, Any>> =
+    BaseResponse.ok(mapOf("id" to 1L, "name" to "demo"))
+
+fun failure(e: Exception): BaseResponse<Any> = BaseResponse.error(e)
+```
+
+### 2) Pagination Models
+
+Use one model per endpoint contract.
+
+- `CursorPage<T>`: cursor-based APIs
+- `OffsetPage<T>`: page/size-based APIs
 
 ```kotlin
 import com.infosung.atomic.contract.response.CursorPage
 import com.infosung.atomic.contract.response.OffsetPage
 
-val cursorPage = CursorPage(items = listOf("a", "b"), nextCursor = "cursor-2")
-val offsetPage = OffsetPage(items = listOf("a", "b"), page = 1, size = 20, total = 100)
+val cursor = CursorPage(list = listOf("a", "b"), hasNext = true, cursor = "next-cursor")
+val offset = OffsetPage.build(list = listOf("a", "b"), totalSize = 100, currentPage = 0, size = 20)
 ```
 
-### TimeProvider
+### 3) Header Contract
 
-Use when you need a controllable clock/timezone source.
+Use `ApiHeaderDto` and `ApiHeaderNames` as shared header schema across modules.
 
 ```kotlin
-import com.infosung.atomic.contract.time.TimeProvider
-import java.time.Clock
-import java.util.TimeZone
+import com.infosung.atomic.contract.header.ApiHeaderNames
 
-val timeProvider = TimeProvider()
-val now = timeProvider.nowMillis()
-
-timeProvider.configureClock(Clock.systemUTC())
-timeProvider.configureTimeZone(TimeZone.getTimeZone("Asia/Seoul"))
-timeProvider.reset()
+val traceHeaderName = ApiHeaderNames.HEADER_X_TRACE_ID
 ```
 
-### TraceIdGenerator
+## Utilities You Can Reuse
 
-```kotlin
-import com.infosung.atomic.contract.header.TraceIdGenerator
+- `TimeProvider`: controllable clock/timezone source (useful for auth expiry logic and tests)
+- `DateUtil.plusTime(...)`: date arithmetic with explicit timezone option
+- `RandomUtil.randomString(...)`: secure random string generation
+- `BasicAuthHeader.create(...)`: Basic auth header string builder
+- `IpMasker.mask(...)`: IP masking helper for logging/privacy
 
-val traceIdGenerator = TraceIdGenerator()
-val traceId = traceIdGenerator.generate()
-```
+## Exception Contract
+
+Use `HttpStatusException` for domain-level HTTP status signaling without coupling to Spring web layer.
+
+- `HttpStatusException(status, message)`
+- `HttpInvalidTokenException` (401)
+- `HttpUnauthorizedException` (401)
+- `HttpTokenNotExpiredException` (400)
+
+These are commonly translated by `atomic.spring.web`'s exception handler.
 
 ## Bean Registration
 
-`atomic.contract` itself does not require Spring bean registration by default.
+`atomic.contract` itself does not require bean registration.
 
-If needed, register classes like `TimeProvider` or `TraceIdGenerator` as beans in your app and inject them where required.
+Optional bean registration only when you need DI-managed behavior:
+
+- `TimeProvider`
+- `TraceIdGenerator`
+
+## Operational Checklist
+
+- Keep one response envelope rule (`BaseResponse`) for all APIs.
+- Pick one pagination model per endpoint and keep it fixed.
+- Use `TimeProvider` for testable expiration-sensitive code.
+- Keep header name constants centralized via `ApiHeaderNames`.
+
+## Troubleshooting
+
+- Swagger type inference confusion on list APIs: wrap list in explicit page model (`CursorPage`, `OffsetPage`).
+- Time-sensitive tests flaky: inject `TimeProvider` with fixed clock in tests.
+- Inconsistent error responses: ensure exception mapping layer uses `HttpStatusException` consistently.

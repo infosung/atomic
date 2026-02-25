@@ -1,46 +1,160 @@
 # atomic.spring.web Guide
 
-## Summary
+## Why Use This Module
 
-`atomic.spring.web` provides:
+Use `atomic.spring.web` when your service needs one or more of these:
 
-- API request/response logging pipeline
-- Rest client interceptor and error handler
-- shared web exception handling base
-- header/locale helpers
+- consistent exception-to-response mapping
+- API request/response audit logging
+- outbound HTTP failure normalization
+- header/locale parsing helpers
 
-## Required Beans (Typical)
+You do not need to register everything.
+Enable only the feature packs you use.
 
-To use API logging and exception handling, register these:
+## Prerequisites
 
-1. `JsonTransfer`
-2. `LogSaver` implementation
-3. `ServiceLogger`
-4. `ApiLogFilter` (+ `FilterRegistrationBean`)
-5. `ApiLogAspect` subclass
-6. `BaseExceptionHandler` subclass
+- Spring MVC app
+- Tested with Java `25`, Kotlin `2.3.10`, Spring Boot `4.0.3`
+- `atomic.contract` dependency
 
-## Example Configuration
+## Quick Start (First Day)
+
+1. Enable Exception Handling first.
+2. Add API logging only if you need audit logs.
+3. Add outbound HTTP handlers only if you use `RestTemplate`.
+4. Add helper utilities (`toHeaderDto`, locale resolver) where needed.
+
+## Feature Packs
+
+### A) Exception Handling
+
+Purpose:
+
+- convert `HttpStatusException` and common exceptions to consistent `BaseResponse`
+
+Required:
+
+- your subclass of `BaseExceptionHandler`
+
+Optional:
+
+- custom `alert(...)` integration (Slack/webhook)
+
+### B) API Logging (Request/Response)
+
+Purpose:
+
+- request/response paired log with trace id, latency, endpoint, status
+
+Required as a set:
+
+- `JsonTransfer`
+- `LogSaver` implementation
+- `ServiceLogger`
+- `ApiLogFilter` (+ filter registration)
+- your subclass of `ApiLogAspect`
+
+Optional:
+
+- `TimeProvider`
+- `TraceIdGenerator`
+
+Important runtime rule:
+
+- `ServiceLogger` queues logs.
+- persistence happens when `serviceLogger.send()` runs.
+
+### C) Outbound HTTP Standardization
+
+Purpose:
+
+- convert outbound `RestTemplate` errors to module-defined exception behavior
+
+Required:
+
+- `RestClientInterceptor`
+- `RestClientErrorHandler`
+
+### D) Header/Locale Helpers
+
+Purpose:
+
+- normalize header DTO and supported locale resolution
+
+No bean required:
+
+- `toHeaderDto(...)`
+- `getClientIp()`
+- `RequestHeaderReader`
+- `SupportedLocaleResolver`
+
+## Feature-to-Bean Matrix
+
+| Feature | Required Beans/Classes | Optional |
+|---|---|---|
+| Exception handling | `BaseExceptionHandler` subclass | alert integration |
+| API logging | `JsonTransfer`, `LogSaver`, `ServiceLogger`, `ApiLogFilter`, `ApiLogAspect` subclass | `TimeProvider`, `TraceIdGenerator` |
+| Outbound HTTP (`RestTemplate`) | `RestClientInterceptor`, `RestClientErrorHandler` | custom rest policies |
+| Header/locale helpers | none | none |
+
+## Dependency Relationship (API Logging)
+
+```text
+ApiLogAspect
+  -> JsonTransfer
+  -> writes request log to ApiLogContext
+
+ApiLogFilter
+  -> ServiceLogger
+  -> reads ApiLogContext and writes response log
+
+ServiceLogger
+  -> LogSaver
+  -> send() triggers actual persistence
+```
+
+If one of `ApiLogAspect` or `ApiLogFilter` is missing, paired request/response logging is incomplete.
+
+## Quick Config: Exception Handling Only
+
+```kotlin
+import com.infosung.atomic.spring.web.exception.BaseExceptionHandler
+import org.springframework.core.env.Environment
+import org.springframework.web.bind.annotation.RestControllerAdvice
+
+@RestControllerAdvice
+class AppExceptionHandler(
+    environment: Environment,
+) : BaseExceptionHandler(environment = environment) {
+  override fun alert(e: Exception, message: String) {
+    // optional alert integration
+  }
+}
+```
+
+## Quick Config: API Logging Set
 
 ```kotlin
 import com.infosung.atomic.contract.time.TimeProvider
-import com.infosung.atomic.spring.web.exception.BaseExceptionHandler
 import com.infosung.atomic.spring.web.json.JsonTransfer
-import com.infosung.atomic.spring.web.log.*
+import com.infosung.atomic.spring.web.log.ApiLogAspect
+import com.infosung.atomic.spring.web.log.ApiLogFilter
+import com.infosung.atomic.spring.web.log.LogSaver
+import com.infosung.atomic.spring.web.log.ServiceLog
+import com.infosung.atomic.spring.web.log.ServiceLogger
 import jakarta.servlet.http.HttpServletRequest
 import org.aspectj.lang.annotation.Aspect
 import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.core.env.Environment
 import org.springframework.stereotype.Component
 import org.springframework.web.context.request.RequestContextHolder
 import org.springframework.web.context.request.ServletRequestAttributes
-import org.springframework.web.bind.annotation.RestControllerAdvice
 import tools.jackson.databind.ObjectMapper
 
 @Configuration
-class AtomicWebConfig {
+class AtomicWebLoggingConfig {
   @Bean
   fun timeProvider() = TimeProvider()
 
@@ -50,7 +164,7 @@ class AtomicWebConfig {
   @Bean
   fun logSaver(): LogSaver = object : LogSaver {
     override fun saveAll(logs: List<ServiceLog>) {
-      // persist to DB, queue, or log system
+      // persist to DB / queue / observability backend
     }
   }
 
@@ -75,27 +189,36 @@ class AppApiLogAspect(
     jsonTransfer: JsonTransfer,
     timeProvider: TimeProvider,
 ) : ApiLogAspect(jsonTransfer = jsonTransfer, timeProvider = timeProvider) {
-  override fun logging(log: ServiceLog) {
-    // optional additional side effect
-  }
+  override fun logging(log: ServiceLog) {}
 
   override fun getUserId(): Any? = null
 
   override fun resolveRequestFromContext(): HttpServletRequest? =
       (RequestContextHolder.getRequestAttributes() as? ServletRequestAttributes)?.request
 }
+```
 
-@RestControllerAdvice
-class AppExceptionHandler(
-    environment: Environment
-) : BaseExceptionHandler(environment = environment) {
-  override fun alert(e: Exception, message: String) {
-    // send notification if needed
+## Required When API Logging Is Enabled: send() Trigger
+
+```kotlin
+import com.infosung.atomic.spring.web.log.ServiceLogger
+import org.springframework.scheduling.annotation.EnableScheduling
+import org.springframework.scheduling.annotation.Scheduled
+import org.springframework.stereotype.Component
+
+@EnableScheduling
+@Component
+class ApiLogFlushScheduler(
+    private val serviceLogger: ServiceLogger,
+) {
+  @Scheduled(fixedDelay = 1_000)
+  fun flush() {
+    serviceLogger.send()
   }
 }
 ```
 
-## RestClient Integration
+## Quick Config: Outbound HTTP (`RestTemplate`)
 
 ```kotlin
 import com.infosung.atomic.spring.web.RestClientErrorHandler
@@ -106,7 +229,7 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.web.client.RestTemplate
 
 @Configuration
-class RestClientConfig {
+class OutboundHttpConfig {
   @Bean
   fun restTemplate(builder: RestTemplateBuilder): RestTemplate =
       builder
@@ -116,13 +239,33 @@ class RestClientConfig {
 }
 ```
 
-## Locale Resolution
+## Optional Helper Usage
 
 ```kotlin
+import com.infosung.atomic.spring.web.header.toHeaderDto
 import com.infosung.atomic.spring.web.locale.SupportedLocaleResolver
 import java.util.Locale
 
-val supported = listOf(Locale.KOREAN, Locale.ENGLISH)
-val resolved = SupportedLocaleResolver.resolveSupportedLocale(request, supported, Locale.ENGLISH)
-// resolved.locale / resolved.code / resolved.displayName
+val headerDto = request.toHeaderDto()
+
+val resolved =
+    SupportedLocaleResolver.resolveSupportedLocale(
+        request = request,
+        supportedLocales = listOf(Locale.KOREAN, Locale.ENGLISH),
+        defaultLocale = Locale.ENGLISH,
+    )
 ```
+
+## Operational Checklist
+
+- Register only feature packs you actually use.
+- If using API logging, define and test `ServiceLogger.send()` schedule/policy.
+- Verify `FilterRegistrationBean` order does not conflict with other filters.
+- Ensure exception handler is in component scan scope.
+
+## Troubleshooting
+
+- API logs missing response logs: `ApiLogFilter` missing or not registered.
+- API logs not persisted: `serviceLogger.send()` not invoked.
+- Exception response not standardized: `BaseExceptionHandler` subclass not active.
+- Duplicate logs: filter registered multiple times.
