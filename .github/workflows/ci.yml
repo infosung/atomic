@@ -47,7 +47,7 @@ jobs:
       - name: Apply matrix versions
         run: |
           perl -0pi -e 's/^kotlin = ".*"$/kotlin = "${{ matrix.kotlin }}"/m; s/^springboot = ".*"$/springboot = "${{ matrix.springboot }}"/m' gradle/libs.versions.toml
-          rg -n '^(kotlin|springboot) = ' gradle/libs.versions.toml
+          grep -nE '^(kotlin|springboot) = ' gradle/libs.versions.toml
 
       - name: Verify format and tests
         run: ./gradlew spotlessCheck test
