@@ -1,5 +1,6 @@
 package com.infosung.atomic.spring.security.token
 
+import com.infosung.atomic.contract.exception.HttpInvalidTokenException
 import com.infosung.atomic.contract.time.TimeProvider
 import com.infosung.atomic.spring.security.jwt.JwtProvider
 import com.infosung.atomic.spring.security.util.SecurityCookiePolicy
@@ -36,11 +37,13 @@ class RefreshTokenCookieIssuer(
       response: HttpServletResponse,
   ): String {
     val claims = jwtProvider.getRefreshClaims(refreshToken)
-    log.debug("Issuing new access token from refresh token: subject={}", claims.subject)
+    val subject = claims.subject ?: throw HttpInvalidTokenException("Token subject is missing.")
+    val id = claims.id ?: throw HttpInvalidTokenException("Token id is missing.")
+    log.debug("Issuing new access token from refresh token: subject={}", subject)
     val jwt =
         jwtProvider.createJwtDto(
-            id = claims.id,
-            subject = claims.subject,
+            id = id,
+            subject = subject,
         )
 
     val headers = SecurityUtil.tokenInHttpOnlyCookie(jwt, cookiePolicy, timeProvider)

@@ -6,7 +6,6 @@ import com.infosung.atomic.contract.time.TimeProvider
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
-import java.util.Date
 import java.util.TimeZone
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -41,7 +40,7 @@ class JwtProviderTest {
 
     assertEquals("123", accessClaims.id)
     assertEquals("USER", accessClaims.subject)
-    assertEquals("InfosungAtomic", accessClaims["service_name"])
+    assertEquals("InfosungAtomic", accessClaims.claims["service_name"])
 
     assertEquals("123", refreshClaims.id)
     assertEquals("USER", refreshClaims.subject)
@@ -62,8 +61,8 @@ class JwtProviderTest {
     val jwtDto = customProvider.createJwtDto(id = "123", subject = "USER")
     val accessClaims = customProvider.getAccessClaims(jwtDto.accessToken)
 
-    assertEquals("totp", accessClaims["service_name"])
-    assertEquals("totp", accessClaims.issuer)
+    assertEquals("totp", accessClaims.claims["service_name"])
+    assertEquals("totp", accessClaims.claims["iss"])
   }
 
   @Test
@@ -81,8 +80,70 @@ class JwtProviderTest {
   }
 
   @Test
+  fun `getExpiredClaims should return claims when access token is expired`() {
+    val now = Instant.parse("2026-02-24T00:00:00Z")
+    timeProvider.configureClock(Clock.fixed(now, ZoneOffset.UTC))
+    val jwtDto = provider.createJwtDto(id = "123", subject = "USER")
+
+    timeProvider.configureClock(Clock.fixed(now.plusSeconds(61), ZoneOffset.UTC))
+    val expiredClaims = provider.getExpiredClaims(jwtDto.accessToken)
+
+    assertEquals("123", expiredClaims.id)
+    assertEquals("USER", expiredClaims.subject)
+    assertEquals(now.plusSeconds(60), expiredClaims.expiresAt)
+  }
+
+  @Test
   fun `getAccessClaims should fail for invalid token`() {
     assertFailsWith<HttpInvalidTokenException> { provider.getAccessClaims("invalid.token") }
+  }
+
+  @Test
+  fun `getAccessClaims should fail when access token is expired`() {
+    val now = Instant.parse("2026-02-24T00:00:00Z")
+    timeProvider.configureClock(Clock.fixed(now, ZoneOffset.UTC))
+    val jwtDto = provider.createJwtDto(id = "123", subject = "USER")
+
+    timeProvider.configureClock(Clock.fixed(now.plusSeconds(61), ZoneOffset.UTC))
+    val exception =
+        assertFailsWith<HttpInvalidTokenException> { provider.getAccessClaims(jwtDto.accessToken) }
+
+    assertTrue(
+        exception.message.contains("expired", ignoreCase = true) ||
+            exception.cause?.message?.contains("expired", ignoreCase = true) == true,
+    )
+  }
+
+  @Test
+  fun `getAccessClaims should fail at exact expiration instant`() {
+    val now = Instant.parse("2026-02-24T00:00:00Z")
+    timeProvider.configureClock(Clock.fixed(now, ZoneOffset.UTC))
+    val jwtDto = provider.createJwtDto(id = "123", subject = "USER")
+
+    timeProvider.configureClock(Clock.fixed(now.plusSeconds(60), ZoneOffset.UTC))
+    assertFailsWith<HttpInvalidTokenException> { provider.getAccessClaims(jwtDto.accessToken) }
+  }
+
+  @Test
+  fun `getRefreshClaims should fail when refresh token is expired`() {
+    val now = Instant.parse("2026-02-24T00:00:00Z")
+    timeProvider.configureClock(Clock.fixed(now, ZoneOffset.UTC))
+    val jwtDto = provider.createJwtDto(id = "123", subject = "USER")
+
+    timeProvider.configureClock(Clock.fixed(now.plusSeconds(601), ZoneOffset.UTC))
+    val exception =
+        assertFailsWith<HttpInvalidTokenException> { provider.getRefreshClaims(jwtDto.refreshToken) }
+
+    assertTrue(
+        exception.message.contains("expired", ignoreCase = true) ||
+            exception.cause?.message?.contains("expired", ignoreCase = true) == true,
+    )
+  }
+
+  @Test
+  fun `getExpiredClaims should fail for refresh token`() {
+    val jwtDto = provider.createJwtDto(id = "123", subject = "USER")
+    assertFailsWith<HttpInvalidTokenException> { provider.getExpiredClaims(jwtDto.refreshToken) }
   }
 
   @Test
@@ -99,9 +160,8 @@ class JwtProviderTest {
   @Test
   fun `createJwtDto should keep same expiration epoch across timezones`() {
     val fixedNow = Instant.parse("2026-02-24T00:00:00Z")
-    val expectedIssuedAt = Date.from(fixedNow)
-    val expectedAccessExp = Date.from(fixedNow.plusSeconds(60))
-    val expectedRefreshExp = Date.from(fixedNow.plusSeconds(600))
+    val expectedAccessExp = fixedNow.plusSeconds(60)
+    val expectedRefreshExp = fixedNow.plusSeconds(600)
     timeProvider.configureClock(Clock.fixed(fixedNow, ZoneOffset.UTC))
 
     val zoneIds = listOf("UTC", "Asia/Seoul", "America/Los_Angeles")
@@ -116,12 +176,12 @@ class JwtProviderTest {
       assertEquals(fixedNow.plusSeconds(600).toEpochMilli(), jwtDto.refreshExpiredTime)
 
       val accessClaims = provider.getAccessClaims(jwtDto.accessToken)
-      assertEquals(expectedIssuedAt, accessClaims.issuedAt)
-      assertEquals(expectedAccessExp, accessClaims.expiration)
+      assertEquals(fixedNow, accessClaims.issuedAt)
+      assertEquals(expectedAccessExp, accessClaims.expiresAt)
 
       val refreshClaims = provider.getRefreshClaims(jwtDto.refreshToken)
-      assertEquals(expectedIssuedAt, refreshClaims.issuedAt)
-      assertEquals(expectedRefreshExp, refreshClaims.expiration)
+      assertEquals(fixedNow, refreshClaims.issuedAt)
+      assertEquals(expectedRefreshExp, refreshClaims.expiresAt)
     }
 
     assertEquals(results[0].accessToken, results[1].accessToken)

@@ -19,6 +19,10 @@ class JwtTokenAuthenticationProcessor(
     val claims = jwtProvider.getAccessClaims(token)
     val authentication = authenticationFactory.create(token, claims)
     SecurityContextHolder.getContext().authentication = authentication
-    log.debug("Authentication context updated: userId={}, subject={}", claims.id, claims.subject)
+    log.debug(
+        "Authentication context updated: userId={}, subject={}",
+        claims.id ?: "unknown",
+        claims.subject ?: "unknown",
+    )
   }
 }

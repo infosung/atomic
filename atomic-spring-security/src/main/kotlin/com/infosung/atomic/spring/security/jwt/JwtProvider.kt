@@ -4,18 +4,27 @@ import com.infosung.atomic.contract.exception.HttpInvalidTokenException
 import com.infosung.atomic.contract.exception.HttpStatusException
 import com.infosung.atomic.contract.exception.HttpTokenNotExpiredException
 import com.infosung.atomic.contract.time.TimeProvider
-import io.jsonwebtoken.Claims
-import io.jsonwebtoken.ExpiredJwtException
-import io.jsonwebtoken.JwsHeader
-import io.jsonwebtoken.Jwt
-import io.jsonwebtoken.JwtParser
-import io.jsonwebtoken.Jwts
+import com.nimbusds.jose.JOSEException
+import com.nimbusds.jose.JOSEObjectType
+import com.nimbusds.jose.JWSAlgorithm
+import com.nimbusds.jose.JWSHeader
+import com.nimbusds.jose.crypto.MACSigner
+import com.nimbusds.jwt.JWTClaimsSet
+import com.nimbusds.jwt.SignedJWT
+import java.nio.charset.StandardCharsets
 import java.time.Instant
 import java.util.Base64
 import java.util.Date
 import javax.crypto.SecretKey
 import javax.crypto.spec.SecretKeySpec
 import org.slf4j.LoggerFactory
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator
+import org.springframework.security.oauth2.core.OAuth2Error
+import org.springframework.security.oauth2.core.OAuth2TokenValidator
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult
+import org.springframework.security.oauth2.jwt.Jwt
+import org.springframework.security.oauth2.jwt.JwtDecoder
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
 
 class JwtProvider(
     accessKey: String,
@@ -26,19 +35,31 @@ class JwtProvider(
     private val refreshExpiredSecond: Long,
     private val timeProvider: TimeProvider = TimeProvider(),
 ) {
+  private data class JwtAlgorithmSpec(
+      val jcaName: String,
+      val jwsAlgorithm: JWSAlgorithm,
+      val macAlgorithm: org.springframework.security.oauth2.jose.jws.MacAlgorithm,
+  )
+
   private val serviceName: String = serviceName.ifBlank { "InfosungAtomic" }
-  private val userAccessKey: SecretKey
-  private val userRefreshKey: SecretKey
-  private val issuer = serviceName
+  private val issuer = this.serviceName
+  private val algorithmSpec = resolveAlgorithmSpec(algorithm)
+
+  private val accessKeyBytes =
+      Base64.getEncoder().encode(accessKey.toByteArray(StandardCharsets.UTF_8))
+  private val refreshKeyBytes =
+      Base64.getEncoder().encode(refreshKey.toByteArray(StandardCharsets.UTF_8))
+
+  private val userAccessKey: SecretKey = SecretKeySpec(accessKeyBytes, algorithmSpec.jcaName)
+  private val userRefreshKey: SecretKey = SecretKeySpec(refreshKeyBytes, algorithmSpec.jcaName)
+
+  private val strictAccessDecoder: JwtDecoder = createDecoder(userAccessKey)
+  private val strictRefreshDecoder: JwtDecoder = createDecoder(userRefreshKey)
+  private val relaxedAccessDecoder: JwtDecoder = createDecoder(userAccessKey)
+
   private val log = LoggerFactory.getLogger(JwtProvider::class.java)
 
   init {
-    val accessKeyBytes = Base64.getEncoder().encode(accessKey.toByteArray())
-    userAccessKey = SecretKeySpec(accessKeyBytes, algorithm)
-
-    val refreshKeyBytes = Base64.getEncoder().encode(refreshKey.toByteArray())
-    userRefreshKey = SecretKeySpec(refreshKeyBytes, algorithm)
-
     log.info(
         "JwtProvider initialized: issuer={}, accessExpireSeconds={}, refreshExpireSeconds={}",
         issuer,
@@ -65,127 +86,196 @@ class JwtProvider(
 
     return JwtDto(
         id = id,
-        accessToken = createJsonWebToken(id, subject, userAccessKey, now, accessExpiredInstant),
-        refreshToken = createJsonWebToken(id, subject, userRefreshKey, now, refreshExpiredInstant),
+        accessToken = createJsonWebToken(id, subject, accessKeyBytes, now, accessExpiredInstant),
+        refreshToken = createJsonWebToken(id, subject, refreshKeyBytes, now, refreshExpiredInstant),
         accessExpiredTime = accessExpiredInstant.toEpochMilli(),
         refreshExpiredTime = refreshExpiredInstant.toEpochMilli(),
     )
   }
 
+  fun getAccessClaims(jwt: String): Jwt =
+      getUserClaims(jwt, strictAccessDecoder, tokenType = "access", validateTimestamp = true)
+
+  fun getRefreshClaims(jwt: String): Jwt =
+      getUserClaims(jwt, strictRefreshDecoder, tokenType = "refresh", validateTimestamp = true)
+
+  fun getExpiredClaims(jwt: String): Jwt {
+    val claims =
+        parseToken(
+            jwt = jwt,
+            decoder = relaxedAccessDecoder,
+            tokenType = "access",
+            validateTimestamp = false,
+        )
+    val expiresAt =
+        claims.expiresAt ?: throw HttpInvalidTokenException("Token does not include expiration.")
+    if (timeProvider.nowInstant().isBefore(expiresAt)) {
+      log.warn("Token is not expired yet: {}", tokenSummary(jwt))
+      throw HttpTokenNotExpiredException("Token is not expired yet.")
+    }
+    return claims
+  }
+
   private fun createJsonWebToken(
       id: String,
       subject: String,
-      key: SecretKey,
+      keyBytes: ByteArray,
       issuedAtInstant: Instant,
       expiredInstant: Instant,
   ): String {
-    val claims = mutableMapOf<String, Any>()
-    claims["service_name"] = serviceName
     log.trace(
         "Building signed JWT: userId={}, subject={}, algorithm={}, issuedAt={}, expireAt={}",
         id,
         subject,
-        key.algorithm,
+        algorithmSpec.jwsAlgorithm.name,
         issuedAtInstant,
         expiredInstant,
     )
 
-    return Jwts.builder()
-        .header()
-        .add(mapOf("typ" to "JWT", "alg" to key.algorithm))
-        .and()
-        .claims(claims)
-        .id(id)
-        .issuer(issuer)
-        .subject(subject)
-        .issuedAt(Date.from(issuedAtInstant))
-        .expiration(Date.from(expiredInstant))
-        .signWith(key)
-        .compact()
-  }
+    val claimsSet =
+        JWTClaimsSet.Builder()
+            .jwtID(id)
+            .issuer(issuer)
+            .subject(subject)
+            .issueTime(Date.from(issuedAtInstant))
+            .expirationTime(Date.from(expiredInstant))
+            .claim("service_name", serviceName)
+            .build()
+    val header = JWSHeader.Builder(algorithmSpec.jwsAlgorithm).type(JOSEObjectType.JWT).build()
 
-  fun getAccessClaims(jwt: String): Claims =
-      getUserId(jwt, userAccessKey, "access") ?: throw HttpInvalidTokenException("Invalid token")
-
-  fun getRefreshClaims(jwt: String): Claims =
-      getUserId(jwt, userRefreshKey, "refresh") ?: throw HttpInvalidTokenException("Invalid token")
-
-  fun getExpiredClaims(jwt: String): Claims {
-    try {
-      log.debug("Validating token is expired: {}", tokenSummary(jwt))
-      parser(key = userAccessKey).parseSignedClaims(jwt)
-      log.warn("Token is not expired yet: {}", tokenSummary(jwt))
-      throw HttpTokenNotExpiredException("Token is not expired yet.")
-    } catch (e: ExpiredJwtException) {
-      log.debug("Expired token parsed successfully: {}", tokenSummary(jwt))
-      return e.claims
-    } catch (e: HttpStatusException) {
-      throw e
-    } catch (e: Exception) {
-      log.warn("Failed to parse expired token: {}", tokenSummary(jwt), e)
-      throw HttpInvalidTokenException("Token verification failed.", e)
+    return try {
+      SignedJWT(header, claimsSet).apply { sign(MACSigner(keyBytes)) }.serialize()
+    } catch (e: JOSEException) {
+      throw HttpInvalidTokenException("Failed to sign token.", e)
     }
   }
 
-  private fun getUserId(
+  private fun getUserClaims(
       jwt: String,
-      key: SecretKey,
+      decoder: JwtDecoder,
       tokenType: String,
-  ): Claims? {
-    val claims = parseToken(jwt, key)
-    val payload = claims.payload
+      validateTimestamp: Boolean,
+  ): Jwt {
+    val claims = parseToken(jwt, decoder, tokenType, validateTimestamp)
 
-    if (payload["service_name"] != serviceName || payload.issuer != issuer) {
+    val tokenIssuer = claims.claims["iss"]?.toString()
+    val tokenServiceName = claims.claims["service_name"]?.toString()
+    if (tokenIssuer != issuer || tokenServiceName != serviceName) {
       log.warn(
           "Invalid token issuer/service_name: type={}, issuer={}, service_name={}, expectedIssuer={}, expectedService={}",
           tokenType,
-          payload.issuer,
-          payload["service_name"],
+          tokenIssuer,
+          tokenServiceName,
           issuer,
           serviceName,
       )
       throw HttpInvalidTokenException("Invalid token.")
     }
+
+    if (claims.id.isNullOrBlank() || claims.subject.isNullOrBlank()) {
+      throw HttpInvalidTokenException("Token does not include required id/subject claims.")
+    }
+
     log.trace(
         "Token validated: type={}, id={}, subject={}, issuer={}",
         tokenType,
-        payload.id,
-        payload.subject,
-        payload.issuer,
+        claims.id,
+        claims.subject,
+        tokenIssuer,
     )
-    return payload
+    return claims
   }
 
   private fun parseToken(
       jwt: String,
-      key: SecretKey,
-  ): Jwt<JwsHeader, Claims> {
-    try {
+      decoder: JwtDecoder,
+      tokenType: String,
+      validateTimestamp: Boolean,
+  ): Jwt {
+    return try {
       log.trace("Parsing signed token: {}", tokenSummary(jwt))
-      return parser(
-              key = key,
-              requireIssuer = true,
-          )
-          .parseSignedClaims(jwt)
-    } catch (e: ExpiredJwtException) {
-      log.debug("Token is expired: {}", tokenSummary(jwt))
-      throw HttpInvalidTokenException("Token is expired.", e)
+      decoder.decode(jwt).also {
+        if (validateTimestamp) {
+          validateTimestamps(it)
+        }
+      }
+    } catch (e: HttpStatusException) {
+      throw e
     } catch (e: Exception) {
-      log.warn("Token parsing failed: {}", tokenSummary(jwt), e)
+      if (isExpiredTokenError(e)) {
+        log.debug("Token is expired: {}", tokenSummary(jwt))
+        throw HttpInvalidTokenException("Token is expired.", e)
+      }
+      log.warn("Token parsing failed: type={}, {}", tokenType, tokenSummary(jwt), e)
       throw HttpInvalidTokenException("Token parsing failed.", e)
     }
   }
 
-  private fun parser(
-      key: SecretKey,
-      requireIssuer: Boolean = false,
-  ): JwtParser {
-    var builder = Jwts.parser().verifyWith(key).clock { Date.from(timeProvider.nowInstant()) }
+  private fun createDecoder(key: SecretKey): JwtDecoder {
+    val decoder =
+        NimbusJwtDecoder.withSecretKey(key).macAlgorithm(algorithmSpec.macAlgorithm).build()
+    decoder.setJwtValidator(DelegatingOAuth2TokenValidator(issuerValidator()))
+    return decoder
+  }
 
-    if (requireIssuer) {
-      builder = builder.requireIssuer(issuer)
+  private fun issuerValidator(): OAuth2TokenValidator<Jwt> {
+    return OAuth2TokenValidator { token ->
+      val tokenIssuer = token.claims["iss"]?.toString()
+      if (tokenIssuer == issuer) {
+        OAuth2TokenValidatorResult.success()
+      } else {
+        OAuth2TokenValidatorResult.failure(
+            OAuth2Error(
+                "invalid_token",
+                "Token issuer does not match configured issuer.",
+                null,
+            ),
+        )
+      }
     }
-    return builder.build()
+  }
+
+  private fun resolveAlgorithmSpec(algorithm: String): JwtAlgorithmSpec {
+    return when (algorithm.uppercase()) {
+      "HMACSHA256" ->
+          JwtAlgorithmSpec(
+              jcaName = "HmacSHA256",
+              jwsAlgorithm = JWSAlgorithm.HS256,
+              macAlgorithm = org.springframework.security.oauth2.jose.jws.MacAlgorithm.HS256,
+          )
+      "HMACSHA384" ->
+          JwtAlgorithmSpec(
+              jcaName = "HmacSHA384",
+              jwsAlgorithm = JWSAlgorithm.HS384,
+              macAlgorithm = org.springframework.security.oauth2.jose.jws.MacAlgorithm.HS384,
+          )
+      "HMACSHA512" ->
+          JwtAlgorithmSpec(
+              jcaName = "HmacSHA512",
+              jwsAlgorithm = JWSAlgorithm.HS512,
+              macAlgorithm = org.springframework.security.oauth2.jose.jws.MacAlgorithm.HS512,
+          )
+      else -> throw IllegalArgumentException("Unsupported algorithm: $algorithm")
+    }
+  }
+
+  private fun isExpiredTokenError(e: Throwable): Boolean {
+    val message = e.message?.lowercase() ?: return false
+    return message.contains("expired") || message.contains("jwt expired")
+  }
+
+  private fun validateTimestamps(jwt: Jwt) {
+    val now = timeProvider.nowInstant()
+    val expiresAt =
+        jwt.expiresAt ?: throw HttpInvalidTokenException("Token does not include expiration.")
+    if (!expiresAt.isAfter(now)) {
+      throw HttpInvalidTokenException("Token is expired.")
+    }
+
+    val notBefore = jwt.notBefore
+    if (notBefore != null && now.isBefore(notBefore)) {
+      throw HttpInvalidTokenException("Token is not valid yet.")
+    }
   }
 
   private fun tokenSummary(jwt: String): String {

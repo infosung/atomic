@@ -1,26 +1,29 @@
 package com.infosung.atomic.spring.security.auth
 
-import io.jsonwebtoken.Claims
+import com.infosung.atomic.contract.exception.HttpInvalidTokenException
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.Authentication
 import org.springframework.security.core.GrantedAuthority
 import org.springframework.security.core.authority.SimpleGrantedAuthority
 import org.springframework.security.core.userdetails.User
+import org.springframework.security.oauth2.jwt.Jwt
 
 fun interface JwtAuthenticationFactory {
   fun create(
       jwt: String,
-      claims: Claims,
+      claims: Jwt,
   ): Authentication
 }
 
 class JwtClaimsAuthenticationFactory : JwtAuthenticationFactory {
   override fun create(
       jwt: String,
-      claims: Claims,
+      claims: Jwt,
   ): Authentication {
-    val grantedAuthority = createGrantedAuthorities(claims.subject)
-    val user = User(claims.id.toString(), "", grantedAuthority)
+    val subject = claims.subject ?: throw HttpInvalidTokenException("Token subject is missing.")
+    val id = claims.id ?: throw HttpInvalidTokenException("Token id is missing.")
+    val grantedAuthority = createGrantedAuthorities(subject)
+    val user = User(id, "", grantedAuthority)
     return UsernamePasswordAuthenticationToken(user, jwt, grantedAuthority)
   }
 
