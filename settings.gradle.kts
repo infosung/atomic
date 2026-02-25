@@ -4,6 +4,7 @@ rootProject.name = "atomic"
 
 include(
     ":atomic-contract",
+    ":atomic-spring-oauth2",
     ":atomic-spring-web",
     ":atomic-spring-security",
 )
