@@ -101,11 +101,12 @@ class AppVersionCheckService(
         segments.map {
           it.toIntOrNull()
               ?: throw HttpStatusException(
-                  status = 400,
-                  message = "Version segment must be numeric: $version",
-              )
+                      status = 400,
+                      message = "Version segment must be numeric: $version",
+                  )
                   .also {
-                    log.warn("Invalid app version segment (numeric required): appVersion={}", version)
+                    log.warn(
+                        "Invalid app version segment (numeric required): appVersion={}", version)
                   }
         }
     if (numbers.any { it < 0 }) {

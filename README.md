@@ -271,3 +271,6 @@ This README now consolidates those points into one starter-first onboarding path
 - [atomic.spring.web Guide](docs/usage/atomic-spring-web.md)
 - [atomic.spring.security Guide](docs/usage/atomic-spring-security.md)
 - [atomic.spring.oauth2 Guide](docs/usage/atomic-spring-oauth2.md)
+
+---
+Developed with Codex.

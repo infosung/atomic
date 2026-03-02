@@ -20,7 +20,8 @@ class AppImageApiService(
   /**
    * Uploads image to storage and saves image metadata row.
    *
-   * When `atomic.app.image.uploader-parameter-enabled=true`, `uploaderId` is required and persisted.
+   * When `atomic.app.image.uploader-parameter-enabled=true`, `uploaderId` is required and
+   * persisted.
    */
   fun uploadImage(
       serviceName: String,
@@ -139,8 +140,8 @@ class AppImageApiService(
   /**
    * Deletes image object(s) and metadata row.
    *
-   * When `atomic.app.image.uploader-parameter-enabled=true`, `uploaderId` is required and must match
-   * `ImageEntity.uploaderId`.
+   * When `atomic.app.image.uploader-parameter-enabled=true`, `uploaderId` is required and must
+   * match `ImageEntity.uploaderId`.
    */
   fun deleteImage(
       serviceName: String,

@@ -31,8 +31,8 @@ class AppStorageController(
    * - `quality`: optional thumbnail quality. Defaults to `atomic.app.image.default-quality`.
    * - `file`: multipart image file.
    * - optional uploader identity parameter controlled by:
-   *   - `atomic.app.image.uploader-parameter-enabled`
-   *   - `atomic.app.image.uploader-parameter-name`
+   *     - `atomic.app.image.uploader-parameter-enabled`
+   *     - `atomic.app.image.uploader-parameter-name`
    */
   @PostMapping(
       "/{service}/{storageService}",
