@@ -8,13 +8,24 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority
 import org.springframework.security.core.userdetails.User
 import org.springframework.security.oauth2.jwt.Jwt
 
+/**
+ * Factory for creating Spring [Authentication] from JWT claims.
+ */
 fun interface JwtAuthenticationFactory {
+  /**
+   * Builds authentication object from raw token and decoded claims.
+   *
+   * @throws HttpInvalidTokenException If required claims are missing.
+   */
   fun create(
       jwt: String,
       claims: Jwt,
   ): Authentication
 }
 
+/**
+ * Default claims-to-authentication mapper.
+ */
 class JwtClaimsAuthenticationFactory : JwtAuthenticationFactory {
   override fun create(
       jwt: String,

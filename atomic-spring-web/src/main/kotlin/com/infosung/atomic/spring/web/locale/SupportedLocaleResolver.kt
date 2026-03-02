@@ -5,15 +5,31 @@ import jakarta.servlet.http.HttpServletRequest
 import java.util.Locale
 import org.slf4j.LoggerFactory
 
+/**
+ * Locale resolution output.
+ *
+ * @property locale Resolved locale object.
+ * @property code Language tag code.
+ * @property displayName Human-readable locale name.
+ */
 data class SupportedLocaleResolution(
     val locale: Locale,
     val code: String,
     val displayName: String,
 )
 
+/**
+ * Resolves locale from custom language header/request locale using supported locale list.
+ */
 object SupportedLocaleResolver {
   private val log = LoggerFactory.getLogger(SupportedLocaleResolver::class.java)
 
+  /**
+   * Resolves locale in this order:
+   * 1) `X-Custom-Language`
+   * 2) request locale
+   * 3) [defaultLocale]
+   */
   fun resolveSupportedLocale(
       request: HttpServletRequest,
       supportedLocales: Collection<Locale>,

@@ -4,11 +4,17 @@ import com.infosung.atomic.oauth.exception.OauthException
 import java.util.Locale
 import org.slf4j.LoggerFactory
 
+/**
+ * Registry and lookup service for configured [OauthProvider] implementations.
+ */
 class OauthServiceProvider(providers: Collection<OauthProvider>) {
   private val log = LoggerFactory.getLogger(this::class.java)
   private val servicesByName: Map<OauthProviderName, OauthProvider> =
       providers.associateBy { it.providerName }
 
+  /**
+   * Finds provider by enum type.
+   */
   fun getService(type: OauthProviderName): OauthProvider? {
     val provider = servicesByName[type]
     if (provider == null) {
@@ -19,6 +25,9 @@ class OauthServiceProvider(providers: Collection<OauthProvider>) {
     return provider
   }
 
+  /**
+   * Finds provider by string type (case-insensitive enum parsing).
+   */
   fun getService(type: String): OauthProvider? {
     val providerName = parseProviderName(type) ?: return null
     val provider = servicesByName[providerName]
@@ -31,6 +40,9 @@ class OauthServiceProvider(providers: Collection<OauthProvider>) {
     return provider
   }
 
+  /**
+   * Returns provider or throws [OauthException] when missing.
+   */
   fun requireService(type: OauthProviderName): OauthProvider {
     return servicesByName[type]
         ?: run {

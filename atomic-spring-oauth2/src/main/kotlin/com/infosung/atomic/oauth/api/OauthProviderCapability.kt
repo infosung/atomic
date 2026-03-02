@@ -1,5 +1,8 @@
 package com.infosung.atomic.oauth.api
 
+/**
+ * Capability flags declared by each [OauthProvider].
+ */
 enum class OauthProviderCapability {
   AUTHORIZATION_URL,
   EXCHANGE_TOKEN,

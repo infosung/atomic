@@ -26,6 +26,11 @@ import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
 
+/**
+ * HMAC-based JWT issuer and validator.
+ *
+ * Generates access/refresh token pair and validates issuer/service claims.
+ */
 class JwtProvider(
     accessKey: String,
     refreshKey: String,
@@ -68,6 +73,9 @@ class JwtProvider(
     )
   }
 
+  /**
+   * Creates access/refresh token pair for [id]/[subject].
+   */
   fun createJwtDto(
       id: String,
       subject: String = "APPLE",
@@ -93,12 +101,28 @@ class JwtProvider(
     )
   }
 
+  /**
+   * Decodes and validates access-token claims.
+   *
+   * @throws HttpInvalidTokenException If token is malformed/expired/invalid.
+   */
   fun getAccessClaims(jwt: String): Jwt =
       getUserClaims(jwt, strictAccessDecoder, tokenType = "access", validateTimestamp = true)
 
+  /**
+   * Decodes and validates refresh-token claims.
+   *
+   * @throws HttpInvalidTokenException If token is malformed/expired/invalid.
+   */
   fun getRefreshClaims(jwt: String): Jwt =
       getUserClaims(jwt, strictRefreshDecoder, tokenType = "refresh", validateTimestamp = true)
 
+  /**
+   * Decodes expired access-token claims without timestamp validator.
+   *
+   * @throws HttpTokenNotExpiredException If token is still valid.
+   * @throws HttpInvalidTokenException If token is malformed/invalid.
+   */
   fun getExpiredClaims(jwt: String): Jwt {
     val claims =
         parseToken(

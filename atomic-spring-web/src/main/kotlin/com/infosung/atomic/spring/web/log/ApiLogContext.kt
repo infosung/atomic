@@ -11,9 +11,15 @@ import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.slf4j.LoggerFactory
 
+/**
+ * Request-scoped holder for API logging context.
+ */
 object ApiLogContext {
   private const val API_LOG_CONTEXT_KEY = "baseapi.api.log.context"
 
+  /**
+   * Stores log context into request attributes.
+   */
   fun set(
       request: HttpServletRequest,
       data: ServiceLog,
@@ -21,22 +27,34 @@ object ApiLogContext {
     request.setAttribute(API_LOG_CONTEXT_KEY, data)
   }
 
+  /**
+   * Removes stored log context from request attributes.
+   */
   fun remove(request: HttpServletRequest) {
     request.removeAttribute(API_LOG_CONTEXT_KEY)
   }
 
+  /**
+   * Reads stored log context from request attributes.
+   */
   fun get(request: HttpServletRequest): ServiceLog? {
     val data = request.getAttribute(API_LOG_CONTEXT_KEY)
     return data as? ServiceLog
   }
 }
 
+/**
+ * Servlet filter that writes response log entries from [ApiLogContext].
+ */
 class ApiLogFilter(
     private val logger: ServiceLogger,
     private val timeProvider: TimeProvider = TimeProvider(),
 ) : Filter {
   private val log = LoggerFactory.getLogger(ApiLogFilter::class.java)
 
+  /**
+   * Captures filter exceptions and records final response log in `finally`.
+   */
   override fun doFilter(
       p0: ServletRequest,
       p1: ServletResponse,
@@ -84,6 +102,9 @@ class ApiLogFilter(
     }
   }
 
+  /**
+   * Writes response log using [ServiceLogger] and clears request context.
+   */
   fun logging(
       request: ServletRequest,
       status: Int,

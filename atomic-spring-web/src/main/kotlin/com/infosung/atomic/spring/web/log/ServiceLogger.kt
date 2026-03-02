@@ -9,6 +9,9 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.context.SmartLifecycle
 
+/**
+ * In-memory buffered service logger that flushes logs in batches via [LogSaver].
+ */
 class ServiceLogger(
     private val logSaver: LogSaver,
     private val maxQueueSize: Int = 10_000,
@@ -26,6 +29,11 @@ class ServiceLogger(
     require(maxQueueSize > 0) { "maxQueueSize must be greater than 0." }
   }
 
+  /**
+   * Adds one log event into queue.
+   *
+   * When queue is full, oldest entries are dropped.
+   */
   fun logging(data: ServiceLog?) {
     log.trace("Queueing service log payload: {}", data)
     if (data == null) {
@@ -47,6 +55,11 @@ class ServiceLogger(
     }
   }
 
+  /**
+   * Flushes current queue to [LogSaver].
+   *
+   * This method is re-entrancy safe.
+   */
   fun send() {
     if (!isSending.compareAndSet(false, true)) return
     if (queueSize.get() == 0 && tempQueue.isEmpty()) {

@@ -2,7 +2,18 @@ package com.infosung.atomic.contract.security
 
 import java.net.InetAddress
 
+/**
+ * Masks IPv4/IPv6 addresses for logging/privacy use cases.
+ */
 object IpMasker {
+  /**
+   * Masks host portion of IP address.
+   *
+   * Behavior:
+   * - IPv4 -> `/24` masked value (last octet zeroed)
+   * - IPv6 -> `/64` masked value (last 64 bits zeroed)
+   * - Invalid/unrecognized input -> original input unchanged
+   */
   fun mask(ip: String): String {
     if (ip.isBlank()) return ip
 

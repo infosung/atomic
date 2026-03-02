@@ -1,5 +1,14 @@
 package com.infosung.atomic.contract.response
 
+/**
+ * Offset-based pagination payload.
+ *
+ * @property list Current page items.
+ * @property totalSize Total number of rows.
+ * @property hasNext Whether more rows exist after current page.
+ * @property currentPage Zero-based page index.
+ * @property size Requested page size.
+ */
 data class OffsetPage<T>(
     val list: List<T> = listOf(),
     val totalSize: Long = 0,
@@ -8,6 +17,9 @@ data class OffsetPage<T>(
     val size: Int = 10,
 ) {
   companion object {
+    /**
+     * Builds a page object and calculates [OffsetPage.hasNext].
+     */
     fun <T> build(
         list: List<T>,
         totalSize: Long,
@@ -25,6 +37,9 @@ data class OffsetPage<T>(
       )
     }
 
+    /**
+     * Creates an empty page response.
+     */
     fun <T> empty(
         currentPage: Int = 0,
         size: Int = 10,

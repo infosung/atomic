@@ -9,6 +9,14 @@ import org.slf4j.LoggerFactory
 
 private val apiHeaderMapperLog = LoggerFactory.getLogger("ApiHeaderMapper")
 
+/**
+ * Maps servlet request into normalized [ApiHeaderDto].
+ *
+ * Behavior:
+ * - Uses inbound trace-id when present.
+ * - Generates trace-id via [traceIdGenerator] when missing.
+ * - Masks resolved client IP for safer logging/storage.
+ */
 fun HttpServletRequest.toHeaderDto(
     traceIdGenerator: TraceIdGenerator = TraceIdGenerator(),
 ): ApiHeaderDto {

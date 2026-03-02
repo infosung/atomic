@@ -25,6 +25,11 @@ import org.springframework.http.MediaType
 import org.springframework.util.LinkedMultiValueMap
 import org.springframework.web.client.RestClient
 
+/**
+ * Kakao OAuth provider implementation.
+ *
+ * Supports authorization URL, code exchange, refresh, and identity resolution.
+ */
 class KakaoOauthProvider(
     private val client: RestClient,
     private val clientId: String,

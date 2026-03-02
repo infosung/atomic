@@ -6,6 +6,9 @@ import org.slf4j.LoggerFactory
 
 private val clientIpResolverLog = LoggerFactory.getLogger("ClientIpResolver")
 
+/**
+ * Resolves client IP from proxy headers first, then falls back to [HttpServletRequest.remoteAddr].
+ */
 fun HttpServletRequest.getClientIp(): String {
   for (header in ApiHeaderNames.CLIENT_IP_HEADER_KEYS) {
     val value = this.getHeader(header)

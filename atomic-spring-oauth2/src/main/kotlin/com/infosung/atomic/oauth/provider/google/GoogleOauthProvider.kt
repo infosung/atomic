@@ -27,6 +27,11 @@ import org.springframework.http.MediaType
 import org.springframework.util.LinkedMultiValueMap
 import org.springframework.web.client.RestClient
 
+/**
+ * Google OAuth provider implementation.
+ *
+ * Supports authorization URL, code exchange, refresh, revoke, and identity resolution.
+ */
 class GoogleOauthProvider(
     private val clientId: String,
     private val clientSecret: String,

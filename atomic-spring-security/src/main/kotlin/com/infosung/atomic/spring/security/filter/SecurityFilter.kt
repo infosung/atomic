@@ -24,6 +24,15 @@ import org.springframework.http.MediaType
 import org.springframework.web.filter.OncePerRequestFilter
 import tools.jackson.databind.ObjectMapper
 
+/**
+ * JWT authentication servlet filter.
+ *
+ * Responsibilities:
+ * - Skip configured excluded endpoints.
+ * - Resolve token from request channel strategy.
+ * - Populate Spring Security context on success.
+ * - Return 401 JSON response on authentication failure.
+ */
 class SecurityFilter(
     private val jwtProvider: JwtProvider,
     private val objectMapper: ObjectMapper,
@@ -41,6 +50,9 @@ class SecurityFilter(
   private val tokenAuthenticationProcessor: TokenAuthenticationProcessor =
       JwtTokenAuthenticationProcessor(jwtProvider, authenticationFactory)
 
+  /**
+   * Performs token resolution/authentication for each request once.
+   */
   override fun doFilterInternal(
       request: HttpServletRequest,
       response: HttpServletResponse,

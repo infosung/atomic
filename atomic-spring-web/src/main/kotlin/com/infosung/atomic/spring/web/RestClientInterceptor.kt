@@ -8,9 +8,15 @@ import org.springframework.http.client.ClientHttpRequestExecution
 import org.springframework.http.client.ClientHttpRequestInterceptor
 import org.springframework.http.client.ClientHttpResponse
 
+/**
+ * Rest client interceptor that logs request lifecycle and wraps execution failures.
+ */
 class RestClientInterceptor : ClientHttpRequestInterceptor {
   private val log: Logger = LoggerFactory.getLogger(RestClientInterceptor::class.java)
 
+  /**
+   * Executes outbound request and wraps unexpected failures into [HttpRequestExecutionException].
+   */
   override fun intercept(
       request: HttpRequest,
       body: ByteArray,

@@ -12,8 +12,14 @@ import org.aspectj.lang.annotation.Around
 import org.aspectj.lang.reflect.MethodSignature
 import org.slf4j.LoggerFactory
 
+/**
+ * Marker annotation to exclude controller methods from API logging.
+ */
 annotation class DoNotApiLog
 
+/**
+ * Aspect that captures inbound API request logs for controller methods.
+ */
 abstract class ApiLogAspect(
     protected val jsonTransfer: JsonTransfer,
     protected val timeProvider: TimeProvider = TimeProvider(),
@@ -21,12 +27,19 @@ abstract class ApiLogAspect(
 ) {
   private val log = LoggerFactory.getLogger(ApiLogAspect::class.java)
 
-  /** Persist service API logs. */
+  /**
+   * Persists request-side log payload.
+   */
   abstract fun logging(log: ServiceLog)
 
-  /** Resolve user id from current security context when available. */
+  /**
+   * Resolves user id from security context when available.
+   */
   abstract fun getUserId(): Any?
 
+  /**
+   * Around advice for POST/PUT/PATCH handlers.
+   */
   @Around(
       "(@annotation(org.springframework.web.bind.annotation.PostMapping) || @annotation(org.springframework.web.bind.annotation.PutMapping) || @annotation(org.springframework.web.bind.annotation.PatchMapping)) && !@annotation(com.infosung.atomic.spring.web.log.DoNotApiLog)")
   open fun postPutPatchLog(joinPoint: ProceedingJoinPoint): Any? {
@@ -72,6 +85,9 @@ abstract class ApiLogAspect(
     return joinPoint.proceed()
   }
 
+  /**
+   * Around advice for GET/DELETE handlers.
+   */
   @Around(
       "(@annotation(org.springframework.web.bind.annotation.GetMapping) || @annotation(org.springframework.web.bind.annotation.DeleteMapping)) && !@annotation(com.infosung.atomic.spring.web.log.DoNotApiLog)")
   open fun getDeleteLog(joinPoint: ProceedingJoinPoint): Any? {

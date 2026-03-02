@@ -2,6 +2,9 @@ package com.infosung.atomic.spring.web.exception
 
 import com.infosung.atomic.contract.exception.HttpStatusException
 
+/**
+ * Exception representing non-success upstream HTTP responses.
+ */
 class HttpRemoteCallException(
     status: Int,
     val method: String?,

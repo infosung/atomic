@@ -20,6 +20,11 @@ import com.infosung.atomic.oauth.state.OauthStateManager
 import com.infosung.atomic.oauth.support.encodeQuery
 import org.slf4j.LoggerFactory
 
+/**
+ * Apple OAuth provider implementation.
+ *
+ * This implementation builds authorization URL and resolves identity from id-token.
+ */
 class AppleOauthProvider(
     val clientId: String,
     val serverRedirectUri: String,

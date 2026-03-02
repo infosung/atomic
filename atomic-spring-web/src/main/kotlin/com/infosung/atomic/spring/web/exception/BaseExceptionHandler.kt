@@ -13,12 +13,20 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.servlet.resource.NoResourceFoundException
 
+/**
+ * Base Spring MVC exception handler.
+ *
+ * Converts exceptions into [BaseResponse] envelopes and delegates alert delivery through [alert].
+ */
 abstract class BaseExceptionHandler(
     environment: Environment,
 ) {
   private val log = LoggerFactory.getLogger(BaseExceptionHandler::class.java)
   private val env = environment.activeProfiles
 
+  /**
+   * Handles uncaught exceptions as HTTP 500.
+   */
   @ExceptionHandler(Exception::class)
   fun exception(
       e: Exception,
@@ -29,6 +37,9 @@ abstract class BaseExceptionHandler(
     return ResponseEntity.status(status).body(BaseResponse.error(e = e))
   }
 
+  /**
+   * Handles missing-resource exceptions as HTTP 404.
+   */
   @ExceptionHandler(NoResourceFoundException::class)
   fun noResourceFoundException(
       e: NoResourceFoundException,
@@ -39,6 +50,9 @@ abstract class BaseExceptionHandler(
     return ResponseEntity.status(status).body(BaseResponse.error(e = e))
   }
 
+  /**
+   * Handles [HttpStatusException] using its embedded status code.
+   */
   @ExceptionHandler(HttpStatusException::class)
   fun httpStatusException(
       e: HttpStatusException,
@@ -74,6 +88,9 @@ abstract class BaseExceptionHandler(
     alertMessage(e, request)
   }
 
+  /**
+   * Sends alert message in non-prod profiles.
+   */
   fun alertMessage(e: Exception, request: HttpServletRequest) {
     if (env.contains("prod")) {
       log.debug("Skipping alert in prod profile")
@@ -84,6 +101,9 @@ abstract class BaseExceptionHandler(
     alert(e, message)
   }
 
+  /**
+   * Implement integration-specific alert delivery (for example Slack/Discord/email).
+   */
   abstract fun alert(e: Exception, message: String)
 
   private fun stackTraceWithRequestInfo(request: HttpServletRequest, e: Exception): String {

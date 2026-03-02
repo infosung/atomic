@@ -5,20 +5,35 @@ import java.net.URI
 import java.util.Locale
 import org.slf4j.LoggerFactory
 
+/**
+ * Logical client channel used to select token resolution strategy.
+ */
 enum class ClientChannel {
   WEB,
   APP,
   UNKNOWN,
 }
 
+/**
+ * Resolves request channel from servlet request context.
+ */
 fun interface ClientChannelResolver {
+  /**
+   * @return Resolved request channel.
+   */
   fun resolve(request: HttpServletRequest): ClientChannel
 }
 
+/**
+ * Default resolver returning [ClientChannel.UNKNOWN].
+ */
 class DefaultClientChannelResolver : ClientChannelResolver {
   override fun resolve(request: HttpServletRequest): ClientChannel = ClientChannel.UNKNOWN
 }
 
+/**
+ * Resolves channel by comparing `Host`/`Origin`/`Referer` against configured domains.
+ */
 class HostBasedClientChannelResolver(
     webDomains: List<String>,
     apiDomains: List<String>,

@@ -18,6 +18,11 @@ import java.util.UUID
 import org.slf4j.LoggerFactory
 import org.springframework.security.oauth2.jwt.Jwt
 
+/**
+ * Issues and verifies signed OAuth state tokens.
+ *
+ * Provides optional one-time replay protection via [OauthStateStore].
+ */
 class OauthStateManager(
     signingSecret: String,
     private val issuer: String = "atomic-oauth-state",
@@ -39,6 +44,11 @@ class OauthStateManager(
     require(maxStateTokenLength > 0) { "maxStateTokenLength must be greater than zero." }
   }
 
+  /**
+   * Issues signed OAuth state token.
+   *
+   * @throws InvalidOauthStateException If attributes violate configured limits.
+   */
   fun issueState(
       provider: OauthProviderName? = null,
       redirectUri: String? = null,
@@ -82,6 +92,11 @@ class OauthStateManager(
     return token
   }
 
+  /**
+   * Verifies signed OAuth state token and expected values.
+   *
+   * @throws InvalidOauthStateException If signature/issuer/time/provider/redirect/nonce checks fail.
+   */
   fun verifyState(
       signedState: String,
       expectedProvider: OauthProviderName? = null,

@@ -10,6 +10,9 @@ import jakarta.servlet.http.HttpServletResponse
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
 
+/**
+ * Issues new access token from refresh-token cookie and writes updated cookies to response.
+ */
 class RefreshTokenCookieIssuer(
     private val jwtProvider: JwtProvider,
     private val cookiePolicy: SecurityCookiePolicy = SecurityUtil.DEFAULT_COOKIE_POLICY,
@@ -17,6 +20,12 @@ class RefreshTokenCookieIssuer(
 ) {
   private val log = LoggerFactory.getLogger(RefreshTokenCookieIssuer::class.java)
 
+  /**
+   * Reads refresh-token cookie and issues new access token when possible.
+   *
+   * @return Newly issued access token, or null when refresh cookie is missing.
+   * @throws HttpInvalidTokenException If refresh token is invalid.
+   */
   fun issueAccessTokenFromRefreshCookie(
       request: HttpServletRequest,
       response: HttpServletResponse,
@@ -32,6 +41,11 @@ class RefreshTokenCookieIssuer(
     return issueAccessToken(refreshToken, response)
   }
 
+  /**
+   * Issues access token from explicit refresh token value and writes Set-Cookie headers.
+   *
+   * @throws HttpInvalidTokenException If refresh token is invalid.
+   */
   fun issueAccessToken(
       refreshToken: String,
       response: HttpServletResponse,
