@@ -1,0 +1,79 @@
+package com.infosung.atomic.app.storage.autoconfigure
+
+import com.infosung.atomic.app.storage.AppImageApiService
+import com.infosung.atomic.app.storage.AppImageEntityTxService
+import com.infosung.atomic.app.storage.AppStorageController
+import com.infosung.atomic.app.storage.ImageEntity
+import com.infosung.atomic.app.storage.ImageRepository
+import com.infosung.atomic.storage.StorageClient
+import com.infosung.atomic.storage.image.ImageService
+import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.boot.autoconfigure.AutoConfiguration
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.boot.persistence.autoconfigure.EntityScan
+import org.springframework.context.annotation.Bean
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories
+
+/** Auto-configuration for common image upload/delete API. */
+@AutoConfiguration(
+    afterName =
+        ["com.infosung.atomic.starter.autoconfigure.storage.AtomicStorageAutoConfiguration"])
+@ConditionalOnClass(
+    name =
+        [
+            "org.springframework.web.bind.annotation.RestController",
+            "org.springframework.web.multipart.MultipartFile",
+            "org.springframework.data.jpa.repository.JpaRepository",
+            "jakarta.persistence.Entity",
+        ],
+)
+@ConditionalOnProperty(
+    prefix = "atomic.app.image",
+    name = ["enabled"],
+    havingValue = "true",
+)
+@EnableConfigurationProperties(AtomicAppImageProperties::class)
+@EntityScan(basePackageClasses = [ImageEntity::class])
+@EnableJpaRepositories(basePackageClasses = [ImageRepository::class])
+class AtomicAppImageAutoConfiguration {
+  @Bean
+  @ConditionalOnMissingBean
+  fun appImageEntityTxService(
+      imageRepository: ImageRepository,
+  ): AppImageEntityTxService {
+    return AppImageEntityTxService(imageRepository = imageRepository)
+  }
+
+  @Bean
+  @ConditionalOnMissingBean
+  @ConditionalOnBean(ImageService::class)
+  fun appImageApiService(
+      appImageEntityTxService: AppImageEntityTxService,
+      imageService: ImageService,
+      @Qualifier("storageClients") storageClients: Map<String, StorageClient>,
+      properties: AtomicAppImageProperties,
+  ): AppImageApiService {
+    return AppImageApiService(
+        imageEntityTxService = appImageEntityTxService,
+        imageService = imageService,
+        storageClients = storageClients,
+        properties = properties,
+    )
+  }
+
+  @Bean
+  @ConditionalOnMissingBean
+  fun appStorageController(
+      appImageApiService: AppImageApiService,
+      properties: AtomicAppImageProperties,
+  ): AppStorageController {
+    return AppStorageController(
+        appImageApiService = appImageApiService,
+        properties = properties,
+    )
+  }
+}

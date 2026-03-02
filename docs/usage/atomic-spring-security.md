@@ -117,6 +117,22 @@ class AtomicSecurityConfig {
 }
 ```
 
+## Protect Storage API Path
+
+> **Important**
+> If you use `atomic.app` image API, include storage API path in your Spring Security authorization rules.
+> Protect `POST/DELETE /api/v1/storage/image/**` (or your custom `atomic.app.image.endpoint-path/**`) as authenticated/authorized endpoints.
+
+Example:
+
+```kotlin
+http.authorizeHttpRequests {
+  it.requestMatchers("/health", "/actuator/health").permitAll()
+  it.requestMatchers("/api/v1/storage/image/**").authenticated()
+  it.anyRequest().authenticated()
+}
+```
+
 ## Token Resolution Policy
 
 - `WEB`: `accessToken` cookie first, then refresh-cookie re-issue path
