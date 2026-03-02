@@ -13,6 +13,7 @@ Atomic is a shared Kotlin/Spring library set.
 
 ## Modules
 
+- `com.infosung:atomic.starter:0.0.1`
 - `com.infosung:atomic.contract:0.0.1`
 - `com.infosung:atomic.storage:0.0.1`
 - `com.infosung:atomic.spring.oauth2:0.0.1`
@@ -23,11 +24,12 @@ Atomic is a shared Kotlin/Spring library set.
 
 ```kotlin
 dependencies {
+  implementation("com.infosung:atomic.starter:0.0.1")
   implementation("com.infosung:atomic.contract:0.0.1")
+
+  // add only modules you actually use
   implementation("com.infosung:atomic.storage:0.0.1")
-  implementation("com.infosung:atomic.spring.oauth2:0.0.1")
   implementation("com.infosung:atomic.spring.web:0.0.1")
-  implementation("com.infosung:atomic.spring.security:0.0.1")
 }
 ```
 
@@ -35,17 +37,19 @@ If your environment cannot resolve pre-release artifacts yet, use module depende
 
 ```kotlin
 dependencies {
+  implementation(project(":atomic-starter"))
   implementation(project(":atomic-contract"))
+
+  // add only modules you actually use
   implementation(project(":atomic-storage"))
-  implementation(project(":atomic-spring-oauth2"))
   implementation(project(":atomic-spring-web"))
-  implementation(project(":atomic-spring-security"))
 }
 ```
 
 ## Usage Guides
 
 - [Usage Overview](docs/usage/overview.md)
+- [atomic.starter Guide](docs/usage/atomic-starter.md)
 - [atomic.contract Guide](docs/usage/atomic-contract.md)
 - [atomic.storage Guide](docs/usage/atomic-storage.md)
 - [atomic.spring.oauth2 Guide](docs/usage/atomic-spring-oauth2.md)
@@ -54,7 +58,7 @@ dependencies {
 
 ## Important Notes
 
-- Spring Boot auto-configuration is not provided yet.
+- `atomic.starter` auto-configures only when corresponding module classes are on classpath.
 - Supported version combinations are managed by CI matrix in `.github/workflows/ci.yml`.
 - Compatibility with other patch/minor versions is not guaranteed. Validate with your CI matrix.
 - `atomic.spring.oauth2` redirect flow section is browser web-flow guidance; the module itself is not web-only.

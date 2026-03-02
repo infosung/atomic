@@ -1,0 +1,265 @@
+# atomic.starter Guide
+
+## Why Use This Module
+
+Use `atomic.starter` to reduce boilerplate bean registration.
+
+- auto-configuration activates only when corresponding atomic module is on classpath
+- you still choose feature modules explicitly (`storage`, `spring.web`, `spring.security`, `spring.oauth2`)
+- heavy dependencies are not forced unless you add that module
+
+## Dependency Pattern
+
+```kotlin
+dependencies {
+  implementation("com.infosung:atomic.starter:0.0.1")
+  implementation("com.infosung:atomic.contract:0.0.1")
+
+  // add only modules you use
+  implementation("com.infosung:atomic.storage:0.0.1")
+  implementation("com.infosung:atomic.spring.web:0.0.1")
+}
+```
+
+## What Gets Auto-Configured
+
+### contract
+
+- `TimeProvider`
+- `TraceIdGenerator`
+
+### storage
+
+When `atomic.storage` exists and `atomic.storage.enabled=true`:
+
+- `Map<String, StorageClient>` bean name: `storageClients`
+- `Map<String, StorageProfile>` bean name: `storageProfiles`
+- `ImageService`
+- backend `type` supports `s3`, `r2`, `minio` (all use S3-compatible client path)
+
+### spring.web
+
+When `atomic.spring.web` exists and `atomic.web.enabled=true` (default `true`):
+
+- `JsonTransfer`
+- `ServiceLogger` (only if `LogSaver` bean exists)
+- `ApiLogFilter` + filter registration (only if `ServiceLogger` exists)
+
+Still required from app:
+
+- `LogSaver` implementation
+- `ApiLogAspect` implementation
+- `BaseExceptionHandler` subclass
+
+### spring.security
+
+When `atomic.spring.security` exists and `atomic.security.enabled=true` (default `true`):
+
+- `SecurityCookiePolicy`
+- `ClientChannelResolver` (default)
+- `JwtProvider` (when `atomic.security.jwt.access-key` and `refresh-key` are set)
+- `JwtSecurityConfigurerAdapter`
+
+Still required from app:
+
+- your `SecurityFilterChain` configuration that applies `JwtSecurityConfigurerAdapter`
+
+### spring.oauth2
+
+When `atomic.spring.oauth2` exists and `atomic.oauth2.enabled=true` (default `true`):
+
+- shared `RestClient` bean name: `atomicOauthRestClient`
+- `OauthStateStore` (`InMemoryOauthStateStore` by default)
+- `OauthStateManager` (when `atomic.oauth2.state.signing-secret` is set)
+- `OauthServiceProvider`
+- provider beans from properties:
+  - single-client provider bean, or
+  - multi-client routed provider bean (`web/android/ios` style)
+
+Still required from app:
+
+- callback controller / redirect handling
+- optional provider customization beans (if you need non-default verifier/parser/client behavior)
+
+OAuth provider beans are skipped unless:
+
+- `atomic.oauth2.state.enabled=true` (default `true`)
+- `atomic.oauth2.state.signing-secret` is configured
+- each provider `enabled=true`
+
+When multiple clients are configured for one provider:
+
+- route key is stored in OAuth state attribute (`route-attribute-key`, default: `atomicClientKey`)
+- `default-client-key` is required
+- `exchangeCode` requires route key in signed state and selects client from that value
+- `refreshToken`/`revokeToken`/`resolveIdentity` can select client by `additionalParameters[route-attribute-key]`
+- `resolveIdentity` can also auto-route by `audience`; if not provided, router may probe id-token validation across clients
+- each client must use unique id-token audience values (no overlap between clients)
+
+State handling notes:
+
+- `exchangeCode` already verifies state internally.
+- if one-time store is enabled, `verifyState(...)` consumes state entry; call `readState(...)` when you only need to inspect claims.
+- default `InMemoryOauthStateStore` is suitable for single-instance/local use; use shared/distributed `OauthStateStore` for multi-instance production.
+
+## OAuth Provider Property Notes
+
+### Google
+
+- required (single-client mode):
+  - `client-id`
+  - `client-secret`
+  - `server-redirect-uri`
+- required (multi-client mode):
+  - `clients.{clientKey}.client-id`
+  - `clients.{clientKey}.client-secret`
+  - `clients.{clientKey}.server-redirect-uri`
+- optional:
+  - `default-client-key` (required in multi-client mode)
+  - `route-attribute-key` (default: `atomicClientKey`)
+  - `allowed-audiences` / `clients.{clientKey}.allowed-audiences` (empty -> defaults to client id)
+  - `supported-scopes` (empty -> no whitelist)
+  - `verifier-issuers` (default includes `https://accounts.google.com`, `accounts.google.com`)
+  - `require-nonce-validation` (default: `false`)
+
+### Kakao
+
+- required (single-client mode):
+  - `client-id`
+  - `server-redirect-uri`
+- required (multi-client mode):
+  - `clients.{clientKey}.client-id`
+  - `clients.{clientKey}.server-redirect-uri`
+- optional:
+  - `default-client-key` (required in multi-client mode)
+  - `route-attribute-key` (default: `atomicClientKey`)
+  - `client-secret` / `clients.{clientKey}.client-secret`
+  - `supported-scopes` (empty -> no whitelist)
+  - `require-nonce-validation` (default: `true`)
+  - `id-token-issuer` (default `https://kauth.kakao.com`)
+  - `id-token-jwk-set-uri` (default `https://kauth.kakao.com/.well-known/jwks.json`)
+  - `id-token-allowed-audiences` / `clients.{clientKey}.id-token-allowed-audiences` (empty -> defaults to client id)
+
+### Apple
+
+- required (single-client mode):
+  - `client-id`
+  - `server-redirect-uri`
+- required (multi-client mode):
+  - `clients.{clientKey}.client-id`
+  - `clients.{clientKey}.server-redirect-uri`
+- optional:
+  - `default-client-key` (required in multi-client mode)
+  - `route-attribute-key` (default: `atomicClientKey`)
+  - `require-nonce-validation` (default: `true`)
+  - `id-token-issuer` (default `https://appleid.apple.com`)
+  - `id-token-jwk-set-uri` (default `https://appleid.apple.com/auth/keys`)
+  - `id-token-allowed-audiences` / `clients.{clientKey}.id-token-allowed-audiences` (empty -> defaults to client id)
+
+## Minimal Properties Example
+
+```yaml
+atomic:
+  storage:
+    enabled: true
+    backends:
+      S3:
+        type: s3
+        region: ap-northeast-2
+        endpoint: https://s3.ap-northeast-2.amazonaws.com
+        bucket: my-bucket
+        cdn: https://cdn.example.com
+
+  web:
+    logging:
+      enabled: true
+      queue-size: 10000
+
+  security:
+    jwt:
+      enabled: true
+      access-key: your-access-key
+      refresh-key: your-refresh-key
+      access-expired-second: 3600
+      refresh-expired-second: 1209600
+
+  oauth2:
+    state:
+      enabled: true
+      signing-secret: your-state-signing-secret-at-least-32-bytes
+    providers:
+      google:
+        enabled: true
+        default-client-key: web
+        route-attribute-key: atomicClientKey
+        clients:
+          web:
+            client-id: your-google-web-client-id
+            client-secret: your-google-web-client-secret
+            server-redirect-uri: https://api.example.com/oauth/google/callback
+          android:
+            client-id: your-google-android-client-id
+            client-secret: your-google-android-client-secret
+            server-redirect-uri: https://api.example.com/oauth/google/callback
+          ios:
+            client-id: your-google-ios-client-id
+            client-secret: your-google-ios-client-secret
+            server-redirect-uri: https://api.example.com/oauth/google/callback
+      kakao:
+        enabled: true
+        default-client-key: web
+        clients:
+          web:
+            client-id: your-kakao-web-client-id
+            client-secret: your-kakao-web-client-secret
+            server-redirect-uri: https://api.example.com/oauth/kakao/callback
+          app:
+            client-id: your-kakao-app-client-id
+            server-redirect-uri: https://api.example.com/oauth/kakao/callback
+      apple:
+        enabled: true
+        default-client-key: web
+        clients:
+          web:
+            client-id: your-apple-web-client-id
+            server-redirect-uri: https://api.example.com/oauth/apple/callback
+          ios:
+            client-id: your-apple-ios-client-id
+            server-redirect-uri: https://api.example.com/oauth/apple/callback
+```
+
+## OAuth Routing Usage
+
+To select a non-default client for `buildAuthorizationUrl`, include route key in request:
+
+```kotlin
+val authUrl =
+    provider.buildAuthorizationUrl(
+        OauthAuthorizationRequest(
+            redirectUri = "myapp://oauth/callback",
+            stateAttributes = mapOf("atomicClientKey" to "android"),
+        ),
+    )
+```
+
+For `refreshToken` / `revokeToken` / `resolveIdentity`, pass route key via `additionalParameters`:
+
+```kotlin
+provider.refreshToken(
+    OauthTokenRefreshRequest(
+        refreshToken = refreshToken,
+        additionalParameters = mapOf("atomicClientKey" to "ios"),
+    ),
+)
+```
+
+## Important Notes
+
+- `atomic.starter` does not replace domain-specific app configuration.
+- If you want full custom behavior, define your own beans; starter beans back off with `@ConditionalOnMissingBean`.
+- Configure only modules you actually add to dependencies.
+- OAuth provider auto-configuration requires `atomic.oauth2.state.enabled=true` and `atomic.oauth2.state.signing-secret`, because providers depend on `OauthStateManager`.
+- Required minimum provider properties:
+  - Google: (`client-id`,`client-secret`,`server-redirect-uri`) or `clients.{key}.*`
+  - Kakao: (`client-id`,`server-redirect-uri`) or `clients.{key}.*` (`client-secret` optional)
+  - Apple: (`client-id`,`server-redirect-uri`) or `clients.{key}.*`

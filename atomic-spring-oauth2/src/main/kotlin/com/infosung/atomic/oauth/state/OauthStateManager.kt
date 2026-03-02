@@ -103,6 +103,44 @@ class OauthStateManager(
       expectedRedirectUri: String? = null,
       expectedNonce: String? = null,
   ): Jwt {
+    return resolveState(
+        signedState = signedState,
+        expectedProvider = expectedProvider,
+        expectedRedirectUri = expectedRedirectUri,
+        expectedNonce = expectedNonce,
+        consumeStore = true,
+    )
+  }
+
+  /**
+   * Reads and verifies signed OAuth state token without consuming store entry.
+   *
+   * Useful when caller needs state attributes before deciding how to process token exchange.
+   *
+   * @throws InvalidOauthStateException If signature/issuer/time/provider/redirect/nonce checks fail.
+   */
+  fun readState(
+      signedState: String,
+      expectedProvider: OauthProviderName? = null,
+      expectedRedirectUri: String? = null,
+      expectedNonce: String? = null,
+  ): Jwt {
+    return resolveState(
+        signedState = signedState,
+        expectedProvider = expectedProvider,
+        expectedRedirectUri = expectedRedirectUri,
+        expectedNonce = expectedNonce,
+        consumeStore = false,
+    )
+  }
+
+  private fun resolveState(
+      signedState: String,
+      expectedProvider: OauthProviderName? = null,
+      expectedRedirectUri: String? = null,
+      expectedNonce: String? = null,
+      consumeStore: Boolean,
+  ): Jwt {
     val jwt = parseAndVerifySignature(signedState)
     val claims = jwt.jwtClaimsSet
     val now = Instant.now(clock)
@@ -145,15 +183,16 @@ class OauthStateManager(
       }
     }
 
-    if (store != null && !store.consume(stateId = stateId, signedState = signedState)) {
-      throw InvalidOauthStateException("State token is already used or unknown.")
+    if (consumeStore && store != null && !store.consume(stateId = stateId, signedState = signedState)) {
+      throw InvalidOauthStateException("State token is already used, expired, or unknown.")
     }
 
     log.debug(
-        "Verified OAuth state. stateId={}, provider={}, usedStore={}",
+        "Verified OAuth state. stateId={}, provider={}, usedStore={}, consumed={}",
         stateId,
         provider,
         store != null,
+        consumeStore,
     )
     val claimMap =
         linkedMapOf<String, Any>("iss" to tokenIssuer, "iat" to issuedAt, "exp" to expiresAt)

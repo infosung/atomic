@@ -8,8 +8,8 @@
 - Tested baseline: Java `25`, Kotlin `2.3.10`, Spring Boot `4.0.3`
 - Additional supported combinations are validated by CI matrix in `.github/workflows/ci.yml`.
 - Other patch/minor versions are not guaranteed. Validate in your CI before rollout.
-- Atomic does not provide Spring Boot auto-configuration yet.
-- You register only the beans/features you use.
+- Use `atomic.starter` to enable conditional auto-configuration.
+- Add only the feature modules you use.
 
 ## What Atomic Solves
 
@@ -26,6 +26,7 @@ Use only the modules you need.
 ## 1. Select Modules by Use Case
 
 - `atomic.contract`: shared response/header/exception/util model used by all layers
+- `atomic.starter`: conditional Spring Boot auto-configuration entrypoint
 - `atomic.storage`: storage module (S3-compatible backends such as S3/R2/MinIO, plus media helpers)
 - `atomic.spring.web`: API error handling, request/response logging, RestTemplate interceptor/error handler
 - `atomic.spring.security`: JWT issue/verify + Spring Security filter integration
@@ -37,11 +38,12 @@ Maven coordinates:
 
 ```kotlin
 dependencies {
+  implementation("com.infosung:atomic.starter:0.0.1")
   implementation("com.infosung:atomic.contract:0.0.1")
+
+  // add only modules you use
   implementation("com.infosung:atomic.storage:0.0.1")
-  implementation("com.infosung:atomic.spring.oauth2:0.0.1")
   implementation("com.infosung:atomic.spring.web:0.0.1")
-  implementation("com.infosung:atomic.spring.security:0.0.1")
 }
 ```
 
@@ -49,17 +51,18 @@ If pre-release artifact resolution is not available in your environment, use mod
 
 ```kotlin
 dependencies {
+  implementation(project(":atomic-starter"))
   implementation(project(":atomic-contract"))
+
+  // add only modules you use
   implementation(project(":atomic-storage"))
-  implementation(project(":atomic-spring-oauth2"))
   implementation(project(":atomic-spring-web"))
-  implementation(project(":atomic-spring-security"))
 }
 ```
 
 ## 3. Quick Start (First Day)
 
-1. Add `atomic.contract` first.
+1. Add `atomic.starter` and `atomic.contract` first.
 2. Add one feature module only (`storage`, `web`, `security`, or `oauth2`).
 3. Register only minimum required beans from that guide.
 4. Run one smoke endpoint.
@@ -69,19 +72,20 @@ dependencies {
 
 | Goal | Modules | First Setup |
 |---|---|---|
-| Standard API response + shared contracts | `contract` | Use `BaseResponse`, `HttpStatusException` |
-| Object storage and media processing | `storage` | register `Map<String, StorageClient>` + `Map<String, StorageProfile>` with matching `storageType` keys |
-| Exception response standardization | `contract` + `spring.web` | `BaseExceptionHandler` subclass |
-| API request/response audit logs | `contract` + `spring.web` | `JsonTransfer` + `LogSaver` + `ServiceLogger` + `ApiLogAspect` + `ApiLogFilter` |
-| JWT auth for your API | `contract` + `spring.security` | `JwtProvider` + `SecurityFilterChain` |
-| Social login redirect flow | `contract` + `spring.oauth2` | provider beans + `OauthStateManager` + callback controller |
-| Full typical server stack | all modules | start with `contract` -> `web` -> `security` -> `oauth2` |
+| Standard API response + shared contracts | `starter` + `contract` | Use `BaseResponse`, `HttpStatusException` |
+| Object storage and media processing | `starter` + `storage` | set `atomic.storage.backends.*` and use `ImageService` |
+| Exception response standardization | `starter` + `contract` + `spring.web` | `BaseExceptionHandler` subclass |
+| API request/response audit logs | `starter` + `contract` + `spring.web` | add `LogSaver` + `ApiLogAspect` implementation |
+| JWT auth for your API | `starter` + `contract` + `spring.security` | set `atomic.security.jwt.*` and apply `JwtSecurityConfigurerAdapter` |
+| Social login redirect flow | `starter` + `contract` + `spring.oauth2` | set `atomic.oauth2.state.*` + `atomic.oauth2.providers.*` |
+| Full typical server stack | all modules | start with `starter` -> `storage/web` -> `security` -> `oauth2` |
 
 ## 5. Configuration Policy
 
-- Spring Boot auto-configuration is not provided yet.
-- You explicitly register beans you want to use.
-- Most setup is feature-based: start with minimum beans, then add optional beans as needed.
+- `atomic.starter` activates only when corresponding module classes are on classpath.
+- Some features still require application-specific beans (for example `BaseExceptionHandler`, `ApiLogAspect`, `LogSaver`).
+- OAuth provider beans are registered only when `atomic.oauth2.state.enabled=true`, `atomic.oauth2.state.signing-secret` is set, and each provider `enabled=true`.
+- Start with minimum modules and add optional beans as needed.
 
 ## 6. Operational Checklist (All Modules)
 
@@ -102,8 +106,9 @@ dependencies {
 
 ## 8. Recommended Reading Order
 
-1. [atomic.contract Guide](atomic-contract.md)
-2. [atomic.storage Guide](atomic-storage.md)
-3. [atomic.spring.web Guide](atomic-spring-web.md)
-4. [atomic.spring.security Guide](atomic-spring-security.md)
-5. [atomic.spring.oauth2 Guide](atomic-spring-oauth2.md)
+1. [atomic.starter Guide](atomic-starter.md)
+2. [atomic.contract Guide](atomic-contract.md)
+3. [atomic.storage Guide](atomic-storage.md)
+4. [atomic.spring.web Guide](atomic-spring-web.md)
+5. [atomic.spring.security Guide](atomic-spring-security.md)
+6. [atomic.spring.oauth2 Guide](atomic-spring-oauth2.md)
