@@ -3,9 +3,7 @@ package com.infosung.atomic.spring.security.jwt
 import com.infosung.atomic.contract.time.TimeProvider
 import javax.crypto.SecretKey
 
-/**
- * Access/refresh token pair with expiration timestamps.
- */
+/** Access/refresh token pair with expiration timestamps. */
 data class JwtDto(
     val id: String,
     val accessToken: String,
@@ -13,9 +11,7 @@ data class JwtDto(
     val accessExpiredTime: Long,
     val refreshExpiredTime: Long,
 ) {
-  /**
-   * Returns token validity state at current time.
-   */
+  /** Returns token validity state at current time. */
   fun state(timeProvider: TimeProvider = TimeProvider()): TokenExpiredStatus {
     if (!isValidToken()) return TokenExpiredStatus.INVALID
 
@@ -45,9 +41,7 @@ data class JwtDto(
   ): Boolean = expiredTime < timeProvider.nowMillis() - 10000
 }
 
-/**
- * Optional JWT provider override options for custom issuance flows.
- */
+/** Optional JWT provider override options for custom issuance flows. */
 data class JwtProviderDto(
     val id: JwtId = JwtId.USER,
     val subject: JwtSubject = JwtSubject.USER_ID,
@@ -58,9 +52,7 @@ data class JwtProviderDto(
     val accessExpiredSecond: Long? = null,
     val refreshExpiredSecond: Long? = null,
 ) {
-  /**
-   * Convenience helper to set standard user/service claims.
-   */
+  /** Convenience helper to set standard user/service claims. */
   fun claims(
       userId: String,
       serviceName: String,
@@ -74,9 +66,7 @@ data class JwtProviderDto(
       )
 }
 
-/**
- * Simplified ID-token parsing output.
- */
+/** Simplified ID-token parsing output. */
 data class IdTokenParseSimpleDto(
     val appleId: String? = null,
     val googleId: String? = null,
@@ -85,9 +75,7 @@ data class IdTokenParseSimpleDto(
     val isLoginOnly: Boolean = false,
 )
 
-/**
- * Minimal JWT payload without expiration metadata.
- */
+/** Minimal JWT payload without expiration metadata. */
 data class SimpleJwtDto(
     val id: String,
     val accessToken: String,

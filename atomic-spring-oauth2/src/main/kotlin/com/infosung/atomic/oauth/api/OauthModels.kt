@@ -1,44 +1,34 @@
 package com.infosung.atomic.oauth.api
 
-/**
- * Supported OAuth providers.
- */
+/** Supported OAuth providers. */
 enum class OauthProviderName {
   KAKAO,
   GOOGLE,
   APPLE,
 }
 
-/**
- * Identity resolution strategy.
- */
+/** Identity resolution strategy. */
 enum class OauthIdentityStrategy {
   AUTO,
   ID_TOKEN,
   USER_INFO_API,
 }
 
-/**
- * High-level scope presets for provider requests.
- */
+/** High-level scope presets for provider requests. */
 enum class OauthScopePreset {
   ID_ONLY,
   BASIC_PROFILE,
   FULL_PROFILE,
 }
 
-/**
- * Output payload detail level for identity response.
- */
+/** Output payload detail level for identity response. */
 enum class OauthIdentityPayloadMode {
   ID_ONLY,
   BASIC_PROFILE,
   FULL_PROFILE,
 }
 
-/**
- * Request model for authorization URL creation.
- */
+/** Request model for authorization URL creation. */
 data class OauthAuthorizationRequest(
     // Client destination URI to store in signed state.
     // This is used by your server after callback, not as provider redirect_uri.
@@ -53,9 +43,7 @@ data class OauthAuthorizationRequest(
     val additionalParameters: Map<String, String> = emptyMap(),
 )
 
-/**
- * Request model for authorization-code exchange.
- */
+/** Request model for authorization-code exchange. */
 data class OauthTokenExchangeRequest(
     val code: String,
     // Required callback state to prevent CSRF and correlate signed state payload.
@@ -65,9 +53,7 @@ data class OauthTokenExchangeRequest(
     val additionalParameters: Map<String, String> = emptyMap(),
 )
 
-/**
- * Request model for refresh-token exchange.
- */
+/** Request model for refresh-token exchange. */
 data class OauthTokenRefreshRequest(
     val refreshToken: String,
     val accessToken: String? = null,
@@ -76,17 +62,13 @@ data class OauthTokenRefreshRequest(
     val additionalParameters: Map<String, String> = emptyMap(),
 )
 
-/**
- * Request model for token revoke operation.
- */
+/** Request model for token revoke operation. */
 data class OauthTokenRevokeRequest(
     val accessToken: String,
     val additionalParameters: Map<String, String> = emptyMap(),
 )
 
-/**
- * Request model for identity resolution.
- */
+/** Request model for identity resolution. */
 data class OauthIdentityRequest(
     val strategy: OauthIdentityStrategy = OauthIdentityStrategy.AUTO,
     val accessToken: String? = null,
@@ -101,9 +83,7 @@ data class OauthIdentityRequest(
     val additionalParameters: Map<String, String> = emptyMap(),
 )
 
-/**
- * Normalized OAuth token response model.
- */
+/** Normalized OAuth token response model. */
 data class OauthTokenResult(
     val accessToken: String? = null,
     val refreshToken: String? = null,
@@ -114,9 +94,7 @@ data class OauthTokenResult(
     val raw: Map<String, Any?> = emptyMap(),
 )
 
-/**
- * Normalized OAuth identity response model.
- */
+/** Normalized OAuth identity response model. */
 data class OauthIdentityResult(
     val provider: OauthProviderName,
     val userId: String,

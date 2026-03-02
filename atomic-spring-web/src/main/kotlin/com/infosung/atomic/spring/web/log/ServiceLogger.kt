@@ -9,9 +9,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.context.SmartLifecycle
 
-/**
- * In-memory buffered service logger that flushes logs in batches via [LogSaver].
- */
+/** In-memory buffered service logger that flushes logs in batches via [LogSaver]. */
 class ServiceLogger(
     private val logSaver: LogSaver,
     private val maxQueueSize: Int = 10_000,

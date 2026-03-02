@@ -6,15 +6,13 @@ import org.apache.commons.imaging.formats.jpeg.JpegImageMetadata
 import org.apache.commons.imaging.formats.tiff.TiffImageMetadata
 import org.apache.commons.imaging.formats.tiff.constants.TiffTagConstants
 
-/**
- * Reads image metadata from local files.
- */
+/** Reads image metadata from local files. */
 fun interface ImageMetadataReader {
   /**
    * Reads width/height/file-size information from [file].
    *
-   * @throws IllegalArgumentException or runtime exceptions from underlying image libraries
-   *   when the file is not readable as an image.
+   * @throws IllegalArgumentException or runtime exceptions from underlying image libraries when the
+   *   file is not readable as an image.
    */
   fun read(file: File): ImageMetadata
 }

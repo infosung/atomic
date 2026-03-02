@@ -50,9 +50,7 @@ class SecurityFilter(
   private val tokenAuthenticationProcessor: TokenAuthenticationProcessor =
       JwtTokenAuthenticationProcessor(jwtProvider, authenticationFactory)
 
-  /**
-   * Performs token resolution/authentication for each request once.
-   */
+  /** Performs token resolution/authentication for each request once. */
   override fun doFilterInternal(
       request: HttpServletRequest,
       response: HttpServletResponse,

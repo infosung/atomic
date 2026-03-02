@@ -11,9 +11,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.security.oauth2.jwt.JwtValidators
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
 
-/**
- * Generic OIDC id-token verifier using JWK-backed [JwtDecoder].
- */
+/** Generic OIDC id-token verifier using JWK-backed [JwtDecoder]. */
 class IdTokenParser(
     private val iss: String,
     private val allowedAudiences: Set<String>,

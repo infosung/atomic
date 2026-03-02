@@ -3,9 +3,7 @@ package com.infosung.atomic.spring.web.json
 import org.slf4j.LoggerFactory
 import tools.jackson.databind.ObjectMapper
 
-/**
- * JSON serializer helper for log payloads with sensitive-field masking.
- */
+/** JSON serializer helper for log payloads with sensitive-field masking. */
 class JsonTransfer(
     private val objectMapper: ObjectMapper = ObjectMapper(),
     private val baseSensitiveKeyRegex: Regex =
@@ -20,16 +18,12 @@ class JsonTransfer(
   private val maskedValue = "***"
   @Volatile private var sensitiveKeyRegex: Regex? = defaultSensitiveKeyRegex
 
-  /**
-   * Overrides sensitive key regex used for masking.
-   */
+  /** Overrides sensitive key regex used for masking. */
   fun configureSensitiveKeyRegex(regex: Regex?) {
     sensitiveKeyRegex = regex
   }
 
-  /**
-   * Overrides sensitive key regex using pattern string.
-   */
+  /** Overrides sensitive key regex using pattern string. */
   fun configureSensitiveKeyRegex(
       pattern: String,
       option: RegexOption = RegexOption.IGNORE_CASE,
@@ -37,16 +31,12 @@ class JsonTransfer(
     sensitiveKeyRegex = Regex(pattern = pattern, option = option)
   }
 
-  /**
-   * Restores default sensitive key regex.
-   */
+  /** Restores default sensitive key regex. */
   fun resetSensitiveKeyRegex() {
     sensitiveKeyRegex = defaultSensitiveKeyRegex
   }
 
-  /**
-   * Serializes map payload to masked JSON.
-   */
+  /** Serializes map payload to masked JSON. */
   fun mapToJson(
       map: Map<*, *>?,
       sensitiveKeyRegex: Regex? = null,
@@ -55,9 +45,7 @@ class JsonTransfer(
     return toSafeJson(map, resolveSensitiveKeyRegex(sensitiveKeyRegex))
   }
 
-  /**
-   * Serializes list payload to masked JSON.
-   */
+  /** Serializes list payload to masked JSON. */
   fun listToJson(
       list: List<*>?,
       sensitiveKeyRegex: Regex? = null,
@@ -66,9 +54,7 @@ class JsonTransfer(
     return toSafeJson(list, resolveSensitiveKeyRegex(sensitiveKeyRegex))
   }
 
-  /**
-   * Serializes array payload to masked JSON.
-   */
+  /** Serializes array payload to masked JSON. */
   fun arrayToJson(
       array: Array<*>?,
       sensitiveKeyRegex: Regex? = null,

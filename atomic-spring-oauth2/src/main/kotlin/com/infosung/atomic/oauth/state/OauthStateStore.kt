@@ -4,13 +4,9 @@ import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
-/**
- * Storage abstraction for one-time OAuth state tokens.
- */
+/** Storage abstraction for one-time OAuth state tokens. */
 interface OauthStateStore {
-  /**
-   * Saves state token metadata.
-   */
+  /** Saves state token metadata. */
   fun save(stateId: String, signedState: String, expiresAt: Instant)
 
   /**
@@ -21,9 +17,7 @@ interface OauthStateStore {
   fun consume(stateId: String, signedState: String): Boolean
 }
 
-/**
- * In-memory [OauthStateStore] for single-node deployments.
- */
+/** In-memory [OauthStateStore] for single-node deployments. */
 class InMemoryOauthStateStore(
     private val clock: java.time.Clock = java.time.Clock.systemUTC(),
     private val cleanupInterval: Int = 100,

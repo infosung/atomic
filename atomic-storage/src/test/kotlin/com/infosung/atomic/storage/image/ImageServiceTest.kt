@@ -145,7 +145,8 @@ class ImageServiceTest {
     val service =
         createImageService(
             storageClient = storageClient,
-            storageProfiles = mapOf("S3" to StorageProfile(bucket = "bucket", cdn = "https://cdn/")),
+            storageProfiles =
+                mapOf("S3" to StorageProfile(bucket = "bucket", cdn = "https://cdn/")),
         )
     val sourceFile = tempFile()
 

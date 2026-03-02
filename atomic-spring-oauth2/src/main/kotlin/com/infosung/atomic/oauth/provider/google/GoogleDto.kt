@@ -1,8 +1,6 @@
 package com.infosung.atomic.oauth.provider.google
 
-/**
- * Google token endpoint response payload.
- */
+/** Google token endpoint response payload. */
 data class GoogleExchangeTokenResponse(
     val access_token: String? = null,
     val refresh_token: String? = null,
@@ -12,9 +10,7 @@ data class GoogleExchangeTokenResponse(
     val id_token: String? = null,
 )
 
-/**
- * Google user-info endpoint response payload.
- */
+/** Google user-info endpoint response payload. */
 data class GoogleUserInfoResponse(
     val sub: String? = null,
     val id: String? = null,

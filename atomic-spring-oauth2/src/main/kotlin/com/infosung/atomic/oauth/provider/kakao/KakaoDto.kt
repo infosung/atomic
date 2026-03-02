@@ -1,8 +1,6 @@
 package com.infosung.atomic.oauth.provider.kakao
 
-/**
- * Kakao token endpoint response payload.
- */
+/** Kakao token endpoint response payload. */
 data class KakaoExchangeTokenResponse(
     val token_type: String? = null,
     val access_token: String? = null,
@@ -13,9 +11,7 @@ data class KakaoExchangeTokenResponse(
     val scope: String? = null,
 )
 
-/**
- * Kakao user-info endpoint response payload.
- */
+/** Kakao user-info endpoint response payload. */
 data class KakaoUserInfoResponse(
     val id: Long? = null,
     val has_signed_up: Boolean? = null,

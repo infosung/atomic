@@ -2,8 +2,8 @@ package com.infosung.atomic.storage
 
 import java.io.ByteArrayInputStream
 import java.io.File
-import kotlin.test.assertEquals
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull

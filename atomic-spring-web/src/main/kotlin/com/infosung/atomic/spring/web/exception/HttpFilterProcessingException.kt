@@ -2,9 +2,7 @@ package com.infosung.atomic.spring.web.exception
 
 import com.infosung.atomic.contract.exception.HttpStatusException
 
-/**
- * Exception used when servlet filter processing fails.
- */
+/** Exception used when servlet filter processing fails. */
 class HttpFilterProcessingException(
     val method: String?,
     val uri: String?,

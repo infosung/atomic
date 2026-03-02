@@ -18,9 +18,7 @@ data class SupportedLocaleResolution(
     val displayName: String,
 )
 
-/**
- * Resolves locale from custom language header/request locale using supported locale list.
- */
+/** Resolves locale from custom language header/request locale using supported locale list. */
 object SupportedLocaleResolver {
   private val log = LoggerFactory.getLogger(SupportedLocaleResolver::class.java)
 

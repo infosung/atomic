@@ -2,9 +2,7 @@ package com.infosung.atomic.contract.random
 
 import java.security.SecureRandom
 
-/**
- * Random utility helpers.
- */
+/** Random utility helpers. */
 object RandomUtil {
   private val randomChars: List<Char> = ('a'..'z') + ('A'..'Z') + ('0'..'9')
   private val secureRandom = SecureRandom()

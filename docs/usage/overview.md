@@ -29,6 +29,7 @@ Use only the modules you need.
 - `atomic.contract`: shared response/header/exception/util model used by all layers
 - `atomic.starter`: conditional Spring Boot auto-configuration entrypoint
 - `atomic.storage`: storage module (S3-compatible backends such as S3/R2/MinIO, plus media helpers)
+- `atomic.app`: common app-level API bundle module (`version` + `storage-api`)
 - `atomic.spring.web`: API error handling, request/response logging, RestTemplate interceptor/error handler
 - `atomic.spring.security`: JWT issue/verify + Spring Security filter integration
 - `atomic.spring.oauth2`: OAuth provider integration (Google/Kakao/Apple), redirect flow and id token/userinfo identity resolution
@@ -43,6 +44,7 @@ dependencies {
   implementation("com.infosung:atomic.contract:0.0.1")
 
   // add only modules you use
+  implementation("com.infosung:atomic.app:0.0.1")
   implementation("com.infosung:atomic.storage:0.0.1")
   implementation("com.infosung:atomic.spring.web:0.0.1")
 }
@@ -56,6 +58,7 @@ dependencies {
   implementation(project(":atomic-contract"))
 
   // add only modules you use
+  implementation(project(":atomic-app"))
   implementation(project(":atomic-storage"))
   implementation(project(":atomic-spring-web"))
 }
@@ -64,7 +67,7 @@ dependencies {
 ## 3. Quick Start (First Day)
 
 1. Add `atomic.starter` and `atomic.contract` first.
-2. Add one feature module only (`storage`, `web`, `security`, or `oauth2`).
+2. Add one feature module only (`app`, `storage`, `web`, `security`, or `oauth2`).
 3. Register only minimum required beans from that guide.
 4. Run one smoke endpoint.
 5. Add optional features after baseline works.
@@ -74,6 +77,7 @@ dependencies {
 | Goal | Modules | First Setup |
 |---|---|---|
 | Standard API response + shared contracts | `starter` + `contract` | Use `BaseResponse`, `HttpStatusException` |
+| App-ready version/image APIs | `app` + (`starter` + `storage` for image API) | enable `atomic.app.version.enabled` and/or `atomic.app.image.enabled` |
 | Object storage and media processing | `starter` + `storage` | set `atomic.storage.backends.*` and use `ImageService` |
 | Exception response standardization | `starter` + `contract` + `spring.web` | `BaseExceptionHandler` subclass |
 | API request/response audit logs | `starter` + `contract` + `spring.web` | add `LogSaver` + `ApiLogAspect` implementation |
@@ -84,6 +88,7 @@ dependencies {
 ## 5. Configuration Policy
 
 - `atomic.starter` activates only when corresponding module classes are on classpath.
+- `atomic.app` APIs are disabled by default and enabled by `atomic.app.version.enabled` / `atomic.app.image.enabled`.
 - Some features still require application-specific beans (for example `BaseExceptionHandler`, `ApiLogAspect`, `LogSaver`).
 - OAuth provider beans are registered only when `atomic.oauth2.state.enabled=true`, `atomic.oauth2.state.signing-secret` is set, and each provider `enabled=true`.
 - Start with minimum modules and add optional beans as needed.
@@ -100,6 +105,7 @@ dependencies {
 
 - Response shape mismatch: check `BaseResponse` usage consistency.
 - Storage upload `Unknown storageType`: check storage client/profile map keys and call-site `storageType` value.
+- App image API not created: check `atomic.app.image.enabled=true` and `ImageService`/`storageClients` bean availability.
 - OAuth callback errors: check state and redirect URI mapping.
 - JWT unauthorized unexpectedly: check channel resolver and token source.
 - API logs missing: check `ServiceLogger.send()` scheduling.
@@ -109,7 +115,8 @@ dependencies {
 
 1. [atomic.starter Guide](atomic-starter.md)
 2. [atomic.contract Guide](atomic-contract.md)
-3. [atomic.storage Guide](atomic-storage.md)
-4. [atomic.spring.web Guide](atomic-spring-web.md)
-5. [atomic.spring.security Guide](atomic-spring-security.md)
-6. [atomic.spring.oauth2 Guide](atomic-spring-oauth2.md)
+3. [atomic.app Guide](atomic-app.md)
+4. [atomic.storage Guide](atomic-storage.md)
+5. [atomic.spring.web Guide](atomic-spring-web.md)
+6. [atomic.spring.security Guide](atomic-spring-security.md)
+7. [atomic.spring.oauth2 Guide](atomic-spring-oauth2.md)

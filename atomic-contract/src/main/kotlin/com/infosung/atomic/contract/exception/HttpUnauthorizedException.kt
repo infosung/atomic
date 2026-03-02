@@ -1,8 +1,6 @@
 package com.infosung.atomic.contract.exception
 
-/**
- * HTTP 401 exception for unauthorized requests.
- */
+/** HTTP 401 exception for unauthorized requests. */
 class HttpUnauthorizedException(
     message: String = "Unauthorized",
     cause: Throwable? = null,

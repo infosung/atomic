@@ -5,8 +5,9 @@
 Use `atomic.starter` to reduce boilerplate bean registration.
 
 - auto-configuration activates only when corresponding atomic module is on classpath
+- `atomic.app` is not bundled in starter (must be added separately)
 - add `atomic.contract` when app code directly uses `BaseResponse` / `HttpStatusException`
-- you still choose feature modules explicitly (`storage`, `spring.web`, `spring.security`, `spring.oauth2`)
+- you still choose feature modules explicitly (`app`, `storage`, `spring.web`, `spring.security`, `spring.oauth2`)
 - heavy dependencies are not forced unless you add that module
 
 ## Dependency Pattern
@@ -17,10 +18,16 @@ dependencies {
   implementation("com.infosung:atomic.contract:0.0.1")
 
   // add only modules you use
+  implementation("com.infosung:atomic.app:0.0.1")
   implementation("com.infosung:atomic.storage:0.0.1")
   implementation("com.infosung:atomic.spring.web:0.0.1")
 }
 ```
+
+`atomic.app` notes:
+
+- `atomic.app.version` API can run with JPA alone.
+- `atomic.app.image` API needs storage beans (`ImageService`, `storageClients`), typically from `atomic.starter` + `atomic.storage`.
 
 ## What Gets Auto-Configured
 
@@ -263,6 +270,7 @@ provider.refreshToken(
 - `atomic.starter` does not replace domain-specific app configuration.
 - If you want full custom behavior, define your own beans; starter beans back off with `@ConditionalOnMissingBean`.
 - Configure only modules you actually add to dependencies.
+- `atomic.app` APIs are provided by `atomic.app` auto-configuration (not by starter directly).
 - OAuth provider auto-configuration requires `atomic.oauth2.state.enabled=true` and `atomic.oauth2.state.signing-secret`, because providers depend on `OauthStateManager`.
 - Required minimum provider properties:
   - Google: (`client-id`,`client-secret`,`server-redirect-uri`) or `clients.{key}.*`

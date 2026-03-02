@@ -13,7 +13,8 @@ import java.util.logging.Logger
  * @property metadata Optional user metadata sent together with the object.
  * @property contentLength Optional content length for storage clients that require explicit length.
  */
-class PutObjectRequest internal constructor(
+class PutObjectRequest
+internal constructor(
     val objectKey: String,
     val file: File,
     val contentType: String? = null,
@@ -28,9 +29,11 @@ class PutObjectRequest internal constructor(
  * @property inputStream Stream to upload. The stream is consumed but not closed by this module.
  * @property contentType Optional MIME type. Blank values are ignored by concrete clients.
  * @property metadata Optional user metadata sent together with the object.
- * @property contentLength Optional expected stream length. If set, it must match actual copied size.
+ * @property contentLength Optional expected stream length. If set, it must match actual copied
+ *   size.
  */
-class PutObjectStreamRequest internal constructor(
+class PutObjectStreamRequest
+internal constructor(
     val objectKey: String,
     val inputStream: InputStream,
     val contentType: String? = null,
@@ -38,9 +41,7 @@ class PutObjectStreamRequest internal constructor(
     val contentLength: Long? = null,
 )
 
-/**
- * Contract for object storage operations used by this module.
- */
+/** Contract for object storage operations used by this module. */
 interface StorageClient {
   /**
    * Uploads a local file to object storage.

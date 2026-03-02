@@ -11,17 +11,13 @@ import org.springframework.security.access.AccessDeniedException
 import org.springframework.security.web.access.AccessDeniedHandler
 import tools.jackson.databind.ObjectMapper
 
-/**
- * Spring Security access-denied handler returning JSON 403 response body.
- */
+/** Spring Security access-denied handler returning JSON 403 response body. */
 class JwtAccessDeniedHandler(
     val objectMapper: ObjectMapper,
 ) : AccessDeniedHandler {
   private val log: Logger = LoggerFactory.getLogger(JwtAccessDeniedHandler::class.java)
 
-  /**
-   * Writes `403 Forbidden` response with [BaseResponse] payload.
-   */
+  /** Writes `403 Forbidden` response with [BaseResponse] payload. */
   override fun handle(
       request: HttpServletRequest,
       response: HttpServletResponse,

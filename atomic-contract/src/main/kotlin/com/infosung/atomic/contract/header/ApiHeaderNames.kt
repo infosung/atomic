@@ -1,8 +1,6 @@
 package com.infosung.atomic.contract.header
 
-/**
- * Standard HTTP header names used across Atomic modules.
- */
+/** Standard HTTP header names used across Atomic modules. */
 object ApiHeaderNames {
   const val HEADER_X_DEVICE_ID = "X-Device-Id"
   const val HEADER_X_APP_VERSION = "X-App-Version"

@@ -13,9 +13,7 @@ data class BaseResponse<T>(
     val data: T? = null,
 ) {
   companion object {
-    /**
-     * Creates success response with optional payload.
-     */
+    /** Creates success response with optional payload. */
     fun <T> ok(data: T? = null): BaseResponse<T> =
         BaseResponse(
             code = "OK",
@@ -23,9 +21,7 @@ data class BaseResponse<T>(
             data = data,
         )
 
-    /**
-     * Creates error response from exception type and message.
-     */
+    /** Creates error response from exception type and message. */
     fun <T> error(e: Exception): BaseResponse<T> =
         BaseResponse(
             code = e::class.java.simpleName,

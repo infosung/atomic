@@ -28,9 +28,7 @@ data class GeneratedThumbnail(
     val metadata: ImageMetadata,
 )
 
-/**
- * Generates thumbnails for uploaded images.
- */
+/** Generates thumbnails for uploaded images. */
 fun interface ImageThumbnailGenerator {
   /**
    * Generates thumbnail output from [sourceFile].
@@ -55,8 +53,8 @@ fun interface ImageThumbnailGenerator {
  * Thumbnail generator for image uploads.
  *
  * Operational note for integrators:
- * - This module assumes upload limits are enforced by the application layer
- *   (for example, Spring multipart settings in each service).
+ * - This module assumes upload limits are enforced by the application layer (for example, Spring
+ *   multipart settings in each service).
  * - File-size limits alone may not be enough for image safety. Highly compressed images can still
  *   have very large pixel dimensions, which can increase memory usage during rasterization.
  * - If your service accepts untrusted uploads, configure strict upload policies (size, timeout,

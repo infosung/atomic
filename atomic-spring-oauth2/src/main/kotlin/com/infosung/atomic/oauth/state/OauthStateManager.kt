@@ -95,7 +95,8 @@ class OauthStateManager(
   /**
    * Verifies signed OAuth state token and expected values.
    *
-   * @throws InvalidOauthStateException If signature/issuer/time/provider/redirect/nonce checks fail.
+   * @throws InvalidOauthStateException If signature/issuer/time/provider/redirect/nonce checks
+   *   fail.
    */
   fun verifyState(
       signedState: String,
@@ -117,7 +118,8 @@ class OauthStateManager(
    *
    * Useful when caller needs state attributes before deciding how to process token exchange.
    *
-   * @throws InvalidOauthStateException If signature/issuer/time/provider/redirect/nonce checks fail.
+   * @throws InvalidOauthStateException If signature/issuer/time/provider/redirect/nonce checks
+   *   fail.
    */
   fun readState(
       signedState: String,
@@ -183,7 +185,9 @@ class OauthStateManager(
       }
     }
 
-    if (consumeStore && store != null && !store.consume(stateId = stateId, signedState = signedState)) {
+    if (consumeStore &&
+        store != null &&
+        !store.consume(stateId = stateId, signedState = signedState)) {
       throw InvalidOauthStateException("State token is already used, expired, or unknown.")
     }
 

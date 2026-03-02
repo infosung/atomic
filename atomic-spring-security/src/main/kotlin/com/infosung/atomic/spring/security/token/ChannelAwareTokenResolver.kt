@@ -8,13 +8,9 @@ import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
 import org.springframework.util.StringUtils
 
-/**
- * Resolves request token source.
- */
+/** Resolves request token source. */
 fun interface RequestTokenResolver {
-  /**
-   * Resolves access token from request/response context.
-   */
+  /** Resolves access token from request/response context. */
   fun resolve(
       request: HttpServletRequest,
       response: HttpServletResponse,
@@ -23,7 +19,6 @@ fun interface RequestTokenResolver {
 
 /**
  * Channel-aware token resolver.
- *
  * - WEB: access cookie -> refresh-cookie reissue
  * - APP: Authorization header only
  * - UNKNOWN: header -> cookie -> refresh-cookie reissue

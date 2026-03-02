@@ -4,18 +4,12 @@ import com.infosung.atomic.contract.header.ApiHeaderNames
 import jakarta.servlet.http.HttpServletRequest
 import java.util.Enumeration
 
-/**
- * Helper for reading common API headers from [HttpServletRequest].
- */
+/** Helper for reading common API headers from [HttpServletRequest]. */
 object RequestHeaderReader {
-  /**
-   * Returns all header names.
-   */
+  /** Returns all header names. */
   fun getRequestHeaders(request: HttpServletRequest): Enumeration<String> = request.headerNames
 
-  /**
-   * Returns header value for [key].
-   */
+  /** Returns header value for [key]. */
   fun getRequestHeader(request: HttpServletRequest, key: String): String? = request.getHeader(key)
 
   fun getAppVersion(request: HttpServletRequest): String? =

@@ -4,9 +4,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.TimeZone
 
-/**
- * Date arithmetic helpers.
- */
+/** Date arithmetic helpers. */
 object DateUtil {
   /**
    * Adds time amount to [date] using [Calendar.add] semantics.

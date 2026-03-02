@@ -4,19 +4,13 @@ import com.infosung.atomic.spring.security.jwt.JwtProvider
 import org.slf4j.LoggerFactory
 import org.springframework.security.core.context.SecurityContextHolder
 
-/**
- * Performs authentication side-effects (typically populating security context).
- */
+/** Performs authentication side-effects (typically populating security context). */
 fun interface TokenAuthenticationProcessor {
-  /**
-   * Authenticates [token] and updates current security context.
-   */
+  /** Authenticates [token] and updates current security context. */
   fun authenticate(token: String)
 }
 
-/**
- * JWT-backed [TokenAuthenticationProcessor].
- */
+/** JWT-backed [TokenAuthenticationProcessor]. */
 class JwtTokenAuthenticationProcessor(
     private val jwtProvider: JwtProvider,
     private val authenticationFactory: JwtAuthenticationFactory,

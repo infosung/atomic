@@ -17,9 +17,7 @@ data class ValidatedImageInput(
     val detectedFormat: String,
 )
 
-/**
- * Validates image uploads before processing/storage.
- */
+/** Validates image uploads before processing/storage. */
 fun interface ImageInputValidator {
   /**
    * Validates extension and file content.
@@ -27,7 +25,8 @@ fun interface ImageInputValidator {
    * @param file Uploaded local file.
    * @param originalFilename Original filename used for extension checks.
    * @return Validated image information used by upload pipeline.
-   * @throws IllegalArgumentException If extension is unsupported/missing or mismatched with content.
+   * @throws IllegalArgumentException If extension is unsupported/missing or mismatched with
+   *   content.
    */
   fun validate(
       file: File,
@@ -35,9 +34,7 @@ fun interface ImageInputValidator {
   ): ValidatedImageInput
 }
 
-/**
- * [ImageInputValidator] implementation backed by Apache Commons Imaging.
- */
+/** [ImageInputValidator] implementation backed by Apache Commons Imaging. */
 class CommonsImagingImageInputValidator(
     private val allowedExtensions: Set<String> = DEFAULT_ALLOWED_EXTENSIONS,
 ) : ImageInputValidator {

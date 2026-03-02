@@ -14,9 +14,7 @@ import org.springframework.security.web.DefaultSecurityFilterChain
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 import tools.jackson.databind.ObjectMapper
 
-/**
- * Spring Security configurer that installs [SecurityFilter].
- */
+/** Spring Security configurer that installs [SecurityFilter]. */
 class JwtSecurityConfigurerAdapter(
     private val jwtProvider: JwtProvider,
     private val objectMapper: ObjectMapper,
@@ -27,9 +25,7 @@ class JwtSecurityConfigurerAdapter(
 ) : SecurityConfigurerAdapter<DefaultSecurityFilterChain, HttpSecurity>() {
   private val log = LoggerFactory.getLogger(JwtSecurityConfigurerAdapter::class.java)
 
-  /**
-   * Adds JWT security filter before [UsernamePasswordAuthenticationFilter].
-   */
+  /** Adds JWT security filter before [UsernamePasswordAuthenticationFilter]. */
   override fun configure(httpSecurity: HttpSecurity) {
     log.info("Configuring JWT security filter. excludedUrls={}", excludeUrls.size)
     log.trace("Excluded JWT filter paths={}", excludeUrls)

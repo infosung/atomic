@@ -73,9 +73,7 @@ class JwtProvider(
     )
   }
 
-  /**
-   * Creates access/refresh token pair for [id]/[subject].
-   */
+  /** Creates access/refresh token pair for [id]/[subject]. */
   fun createJwtDto(
       id: String,
       subject: String = "APPLE",

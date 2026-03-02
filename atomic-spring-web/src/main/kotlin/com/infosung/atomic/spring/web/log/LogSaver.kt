@@ -1,16 +1,12 @@
 package com.infosung.atomic.spring.web.log
 
-/**
- * Base type for service log payloads.
- */
+/** Base type for service log payloads. */
 abstract class ServiceLog(
     open val traceId: String,
     open val logTime: Long,
 )
 
-/**
- * Request-side API log payload.
- */
+/** Request-side API log payload. */
 data class ServiceApiRequestLog(
     override val traceId: String,
     override val logTime: Long,
@@ -27,11 +23,9 @@ data class ServiceApiRequestLog(
     ServiceLog(
         traceId = traceId,
         logTime = logTime,
-)
+    )
 
-/**
- * Response-side API log payload.
- */
+/** Response-side API log payload. */
 data class ServiceApiResponseLog(
     override val traceId: String,
     override val logTime: Long,
@@ -46,14 +40,10 @@ data class ServiceApiResponseLog(
     ServiceLog(
         traceId = traceId,
         logTime = logTime,
-)
+    )
 
-/**
- * Storage abstraction for persisted service logs.
- */
+/** Storage abstraction for persisted service logs. */
 interface LogSaver {
-  /**
-   * Persists logs in batch.
-   */
+  /** Persists logs in batch. */
   fun saveAll(logs: List<ServiceLog>)
 }

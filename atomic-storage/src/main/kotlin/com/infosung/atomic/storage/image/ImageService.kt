@@ -36,7 +36,8 @@ class ImageService(
    * @param quality Thumbnail quality/scale in range `0.1..1.0`.
    * @return Upload result containing object keys, URLs, and metadata.
    * @throws IllegalArgumentException If file/quality/storageType/profile/input format is invalid.
-   * @throws InterruptedException or interruption-like runtime exceptions for cancellation scenarios.
+   * @throws InterruptedException or interruption-like runtime exceptions for cancellation
+   *   scenarios.
    */
   fun uploadImage(
       file: File,
@@ -151,7 +152,8 @@ class ImageService(
    * @param quality Thumbnail quality/scale in range `0.1..1.0`.
    * @return Upload result containing object keys, URLs, and metadata.
    * @throws IllegalArgumentException If storageType/profile/quality/input format is invalid.
-   * @throws InterruptedException or interruption-like runtime exceptions for cancellation scenarios.
+   * @throws InterruptedException or interruption-like runtime exceptions for cancellation
+   *   scenarios.
    */
   fun uploadImage(
       inputStream: InputStream,

@@ -10,9 +10,7 @@ import jakarta.servlet.http.HttpServletResponse
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
 
-/**
- * Issues new access token from refresh-token cookie and writes updated cookies to response.
- */
+/** Issues new access token from refresh-token cookie and writes updated cookies to response. */
 class RefreshTokenCookieIssuer(
     private val jwtProvider: JwtProvider,
     private val cookiePolicy: SecurityCookiePolicy = SecurityUtil.DEFAULT_COOKIE_POLICY,

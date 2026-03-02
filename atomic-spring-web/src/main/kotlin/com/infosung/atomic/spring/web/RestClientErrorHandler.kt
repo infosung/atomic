@@ -7,24 +7,18 @@ import org.springframework.http.HttpMethod
 import org.springframework.http.client.ClientHttpResponse
 import org.springframework.web.client.ResponseErrorHandler
 
-/**
- * Spring [ResponseErrorHandler] that converts 4xx/5xx responses into [HttpRemoteCallException].
- */
+/** Spring [ResponseErrorHandler] that converts 4xx/5xx responses into [HttpRemoteCallException]. */
 class RestClientErrorHandler : ResponseErrorHandler {
   private val log = LoggerFactory.getLogger(RestClientErrorHandler::class.java)
 
-  /**
-   * Returns true for 4xx/5xx responses.
-   */
+  /** Returns true for 4xx/5xx responses. */
   override fun hasError(response: ClientHttpResponse): Boolean {
     val hasError = response.statusCode.is4xxClientError || response.statusCode.is5xxServerError
     log.trace("Rest client response hasError={}, status={}", hasError, response.statusCode)
     return hasError
   }
 
-  /**
-   * Throws [HttpRemoteCallException] with status/method/url/responseBody.
-   */
+  /** Throws [HttpRemoteCallException] with status/method/url/responseBody. */
   override fun handleError(
       url: URI,
       method: HttpMethod,

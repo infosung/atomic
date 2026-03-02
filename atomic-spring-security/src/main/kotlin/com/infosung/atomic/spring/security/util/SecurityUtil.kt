@@ -8,9 +8,7 @@ import org.springframework.http.ResponseCookie
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.security.core.userdetails.User
 
-/**
- * Cookie policy for JWT HttpOnly cookies.
- */
+/** Cookie policy for JWT HttpOnly cookies. */
 data class SecurityCookiePolicy(
     val sameSite: String = "Strict",
     val secure: Boolean = true,
@@ -18,15 +16,11 @@ data class SecurityCookiePolicy(
     val domain: String? = null,
 )
 
-/**
- * Security utility helpers for user identity and cookie header generation.
- */
+/** Security utility helpers for user identity and cookie header generation. */
 object SecurityUtil {
   val DEFAULT_COOKIE_POLICY = SecurityCookiePolicy()
 
-  /**
-   * Returns authenticated user id, or null when unauthenticated/invalid.
-   */
+  /** Returns authenticated user id, or null when unauthenticated/invalid. */
   fun userIdOrNull(): Long? {
     val user = SecurityContextHolder.getContext().authentication?.principal
     if (user == null || user !is User) {
@@ -35,14 +29,10 @@ object SecurityUtil {
     return user.username.toLongOrNull()
   }
 
-  /**
-   * Returns authenticated user id or throws unauthorized exception.
-   */
+  /** Returns authenticated user id or throws unauthorized exception. */
   fun userId(): Long = userIdOrNull() ?: throw HttpUnauthorizedException()
 
-  /**
-   * Builds `Set-Cookie` headers for access/refresh tokens with HttpOnly attributes.
-   */
+  /** Builds `Set-Cookie` headers for access/refresh tokens with HttpOnly attributes. */
   fun tokenInHttpOnlyCookie(
       jwtDto: JwtDto,
       cookiePolicy: SecurityCookiePolicy = DEFAULT_COOKIE_POLICY,
@@ -74,9 +64,7 @@ object SecurityUtil {
     }
   }
 
-  /**
-   * Builds expired `Set-Cookie` headers to clear access/refresh cookies.
-   */
+  /** Builds expired `Set-Cookie` headers to clear access/refresh cookies. */
   fun removeHttpOnlyCookie(
       cookiePolicy: SecurityCookiePolicy = DEFAULT_COOKIE_POLICY
   ): HttpHeaders {

@@ -22,15 +22,18 @@ developerName = "infosung"
 scmConnection = "scm:git:git://github.com/infosung/atomic.git"
 scmDeveloperConnection = "scm:git:ssh://git@github.com/infosung/atomic.git"
 artifactContract = "atomic.contract"
+artifactApp = "atomic.app"
 artifactStarter = "atomic.starter"
 artifactStorage = "atomic.storage"
 artifactSpringWeb = "atomic.spring.web"
 artifactSpringSecurity = "atomic.spring.security"
+moduleDescriptionApp = "atomic-app"
 moduleDescriptionStarter = "atomic-starter"
 moduleDescriptionContract = "atomic-contract"
 moduleDescriptionStorage = "atomic-storage"
 moduleDescriptionSpringWeb = "atomic-spring-web"
 moduleDescriptionSpringSecurity = "atomic-spring-security"
+pomDescriptionApp = "Atomic common app API bundle module"
 pomDescriptionStarter = "Atomic Spring Boot starter module"
 pomDescriptionContract = "Atomic contract module"
 pomDescriptionStorage = "Atomic storage module"
@@ -42,6 +45,7 @@ commonsImaging = "1.0.0-alpha6"
 scrimage = "4.3.6"
 thumbnailator = "0.4.21"
 awsSdk = "2.31.70"
+testcontainers = "1.20.6"
 
 springboot = "4.0.3"
 
@@ -50,15 +54,19 @@ springboot = "4.0.3"
 spring-boot-starter-restclient = { module = "org.springframework.boot:spring-boot-starter-restclient" }
 spring-boot-autoconfigure = { module = "org.springframework.boot:spring-boot-autoconfigure" }
 spring-boot-configuration-processor = { module = "org.springframework.boot:spring-boot-configuration-processor" }
+spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa" }
 spring-boot-starter-security = { module = "org.springframework.boot:spring-boot-starter-security" }
 spring-security-oauth2-jose = { module = "org.springframework.security:spring-security-oauth2-jose" }
 spring-boot-starter-webmvc = { module = "org.springframework.boot:spring-boot-starter-webmvc" }
 spring-boot-starter-aop = { module = "org.springframework.boot:spring-boot-starter-aop", version.ref = "aop" }
 spring-boot-dependencies-bom = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "springboot" }
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
+spring-boot-data-jpa-test = { module = "org.springframework.boot:spring-boot-data-jpa-test" }
+spring-boot-jdbc-test = { module = "org.springframework.boot:spring-boot-jdbc-test" }
 spring-boot-starter-restclient-test = { module = "org.springframework.boot:spring-boot-starter-restclient-test" }
 spring-boot-starter-security-test = { module = "org.springframework.boot:spring-boot-starter-security-test" }
 spring-boot-starter-webmvc-test = { module = "org.springframework.boot:spring-boot-starter-webmvc-test" }
+spring-boot-testcontainers = { module = "org.springframework.boot:spring-boot-testcontainers" }
 
 # kotlin
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect" }
@@ -78,6 +86,9 @@ scrimage-core = { group = "com.sksamuel.scrimage", name = "scrimage-core", versi
 scrimage-webp = { group = "com.sksamuel.scrimage", name = "scrimage-webp", version.ref = "scrimage" }
 thumbnailator = { group = "net.coobird", name = "thumbnailator", version.ref = "thumbnailator" }
 aws-sdk-s3 = { group = "software.amazon.awssdk", name = "s3", version.ref = "awsSdk" }
+testcontainers-junit-jupiter = { module = "org.testcontainers:junit-jupiter", version.ref = "testcontainers" }
+testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
+postgresql = { module = "org.postgresql:postgresql" }
 
 # oauth
 google-api-client = { group = "com.google.api-client", name = "google-api-client", version = "2.8.1" }

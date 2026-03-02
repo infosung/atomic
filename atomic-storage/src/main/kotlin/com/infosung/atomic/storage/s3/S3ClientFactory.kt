@@ -28,9 +28,7 @@ data class S3ClientSettings(
     val sessionToken: String? = null,
 )
 
-/**
- * Factory for AWS SDK [S3Client] instances used by this module.
- */
+/** Factory for AWS SDK [S3Client] instances used by this module. */
 object S3ClientFactory {
   /**
    * Creates an [S3Client] from [settings].
@@ -41,10 +39,10 @@ object S3ClientFactory {
    * - Partial static credential input is rejected to avoid accidental fallback.
    *
    * @throws IllegalArgumentException
-   *   - if region is blank
-   *   - if only one of `accessKeyId`/`secretAccessKey` is provided
-   *   - if `sessionToken` is provided without static credentials
-   *   - if endpoint is malformed
+   *     - if region is blank
+   *     - if only one of `accessKeyId`/`secretAccessKey` is provided
+   *     - if `sessionToken` is provided without static credentials
+   *     - if endpoint is malformed
    */
   fun create(settings: S3ClientSettings): S3Client {
     require(settings.region.isNotBlank()) { "region must not be blank." }

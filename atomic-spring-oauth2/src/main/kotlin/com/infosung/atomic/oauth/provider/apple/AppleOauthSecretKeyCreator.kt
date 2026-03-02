@@ -17,9 +17,7 @@ import org.bouncycastle.openssl.PEMParser
 import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter
 import org.springframework.core.io.ClassPathResource
 
-/**
- * Creates and caches Apple client-secret JWT for token endpoints.
- */
+/** Creates and caches Apple client-secret JWT for token endpoints. */
 class AppleOauthSecretKeyCreator(
     private val kid: String,
     private val bundleId: String,
@@ -34,9 +32,7 @@ class AppleOauthSecretKeyCreator(
 
   @Volatile private var secretKey: String = ""
 
-  /**
-   * Returns cached client secret token, recreating when expired.
-   */
+  /** Returns cached client secret token, recreating when expired. */
   fun getOauthSecretKey(): String {
     val now = Date()
     if (secretKey.isEmpty() || secretKeyExpiredAt.before(now)) {
@@ -89,9 +85,7 @@ class AppleOauthSecretKeyCreator(
     return converter.getPrivateKey(privateKeyInfo)
   }
 
-  /**
-   * Reads private key PEM from classpath.
-   */
+  /** Reads private key PEM from classpath. */
   fun getPrivateKeyFile(resourcePath: String): String {
     val resource = ClassPathResource(resourcePath)
     return resource.inputStream.bufferedReader().use { it.readText() }

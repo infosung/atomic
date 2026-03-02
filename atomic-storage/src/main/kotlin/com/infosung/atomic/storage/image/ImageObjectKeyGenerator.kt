@@ -6,9 +6,7 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 
-/**
- * Strategy for generating object keys for uploaded images.
- */
+/** Strategy for generating object keys for uploaded images. */
 fun interface ImageObjectKeyGenerator {
   /**
    * Generates a storage object key for an uploaded file.
