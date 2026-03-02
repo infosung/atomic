@@ -60,7 +60,7 @@ dependencies {
 ## 3. Quick Start (First Day)
 
 1. Add `atomic.contract` first.
-2. Add one feature module only (`web`, `security`, or `oauth2`).
+2. Add one feature module only (`storage`, `web`, `security`, or `oauth2`).
 3. Register only minimum required beans from that guide.
 4. Run one smoke endpoint.
 5. Add optional features after baseline works.
@@ -70,7 +70,7 @@ dependencies {
 | Goal | Modules | First Setup |
 |---|---|---|
 | Standard API response + shared contracts | `contract` | Use `BaseResponse`, `HttpStatusException` |
-| Object storage and media processing | `storage` | configure storage client + key/path policy |
+| Object storage and media processing | `storage` | register `Map<String, StorageClient>` + `Map<String, StorageProfile>` with matching `storageType` keys |
 | Exception response standardization | `contract` + `spring.web` | `BaseExceptionHandler` subclass |
 | API request/response audit logs | `contract` + `spring.web` | `JsonTransfer` + `LogSaver` + `ServiceLogger` + `ApiLogAspect` + `ApiLogFilter` |
 | JWT auth for your API | `contract` + `spring.security` | `JwtProvider` + `SecurityFilterChain` |
@@ -94,6 +94,7 @@ dependencies {
 ## 7. Troubleshooting Index
 
 - Response shape mismatch: check `BaseResponse` usage consistency.
+- Storage upload `Unknown storageType`: check storage client/profile map keys and call-site `storageType` value.
 - OAuth callback errors: check state and redirect URI mapping.
 - JWT unauthorized unexpectedly: check channel resolver and token source.
 - API logs missing: check `ServiceLogger.send()` scheduling.

@@ -59,4 +59,5 @@ dependencies {
 - Compatibility with other patch/minor versions is not guaranteed. Validate with your CI matrix.
 - `atomic.spring.oauth2` redirect flow section is browser web-flow guidance; the module itself is not web-only.
 - `atomic.spring.web` and `atomic.spring.security` are feature-based: register only the beans needed by the features you enable.
+- `atomic.storage` requires `Map<String, StorageClient>` and `Map<String, StorageProfile>` with matching `storageType` keys.
 - Logging uses `INFO/DEBUG/TRACE/WARN/ERROR` levels for operational diagnostics.

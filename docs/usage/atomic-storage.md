@@ -16,14 +16,15 @@ Register only the beans you use.
 
 For most services, start with `ImageService`.
 
-- `ImageService.uploadImage(...)`: upload original image + optional thumbnail
+- `ImageService.uploadImage(...)`: upload original image + thumbnail attempt
 - `ImageService.deleteImage(...)`: delete original and thumbnail by key
 
 Low-level `StorageClient.putObject(...)` request models have internal constructors and are intended for module-internal use.
 
 ## Prerequisites
 
-- Java `25`, Kotlin `2.3.10`, Spring Boot `4.0.3` baseline
+- Project tested baseline: Java `25`, Kotlin `2.3.10`, Spring Boot `4.0.3`
+- `atomic.storage` itself is Spring-agnostic (you can use it without Spring Boot)
 - one S3-compatible backend (AWS S3, Cloudflare R2, MinIO, etc.)
 - valid bucket, endpoint/region, and credentials
 
@@ -81,7 +82,48 @@ class StorageConfig {
 Important:
 
 - `storageClients` key and `storageProfiles` key must match (for example both `"S3"`).
+- for each `storageType`, `StorageProfile.bucket` must match the bucket configured in its `StorageClient`.
 - `StorageProfile.cdn` is used to build returned `url` and `thumbnailUrl`.
+
+## Credentials Patterns
+
+`S3ClientFactory.create(...)` supports two credential paths:
+
+1. Default provider chain
+   - use environment/instance profile/task role
+   - leave `accessKeyId` and `secretAccessKey` unset
+2. Static credentials
+   - set `accessKeyId` and `secretAccessKey` together
+   - optional `sessionToken` for temporary credentials
+
+```kotlin
+val defaultCredentialClient =
+    S3ClientFactory.create(
+        S3ClientSettings(
+            region = "ap-northeast-2",
+            endpoint = "https://s3.ap-northeast-2.amazonaws.com",
+        ),
+    )
+
+val staticCredentialClient =
+    S3ClientFactory.create(
+        S3ClientSettings(
+            region = "ap-northeast-2",
+            endpoint = "https://s3.ap-northeast-2.amazonaws.com",
+            accessKeyId = "AKIA...",
+            secretAccessKey = "...",
+            // sessionToken = "...", // optional for temporary credentials
+        ),
+    )
+```
+
+## Input Requirements
+
+- `originFilename` must include an extension.
+- supported extensions by default: `jpg`, `jpeg`, `png`, `webp`, `gif`, `bmp` (case-insensitive).
+- extension and actual file format must match.
+- `quality` must be in range `0.1..1.0`.
+- `quality` is a requested scale. Actual thumbnail scale can be reduced by internal caps (`maxOutputPixels`, `maxOutputEdge`).
 
 ## Upload Example
 
@@ -127,6 +169,7 @@ Runtime rule:
 
 - stream is consumed but not closed by this module.
 - upload size limiting is expected at application layer (for example Spring multipart limits).
+- upload processing uses local temp files under `java.io.tmpdir`.
 
 ## Delete Example
 
@@ -148,16 +191,23 @@ fun deleteExample(
 
 ## Exception and Failure Semantics
 
+The list below is not exhaustive. It summarizes common integration-time failure cases.
+
 - `IllegalArgumentException`
   - unknown `storageType`
+  - unknown `storageType` profile
+  - invalid source file (missing path or not a regular file)
   - invalid `quality` (`0.1..1.0` only)
+  - missing filename extension
   - unsupported file extension
   - extension/content mismatch
   - invalid S3 client settings (blank region, partial credentials, malformed endpoint)
 - interruption-related exceptions
-  - upload operation rethrows interruption-like errors and restores thread interrupt flag
+  - interruption-like errors during thumbnail stage are rethrown and interrupt status is restored
+  - original upload failures are propagated as thrown by the underlying storage client
 - thumbnail step failures
-  - original upload success is kept
+  - original upload success means request succeeds overall
+  - thumbnail generation/upload is always attempted after original upload
   - failure is reported via `thumbnailUploadFailed=true` and `thumbnailFailureReason`
 
 ## Returned Key and URL Behavior
@@ -173,4 +223,7 @@ fun deleteExample(
 
 - This module stores original width/height/size metadata on upload.
 - Thumbnail output format is WebP (`*_thumb.webp`).
-- Apply upload size/time/concurrency policies in your Spring service.
+- Thumbnail generation is always attempted; failure does not roll back original upload.
+- Upload path uses temp files (`source copy`, `raster`, `thumbnail`) in `java.io.tmpdir`.
+- Ensure temp directory is writable and sized for peak concurrent uploads.
+- Apply upload size/time/concurrency policies in your application layer (for example Spring multipart settings).
