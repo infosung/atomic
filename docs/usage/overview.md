@@ -9,6 +9,7 @@
 - Additional supported combinations are validated by CI matrix in `.github/workflows/ci.yml`.
 - Other patch/minor versions are not guaranteed. Validate in your CI before rollout.
 - Use `atomic.starter` to enable conditional auto-configuration.
+- Add `atomic.contract` when your app directly uses `BaseResponse` / `HttpStatusException`.
 - Add only the feature modules you use.
 
 ## What Atomic Solves

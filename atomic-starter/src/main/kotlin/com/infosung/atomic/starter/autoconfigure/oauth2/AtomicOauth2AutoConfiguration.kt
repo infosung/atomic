@@ -48,14 +48,14 @@ class AtomicOauth2AutoConfiguration {
   fun atomicOauthRestClient(builderProvider: ObjectProvider<RestClient.Builder>): RestClient =
       builderProvider.getIfAvailable { RestClient.builder() }.build()
 
-  /** Registers default in-memory one-time state store. */
+  /** Registers in-memory one-time state store only when explicitly enabled. */
   @Bean
   @ConditionalOnMissingBean
   @ConditionalOnProperty(
       prefix = "atomic.oauth2.state.in-memory-store",
       name = ["enabled"],
       havingValue = "true",
-      matchIfMissing = true,
+      matchIfMissing = false,
   )
   fun oauthStateStore(properties: AtomicOauth2Properties): OauthStateStore {
     return InMemoryOauthStateStore(cleanupInterval = properties.state.inMemoryStore.cleanupInterval)

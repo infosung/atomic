@@ -41,8 +41,8 @@ class AtomicOauth2Properties {
   }
 
   class InMemoryStore {
-    /** Enables in-memory one-time state store. */
-    var enabled: Boolean = true
+    /** Enables in-memory one-time state store (default: false). */
+    var enabled: Boolean = false
 
     /** Cleanup interval in operation counts. */
     var cleanupInterval: Int = 100

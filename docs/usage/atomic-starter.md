@@ -5,6 +5,7 @@
 Use `atomic.starter` to reduce boilerplate bean registration.
 
 - auto-configuration activates only when corresponding atomic module is on classpath
+- add `atomic.contract` when app code directly uses `BaseResponse` / `HttpStatusException`
 - you still choose feature modules explicitly (`storage`, `spring.web`, `spring.security`, `spring.oauth2`)
 - heavy dependencies are not forced unless you add that module
 
@@ -69,7 +70,7 @@ Still required from app:
 When `atomic.spring.oauth2` exists and `atomic.oauth2.enabled=true` (default `true`):
 
 - shared `RestClient` bean name: `atomicOauthRestClient`
-- `OauthStateStore` (`InMemoryOauthStateStore` by default)
+- `OauthStateStore` (when explicitly enabled, or when custom store bean is provided)
 - `OauthStateManager` (when `atomic.oauth2.state.signing-secret` is set)
 - `OauthServiceProvider`
 - provider beans from properties:
@@ -100,7 +101,9 @@ State handling notes:
 
 - `exchangeCode` already verifies state internally.
 - if one-time store is enabled, `verifyState(...)` consumes state entry; call `readState(...)` when you only need to inspect claims.
-- default `InMemoryOauthStateStore` is suitable for single-instance/local use; use shared/distributed `OauthStateStore` for multi-instance production.
+- `atomic.oauth2.state.in-memory-store.enabled` default is `false`.
+- reason: in-memory one-time state store is process-local, so multi-instance environments can fail callback validation.
+- enable in-memory store only for local/single-instance setups, or provide a shared/distributed `OauthStateStore` for production.
 
 ## OAuth Provider Property Notes
 
@@ -187,6 +190,8 @@ atomic:
     state:
       enabled: true
       signing-secret: your-state-signing-secret-at-least-32-bytes
+      in-memory-store:
+        enabled: false
     providers:
       google:
         enabled: true
