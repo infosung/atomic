@@ -16,6 +16,7 @@
 Atomic is a module set for Kotlin/Spring services that want consistent:
 
 - API response shape and shared DTO/util contracts
+- storage integration contracts and implementations
 - web exception handling and API logging
 - JWT authentication filter flow
 - social OAuth provider integration
@@ -25,6 +26,7 @@ Use only the modules you need.
 ## 1. Select Modules by Use Case
 
 - `atomic.contract`: shared response/header/exception/util model used by all layers
+- `atomic.storage`: storage module (S3-compatible backends such as S3/R2/MinIO, plus media helpers)
 - `atomic.spring.web`: API error handling, request/response logging, RestTemplate interceptor/error handler
 - `atomic.spring.security`: JWT issue/verify + Spring Security filter integration
 - `atomic.spring.oauth2`: OAuth provider integration (Google/Kakao/Apple), redirect flow and id token/userinfo identity resolution
@@ -36,6 +38,7 @@ Maven coordinates:
 ```kotlin
 dependencies {
   implementation("com.infosung:atomic.contract:0.0.1")
+  implementation("com.infosung:atomic.storage:0.0.1")
   implementation("com.infosung:atomic.spring.oauth2:0.0.1")
   implementation("com.infosung:atomic.spring.web:0.0.1")
   implementation("com.infosung:atomic.spring.security:0.0.1")
@@ -47,6 +50,7 @@ If pre-release artifact resolution is not available in your environment, use mod
 ```kotlin
 dependencies {
   implementation(project(":atomic-contract"))
+  implementation(project(":atomic-storage"))
   implementation(project(":atomic-spring-oauth2"))
   implementation(project(":atomic-spring-web"))
   implementation(project(":atomic-spring-security"))
@@ -66,6 +70,7 @@ dependencies {
 | Goal | Modules | First Setup |
 |---|---|---|
 | Standard API response + shared contracts | `contract` | Use `BaseResponse`, `HttpStatusException` |
+| Object storage and media processing | `storage` | configure storage client + key/path policy |
 | Exception response standardization | `contract` + `spring.web` | `BaseExceptionHandler` subclass |
 | API request/response audit logs | `contract` + `spring.web` | `JsonTransfer` + `LogSaver` + `ServiceLogger` + `ApiLogAspect` + `ApiLogFilter` |
 | JWT auth for your API | `contract` + `spring.security` | `JwtProvider` + `SecurityFilterChain` |
@@ -97,6 +102,7 @@ dependencies {
 ## 8. Recommended Reading Order
 
 1. [atomic.contract Guide](atomic-contract.md)
-2. [atomic.spring.web Guide](atomic-spring-web.md)
-3. [atomic.spring.security Guide](atomic-spring-security.md)
-4. [atomic.spring.oauth2 Guide](atomic-spring-oauth2.md)
+2. [atomic.storage Guide](atomic-storage.md)
+3. [atomic.spring.web Guide](atomic-spring-web.md)
+4. [atomic.spring.security Guide](atomic-spring-security.md)
+5. [atomic.spring.oauth2 Guide](atomic-spring-oauth2.md)
