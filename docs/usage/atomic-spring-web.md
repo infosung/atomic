@@ -6,6 +6,7 @@ Use `atomic.spring.web` when your service needs one or more of these:
 
 - consistent exception-to-response mapping
 - API request/response audit logging
+- request rate-limit filter
 - outbound HTTP failure normalization
 - header/locale parsing helpers
 
@@ -23,7 +24,8 @@ Enable only the feature packs you use.
 1. Enable Exception Handling first.
 2. Add API logging only if you need audit logs.
 3. Add outbound HTTP handlers only if you use `RestTemplate`.
-4. Add helper utilities (`toHeaderDto`, locale resolver) where needed.
+4. Add rate-limit filter if endpoint protection is required.
+5. Add helper utilities (`toHeaderDto`, locale resolver) where needed.
 
 ## Feature Packs
 
@@ -89,12 +91,31 @@ No bean required:
 - `RequestHeaderReader`
 - `SupportedLocaleResolver`
 
+### E) Rate-limit Filter
+
+Purpose:
+
+- protect endpoints by request rate thresholds (per IP/header key)
+
+Required:
+
+- `RateLimitStore`
+- `RateLimitPolicyResolver`
+- `RateLimitKeyResolver`
+- `RateLimitFilter`
+
+Recommended with starter:
+
+- enable `atomic.web.rate-limit.enabled=true` and use starter auto-config
+- default `store=auto` selects Redis when `StringRedisTemplate` exists, else in-memory
+
 ## Feature-to-Bean Matrix
 
 | Feature | Required Beans/Classes | Optional |
 |---|---|---|
 | Exception handling | `BaseExceptionHandler` subclass | alert integration |
 | API logging | `JsonTransfer`, `LogSaver`, `ServiceLogger`, `ApiLogFilter`, `ApiLogAspect` subclass | `TimeProvider`, `TraceIdGenerator` |
+| Rate-limit | `RateLimitStore`, `RateLimitPolicyResolver`, `RateLimitKeyResolver`, `RateLimitFilter` | Redis store or custom store |
 | Outbound HTTP (`RestTemplate`) | `RestClientInterceptor`, `RestClientErrorHandler` | custom rest policies |
 | Header/locale helpers | none | none |
 
@@ -239,6 +260,69 @@ class OutboundHttpConfig {
 }
 ```
 
+## Quick Config: Rate-limit Filter
+
+```yaml
+atomic:
+  web:
+    rate-limit:
+      enabled: true
+      store: auto # auto, in-memory, redis, custom
+      limit: 100
+      window-seconds: 60
+      include-methods: [GET, POST, PUT, PATCH, DELETE]
+      exclude-path-prefixes: [/actuator]
+      path-key-strategy: rule-prefix # rule-prefix, request-uri
+      key-strategy: ip # ip, header
+      ip:
+        trust-forwarded-headers: false
+      key-header-name: X-User-Id
+      missing-key-policy: reject # reject, skip
+      fail-open: true
+      response-body: Too many requests.
+      in-memory:
+        cleanup-interval: 1000
+      redis:
+        key-prefix: atomic:ratelimit:
+      filter:
+        order: -100
+        url-patterns:
+          - /*
+```
+
+Manual bean registration example (without starter):
+
+```kotlin
+import com.infosung.atomic.contract.time.TimeProvider
+import com.infosung.atomic.spring.web.ratelimit.InMemoryRateLimitStore
+import com.infosung.atomic.spring.web.ratelimit.IpRateLimitKeyResolver
+import com.infosung.atomic.spring.web.ratelimit.PathPrefixRateLimitPolicyResolver
+import com.infosung.atomic.spring.web.ratelimit.RateLimitFilter
+import com.infosung.atomic.spring.web.ratelimit.RateLimitPolicy
+import org.springframework.boot.web.servlet.FilterRegistrationBean
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+
+@Configuration
+class RateLimitConfig {
+  @Bean
+  fun rateLimitFilter() =
+      RateLimitFilter(
+          store = InMemoryRateLimitStore(),
+          policyResolver = PathPrefixRateLimitPolicyResolver(defaultPolicy = RateLimitPolicy(100, 60)),
+          keyResolver = IpRateLimitKeyResolver(),
+          timeProvider = TimeProvider(),
+      )
+
+  @Bean
+  fun rateLimitFilterRegistration(filter: RateLimitFilter) =
+      FilterRegistrationBean(filter).apply {
+        order = -100
+        addUrlPatterns("/*")
+      }
+}
+```
+
 ## Optional Helper Usage
 
 ```kotlin
@@ -261,6 +345,14 @@ val resolved =
 - Register only feature packs you actually use.
 - If using API logging, define and test `ServiceLogger.send()` schedule/policy.
 - Verify `FilterRegistrationBean` order does not conflict with other filters.
+- For rate-limit with multi-instance deployment, use Redis/custom shared store instead of in-memory.
+- Any user-defined `RateLimitStore` bean overrides starter-provided store (`@ConditionalOnMissingBean`).
+- Rate-limit rule matching is first-match wins.
+- `X-RateLimit-Reset` and `Retry-After` are based on seconds until current fixed-window boundary.
+- Default `path-key-strategy=rule-prefix` avoids path-variable sharding; use `request-uri` for legacy per-URI buckets.
+- `path-prefix` and `exclude-path-prefixes` match exact prefix boundary (`/api/v1` matches `/api/v1` and `/api/v1/...`, not `/api/v10`).
+- Effective rate-limit key is `actor|method|pathKey`; with default `rule-prefix`, unmatched routes use `pathKey=default` and share one bucket.
+- Default `key-strategy=ip` uses `remoteAddr`; enable `ip.trust-forwarded-headers=true` only behind trusted proxy/ingress that sanitizes forwarding headers.
 - Ensure exception handler is in component scan scope.
 
 ## Troubleshooting
@@ -269,3 +361,6 @@ val resolved =
 - API logs not persisted: `serviceLogger.send()` not invoked.
 - Exception response not standardized: `BaseExceptionHandler` subclass not active.
 - Duplicate logs: filter registered multiple times.
+- Unexpected `429`: verify `atomic.web.rate-limit.include-methods`, key strategy, and rule/path matching.
+- Unexpected global throttling across endpoints: either define explicit `rules` per prefix or switch `path-key-strategy=request-uri`.
+- Unexpected `400` with header key strategy: verify configured key header is always present or set `missing-key-policy=skip`.

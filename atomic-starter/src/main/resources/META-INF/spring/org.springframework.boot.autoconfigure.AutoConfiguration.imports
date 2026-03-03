@@ -1,4 +1,5 @@
 com.infosung.atomic.starter.autoconfigure.contract.AtomicContractAutoConfiguration
+com.infosung.atomic.starter.autoconfigure.idempotency.AtomicIdempotencyAutoConfiguration
 com.infosung.atomic.starter.autoconfigure.storage.AtomicStorageAutoConfiguration
 com.infosung.atomic.starter.autoconfigure.web.AtomicWebAutoConfiguration
 com.infosung.atomic.starter.autoconfigure.security.AtomicSecurityAutoConfiguration

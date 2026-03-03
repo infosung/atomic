@@ -185,7 +185,7 @@ class OauthRedirectController(
 
     // Use a read-only state manager (no store) to read redirect_uri without consume conflict.
     val providerName = OauthProviderName.valueOf(provider.uppercase())
-    val stateJwt = stateReader.verifyState(signedState = state, expectedProvider = providerName)
+    val stateJwt = stateReader.readState(signedState = state, expectedProvider = providerName)
     val clientRedirectUri =
         stateJwt.claims["redirect_uri"] as? String
             ?: throw InvalidOauthRequestException("redirect_uri is missing in state")
@@ -206,7 +206,7 @@ Avoid redirecting raw `id_token` or `access_token` via query parameters.
 ### Pattern A: Simpler (No Store)
 
 - Configure `OauthStateManager` without `OauthStateStore`.
-- `exchangeCode` and `stateReader.verifyState` both validate signature/expiry/provider.
+- `exchangeCode` and `stateReader.readState` both validate signature/expiry/provider.
 - Best when you need quick integration and can tolerate non-single-use state semantics.
 
 ### Pattern B: Single-Use State (Recommended for Production)

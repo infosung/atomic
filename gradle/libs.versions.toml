@@ -6,7 +6,6 @@
 kotlin = "2.3.10"
 jupiter = "6.0.1"
 java = "25"
-aop = "4.0.0-M2"
 ktfmt = "0.54"
 spotlessPlugin = "7.2.1"
 mavenPublishPlugin = "0.34.0"
@@ -27,18 +26,21 @@ artifactStarter = "atomic.starter"
 artifactStorage = "atomic.storage"
 artifactSpringWeb = "atomic.spring.web"
 artifactSpringSecurity = "atomic.spring.security"
+artifactSpringIdempotency = "atomic.spring.idempotency"
 moduleDescriptionApp = "atomic-app"
 moduleDescriptionStarter = "atomic-starter"
 moduleDescriptionContract = "atomic-contract"
 moduleDescriptionStorage = "atomic-storage"
 moduleDescriptionSpringWeb = "atomic-spring-web"
 moduleDescriptionSpringSecurity = "atomic-spring-security"
+moduleDescriptionSpringIdempotency = "atomic-spring-idempotency"
 pomDescriptionApp = "Atomic common app API bundle module"
 pomDescriptionStarter = "Atomic Spring Boot starter module"
 pomDescriptionContract = "Atomic contract module"
 pomDescriptionStorage = "Atomic storage module"
 pomDescriptionSpringWeb = "Atomic Spring Web module"
 pomDescriptionSpringSecurity = "Atomic Spring Security module"
+pomDescriptionSpringIdempotency = "Atomic Spring Idempotency module"
 
 jdk18on = "1.82"
 commonsImaging = "1.0.0-alpha6"
@@ -56,9 +58,10 @@ spring-boot-autoconfigure = { module = "org.springframework.boot:spring-boot-aut
 spring-boot-configuration-processor = { module = "org.springframework.boot:spring-boot-configuration-processor" }
 spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa" }
 spring-boot-starter-security = { module = "org.springframework.boot:spring-boot-starter-security" }
+spring-data-redis = { module = "org.springframework.data:spring-data-redis" }
 spring-security-oauth2-jose = { module = "org.springframework.security:spring-security-oauth2-jose" }
 spring-boot-starter-webmvc = { module = "org.springframework.boot:spring-boot-starter-webmvc" }
-spring-boot-starter-aop = { module = "org.springframework.boot:spring-boot-starter-aop", version.ref = "aop" }
+spring-boot-starter-aspectj = { module = "org.springframework.boot:spring-boot-starter-aspectj" }
 spring-boot-dependencies-bom = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "springboot" }
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
 spring-boot-data-jpa-test = { module = "org.springframework.boot:spring-boot-data-jpa-test" }

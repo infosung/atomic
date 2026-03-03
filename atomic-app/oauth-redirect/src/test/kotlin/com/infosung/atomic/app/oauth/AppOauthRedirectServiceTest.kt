@@ -97,6 +97,46 @@ class AppOauthRedirectServiceTest {
   }
 
   @Test
+  fun `buildAuthorizationRedirectUrl should return 400 when allowed redirect prefix config is invalid`() {
+    val oauthServiceProvider = mock(OauthServiceProvider::class.java)
+    val oauthProvider = mock(OauthProvider::class.java)
+    val stateManager = mock(OauthStateManager::class.java)
+    val relayCodeService =
+        AppOauthRelayCodeService(
+            relayCodeStore = InMemoryOauthRelayCodeStore(),
+            properties = AtomicAppOauthRedirectProperties(),
+        )
+    val properties =
+        AtomicAppOauthRedirectProperties().apply {
+          allowedRedirectUriPrefixes = listOf("https://app.example.com/oauth?bad=1")
+        }
+    val service =
+        AppOauthRedirectService(
+            oauthServiceProvider = oauthServiceProvider,
+            oauthStateManager = stateManager,
+            relayCodeService = relayCodeService,
+            properties = properties,
+        )
+    `when`(oauthServiceProvider.getService("google")).thenReturn(oauthProvider)
+    `when`(oauthProvider.providerName).thenReturn(OauthProviderName.GOOGLE)
+
+    val exception =
+        assertFailsWith<HttpStatusException> {
+          service.buildAuthorizationRedirectUrl(
+              provider = "google",
+              redirectUri = "https://app.example.com/oauth/callback",
+              nonce = null,
+              prompt = null,
+              loginHint = null,
+              responseMode = null,
+              additionalParameters = emptyMap(),
+          )
+        }
+
+    assertEquals(400, exception.status)
+  }
+
+  @Test
   fun `buildAuthorizationRedirectUrl should allow same host and configured path prefix`() {
     val oauthServiceProvider = mock(OauthServiceProvider::class.java)
     val oauthProvider = mock(OauthProvider::class.java)

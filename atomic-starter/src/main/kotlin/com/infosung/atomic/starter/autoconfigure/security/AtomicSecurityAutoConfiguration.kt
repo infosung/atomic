@@ -6,6 +6,8 @@ import com.infosung.atomic.spring.security.channel.DefaultClientChannelResolver
 import com.infosung.atomic.spring.security.config.JwtSecurityConfigurerAdapter
 import com.infosung.atomic.spring.security.jwt.JwtProvider
 import com.infosung.atomic.spring.security.util.SecurityCookiePolicy
+import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
@@ -32,6 +34,8 @@ import tools.jackson.databind.ObjectMapper
 )
 @EnableConfigurationProperties(AtomicSecurityProperties::class)
 class AtomicSecurityAutoConfiguration {
+  private val log = LoggerFactory.getLogger(this::class.java)
+
   /** Registers cookie policy bean for token resolvers/issuers. */
   @Bean
   @ConditionalOnMissingBean
@@ -79,19 +83,37 @@ class AtomicSecurityAutoConfiguration {
     )
   }
 
-  /** Registers [JwtSecurityConfigurerAdapter] for explicit HttpSecurity integration. */
+  /**
+   * Registers [JwtSecurityConfigurerAdapter] for explicit HttpSecurity integration.
+   *
+   * Fail-fast policy:
+   * - When security auto-config is enabled and ObjectMapper is present, this bean requires
+   *   JwtProvider (auto-registered by keys or user-provided custom bean).
+   * - Missing JwtProvider causes startup failure with explicit guidance.
+   */
   @Bean
   @ConditionalOnMissingBean
   @ConditionalOnBean(ObjectMapper::class)
   @ConditionalOnClass(name = ["tools.jackson.databind.ObjectMapper"])
   fun jwtSecurityConfigurerAdapter(
-      jwtProvider: JwtProvider,
+      jwtProviderProvider: ObjectProvider<JwtProvider>,
       objectMapper: ObjectMapper,
       clientChannelResolver: ClientChannelResolver,
       cookiePolicy: SecurityCookiePolicy,
       timeProvider: TimeProvider,
       properties: AtomicSecurityProperties,
   ): JwtSecurityConfigurerAdapter {
+    val jwtProvider =
+        jwtProviderProvider.getIfAvailable()
+            ?: throw IllegalStateException(
+                    "atomic.security.enabled=true requires JwtProvider for JwtSecurityConfigurerAdapter. " +
+                        "Set atomic.security.jwt.access-key/refresh-key or register a custom JwtProvider bean.",
+                )
+                .also {
+                  log.error(
+                      "Security auto-configuration fail-fast: JwtProvider is missing while JwtSecurityConfigurerAdapter is required.",
+                  )
+                }
     return JwtSecurityConfigurerAdapter(
         jwtProvider = jwtProvider,
         objectMapper = objectMapper,

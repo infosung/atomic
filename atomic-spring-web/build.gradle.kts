@@ -20,7 +20,7 @@ dependencies {
   api(projects.atomicContract)
 
   api(libs.spring.boot.starter.webmvc)
-  api(libs.spring.boot.starter.aop)
+  api(libs.spring.boot.starter.aspectj)
   implementation(libs.kotlin.reflect)
   implementation(libs.jackson.module.kotlin)
 

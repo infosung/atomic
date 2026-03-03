@@ -10,6 +10,7 @@ Atomic is a Kotlin/Spring library suite for backend services.
 - Java `25`
 - Kotlin `2.3.10`
 - Spring Boot `4.0.3`
+- `atomic.spring.web` AOP dependency uses `org.springframework.boot:spring-boot-starter-aspectj` (BOM-managed).
 
 ## Starter-First Policy
 
@@ -22,7 +23,7 @@ You must add:
 
 1. `atomic-starter`
 2. `atomic.contract` (required when your app directly uses `BaseResponse` / `HttpStatusException`)
-3. only the feature modules you want (`storage`, `spring.web`, `spring.security`, `spring.oauth2`, `app`)
+3. only the feature modules you want (`storage`, `spring.web`, `spring.idempotency`, `spring.security`, `spring.oauth2`, `app`)
 
 If a feature module is not on classpath, its auto-configuration is skipped.
 
@@ -36,21 +37,24 @@ Relationship summary:
 
 ## Dependency Setup
 
-### Artifact dependencies (Gradle Kotlin DSL)
+### Current public publish workflow scope
 
 ```kotlin
 dependencies {
-  implementation("com.infosung:atomic.starter:0.0.1")
   implementation("com.infosung:atomic.contract:0.0.1")
-
-  // add only modules you use
-  implementation("com.infosung:atomic.app:0.0.1")
-  implementation("com.infosung:atomic.storage:0.0.1")
   implementation("com.infosung:atomic.spring.web:0.0.1")
   implementation("com.infosung:atomic.spring.security:0.0.1")
-  implementation("com.infosung:atomic.spring.oauth2:0.0.1")
 }
 ```
+
+Current `.github/workflows/publish-maven-central.yml` publishes only:
+
+- `atomic-contract`
+- `atomic-spring-web`
+- `atomic-spring-security`
+
+`atomic.starter` is also outside current public publish workflow scope.
+For modules outside that workflow scope (`starter`, `storage`, `app`, `spring-idempotency`, `spring-oauth2`), use local multi-module dependencies or your internal publish pipeline.
 
 ### Multi-module local setup
 
@@ -63,6 +67,7 @@ dependencies {
   implementation(project(":atomic-app"))
   implementation(project(":atomic-storage"))
   implementation(project(":atomic-spring-web"))
+  implementation(project(":atomic-spring-idempotency"))
   implementation(project(":atomic-spring-security"))
   implementation(project(":atomic-spring-oauth2"))
 }
@@ -77,7 +82,8 @@ dependencies {
 | Common version check API (`GET /api/v1/version/check`) | `atomic.app` (+ datasource/JPA) | `atomic.app.version.enabled=true` | `service_version` table schema and version policy data |
 | Common image upload/delete API (`POST/DELETE /api/v1/storage/image/{service}/{storageService}`) | `atomic.app` + `atomic.starter` + storage backend config | `atomic.app.image.enabled=true`, `atomic.storage.enabled=true` (+ optional uploader tracking config) | `image` table schema |
 | Common OAuth redirect/callback relay API (`/oauth/redirect`, `/oauth/callback`) | `atomic.app` + `atomic.starter` + `atomic.spring.oauth2` | `atomic.app.oauth.redirect.enabled=true`, oauth state/provider properties | login API that consumes relayCode |
-| Web logging/json helpers | `atomic.starter` + `atomic.spring.web` | `atomic.web.enabled=true` (default), `atomic.web.logging.enabled=true` (default) | `LogSaver` implementation + `ApiLogAspect` subclass (for API logging), `BaseExceptionHandler` subclass (for exception mapping) |
+| Web logging/json/rate-limit helpers | `atomic.starter` + `atomic.spring.web` | `atomic.web.enabled=true` (default), `atomic.web.logging.enabled=true` (default), `atomic.web.rate-limit.enabled=false` (default) | for logging/exception mapping: `LogSaver` + `ApiLogAspect` + `BaseExceptionHandler`; for rate-limit only: no mandatory app bean |
+| HTTP idempotency filter | `atomic.starter` + `atomic.spring.idempotency` | `atomic.idempotency.enabled=true` | optional custom `IdempotencyStore`, optional custom `IdempotencyFingerprintResolver` |
 | Security JWT helpers | `atomic.starter` + `atomic.spring.security` | `atomic.security.enabled=true` (default), `atomic.security.jwt.enabled=true` (default), JWT keys | your `SecurityFilterChain` that applies `JwtSecurityConfigurerAdapter` |
 | OAuth provider beans/service | `atomic.starter` + `atomic.spring.oauth2` | `atomic.oauth2.enabled=true` (default), `atomic.oauth2.state.enabled=true` (default), `atomic.oauth2.state.signing-secret`, `atomic.oauth2.state.in-memory-store.enabled=false` (default), per-provider `enabled=true` | callback/redirect controller endpoints |
 
@@ -144,6 +150,48 @@ atomic:
         order: 1
         url-patterns:
           - /*
+    rate-limit:
+      enabled: false
+      store: auto # auto, in-memory, redis, custom
+      limit: 100
+      window-seconds: 60
+      include-methods: [GET, POST, PUT, PATCH, DELETE]
+      exclude-path-prefixes: [/actuator]
+      path-key-strategy: rule-prefix # rule-prefix, request-uri
+      key-strategy: ip # ip, header
+      ip:
+        trust-forwarded-headers: false
+      key-header-name: X-User-Id
+      missing-key-policy: reject # reject, skip
+      fail-open: true
+      response-body: Too many requests.
+      in-memory:
+        cleanup-interval: 1000
+      redis:
+        key-prefix: atomic:ratelimit:
+      filter:
+        order: -100
+        url-patterns:
+          - /*
+
+  idempotency:
+    enabled: false
+    header-name: Idempotency-Key
+    ttl-seconds: 300
+    processing-ttl-seconds: 3600
+    require-header: true
+    include-methods: [POST]
+    fail-open: true
+    replay-header-name: X-Idempotent-Replay
+    replay-body-omitted-header-name: X-Idempotent-Replay-Body-Omitted
+    max-cached-body-bytes: 262144
+    in-memory:
+      cleanup-interval: 1000
+    filter:
+      enabled: true
+      order: -50
+      url-patterns:
+        - /*
 
   security:
     enabled: true
@@ -159,7 +207,7 @@ atomic:
     enabled: true
     state:
       enabled: true
-      signing-secret: ${ATOMIC_OAUTH2_STATE_SIGNING_SECRET}
+      signing-secret: ${ATOMIC_OAUTH2_STATE_SIGNING_SECRET} # must be >= 32 bytes
       issuer: ${ATOMIC_OAUTH2_STATE_ISSUER:atomic-oauth-state}
       ttl-seconds: ${ATOMIC_OAUTH2_STATE_TTL_SECONDS:300}
       in-memory-store:
@@ -193,7 +241,7 @@ At minimum by feature:
 - Security
   - `ATOMIC_SECURITY_JWT_ACCESS_KEY`, `ATOMIC_SECURITY_JWT_REFRESH_KEY`
 - OAuth2
-  - `ATOMIC_OAUTH2_STATE_SIGNING_SECRET`
+  - `ATOMIC_OAUTH2_STATE_SIGNING_SECRET` (must be at least 32 bytes, otherwise startup fails)
   - provider specific values (for enabled providers only)
 
 ## Component Registration You Still Need
@@ -204,17 +252,42 @@ Implement/register:
 
 - `LogSaver` and `ApiLogAspect` subclass when API logging is enabled
 - `BaseExceptionHandler` subclass when exception-response mapping is needed
+- for explicit custom mode, set `atomic.web.rate-limit.store=custom` and register `RateLimitStore`.
+- any user-defined `RateLimitStore` bean overrides starter default store via `@ConditionalOnMissingBean` (regardless of `store` mode).
+- rate-limit rule matching is first-match wins, and `X-RateLimit-Reset`/`Retry-After` are seconds until current fixed-window boundary.
+- for `key-strategy=header`, missing header key is rejected by default (`missing-key-policy=reject`).
+- `atomic.web.rate-limit.redis.key-prefix` must be non-blank when store mode is `redis` or `auto`.
+- with `key-strategy=ip`, default actor key is `remoteAddr`. set `ip.trust-forwarded-headers=true` only behind trusted proxy/ingress that sanitizes forwarding headers.
+- effective rate-limit key format is `actor|method|pathKey`. with default `path-key-strategy=rule-prefix`, unmatched routes share `pathKey=default`.
 
 ### 2) Security module
 
 Register `SecurityFilterChain` and apply auto-configured `JwtSecurityConfigurerAdapter`.
+- fail-fast policy: when `atomic.security.enabled=true`, `JwtSecurityConfigurerAdapter` requires
+  `JwtProvider` (auto by keys or custom bean). missing provider fails startup.
+  - if `atomic.security.jwt.enabled=false`, register custom `JwtProvider` or disable security auto-config.
 
-### 3) OAuth2 module
+### 3) Idempotency module
+
+`atomic.spring.idempotency` provides filter/core types.
+
+- default store is in-memory (process-local).
+- production multi-instance services should register custom `IdempotencyStore` (shared backend).
+- optional custom `IdempotencyFingerprintResolver` can add request-body-aware fingerprinting.
+- `Idempotency-Key` should be namespaced by actor/tenant (`userId:key`) to avoid cross-client collisions.
+- `max-cached-body-bytes` is a hard capture limit for replay cache body.
+- replay excludes non-replayable headers (`Set-Cookie`, hop-by-hop/dynamic headers like `Connection`, `Transfer-Encoding`, `Date`, `Server`).
+- `processing-ttl-seconds` is used for in-flight lock duration, while `ttl-seconds` is used for completed replay entry TTL.
+- non-5xx responses (including 4xx) are cached/replayed for the same key; 5xx/exception path removes active key.
+- default filter order runs rate-limit (`-100`) before idempotency (`-50`) so duplicate requests are still throttled.
+- replay responses always include `X-Idempotent-Replay=true`; when cached body is omitted by size limit, `X-Idempotent-Replay-Body-Omitted=true` is also set.
+
+### 4) OAuth2 module
 
 If you do **not** use `atomic.app.oauth.redirect`, implement callback endpoints (for example `/oauth/redirect/{provider}`, `/oauth/callback/{provider}`) and integrate with `OauthServiceProvider`.
 If you use `atomic.app.oauth.redirect.enabled=true`, `AppOauthRedirectController` provides common redirect/callback endpoints.
 
-### 4) App module (`atomic.app`)
+### 5) App module (`atomic.app`)
 
 `atomic.app` provides ready-to-use APIs:
 
@@ -226,8 +299,10 @@ Prerequisites:
 
 - Version API needs JPA datasource and `service_version` table.
 - Image API needs JPA datasource + `image` table + storage beans (`ImageService`, `storageClients`).
+- if `atomic.app.image.enabled=true` and image/storage beans are missing, app startup can fail (not just API skipped).
 - OAuth redirect API needs `OauthServiceProvider` and `OauthStateManager` beans.
 - OAuth relay store default is `entity`, so default setup also needs `DataSource`, `PlatformTransactionManager`, and `ObjectMapper`.
+- with default `store.type=entity` + `store.fail-fast=true`, missing dependencies fail startup.
 - when `store.type=in-memory` or `store.type=cache`, entity(db) dependency validation is skipped.
 - if your service uses only in-memory/cache relay and has no datasource, disable JDBC auto-config or provide datasource config.
   - example: `spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration`
@@ -251,6 +326,8 @@ OAuth relay option (without token in callback query):
 - configure `allowed-redirect-uri-prefixes` for production.
   - matching uses scheme/host/port/path-prefix boundary (not raw string startsWith).
   - each entry must be an absolute URI without query/fragment.
+  - invalid entry format is detected at redirect/callback request time.
+  - current behavior: invalid entry format is returned as `400`.
   - example: `https://app.example.com/oauth` allows `https://app.example.com/oauth/callback` but rejects `https://app.example.com.evil.com/...`.
 - if `allowed-redirect-uri-prefixes` is empty, any absolute `redirectUri` is accepted.
 - relay store type default is `entity` (`atomic.app.oauth.redirect.store.type=entity`).
@@ -331,6 +408,7 @@ This README now consolidates those points into one starter-first onboarding path
 - [atomic.app Guide](docs/usage/atomic-app.md)
 - [atomic.storage Guide](docs/usage/atomic-storage.md)
 - [atomic.spring.web Guide](docs/usage/atomic-spring-web.md)
+- [atomic.spring.idempotency Guide](docs/usage/atomic-spring-idempotency.md)
 - [atomic.spring.security Guide](docs/usage/atomic-spring-security.md)
 - [atomic.spring.oauth2 Guide](docs/usage/atomic-spring-oauth2.md)
 

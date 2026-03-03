@@ -18,7 +18,12 @@ class AtomicSecurityProperties {
   var cookie: Cookie = Cookie()
 
   class Jwt {
-    /** Enables JwtProvider auto-registration. */
+    /**
+     * Enables JwtProvider auto-registration.
+     *
+     * Note: JwtSecurityConfigurerAdapter still requires JwtProvider (auto or custom) when
+     * `atomic.security.enabled=true`.
+     */
     var enabled: Boolean = true
 
     /** Access token signing key. */

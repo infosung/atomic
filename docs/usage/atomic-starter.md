@@ -7,20 +7,44 @@ Use `atomic.starter` to reduce boilerplate bean registration.
 - auto-configuration activates only when corresponding atomic module is on classpath
 - `atomic.app` is not bundled in starter (must be added separately)
 - add `atomic.contract` when app code directly uses `BaseResponse` / `HttpStatusException`
-- you still choose feature modules explicitly (`app`, `storage`, `spring.web`, `spring.security`, `spring.oauth2`)
+- you still choose feature modules explicitly (`app`, `storage`, `spring.web`, `spring.idempotency`, `spring.security`, `spring.oauth2`)
 - heavy dependencies are not forced unless you add that module
 
 ## Dependency Pattern
 
+Current public publish workflow scope (Maven Central):
+
 ```kotlin
 dependencies {
-  implementation("com.infosung:atomic.starter:0.0.1")
   implementation("com.infosung:atomic.contract:0.0.1")
+  implementation("com.infosung:atomic.spring.web:0.0.1")
+  implementation("com.infosung:atomic.spring.security:0.0.1")
+}
+```
+
+Current `.github/workflows/publish-maven-central.yml` publishes only:
+
+- `atomic-contract`
+- `atomic-spring-web`
+- `atomic-spring-security`
+
+`atomic.starter` is also outside current public publish workflow scope.
+For starter-based full usage (`atomic.starter` + optional feature modules), use local multi-module dependencies or your internal publish pipeline.
+
+Local multi-module:
+
+```kotlin
+dependencies {
+  implementation(project(":atomic-starter"))
+  implementation(project(":atomic-contract"))
 
   // add only modules you use
-  implementation("com.infosung:atomic.app:0.0.1")
-  implementation("com.infosung:atomic.storage:0.0.1")
-  implementation("com.infosung:atomic.spring.web:0.0.1")
+  implementation(project(":atomic-app"))
+  implementation(project(":atomic-storage"))
+  implementation(project(":atomic-spring-web"))
+  implementation(project(":atomic-spring-idempotency"))
+  implementation(project(":atomic-spring-security"))
+  implementation(project(":atomic-spring-oauth2"))
 }
 ```
 
@@ -53,12 +77,33 @@ When `atomic.spring.web` exists and `atomic.web.enabled=true` (default `true`):
 - `JsonTransfer`
 - `ServiceLogger` (only if `LogSaver` bean exists)
 - `ApiLogFilter` + filter registration (only if `ServiceLogger` exists)
+- `RateLimitStore` + `RateLimitPolicyResolver` + `RateLimitKeyResolver` + `RateLimitFilter` (when `atomic.web.rate-limit.enabled=true`)
 
 Still required from app:
 
-- `LogSaver` implementation
-- `ApiLogAspect` implementation
-- `BaseExceptionHandler` subclass
+- for logging/exception mapping features: `LogSaver`, `ApiLogAspect`, `BaseExceptionHandler`
+- for rate-limit only: no mandatory app bean
+- for explicit custom mode, set `atomic.web.rate-limit.store=custom` and register `RateLimitStore`
+
+Rate-limit store selection:
+
+- `auto` (default): use Redis store when `StringRedisTemplate` bean exists, else in-memory.
+- `in-memory`: always process-local in-memory store.
+- `redis`: requires `StringRedisTemplate` bean.
+- `custom`: requires user-defined `RateLimitStore` bean.
+
+### spring.idempotency
+
+When `atomic.spring.idempotency` exists and `atomic.idempotency.enabled=true`:
+
+- `IdempotencyStore` (default in-memory when missing)
+- `IdempotencyFingerprintResolver` (default request-metadata based when missing)
+- `IdempotencyFilter` + filter registration
+
+Still required from app (production recommended):
+
+- custom shared `IdempotencyStore` for multi-instance deployment
+- optional custom `IdempotencyFingerprintResolver` when key reuse must include body-aware matching
 
 ### spring.security
 
@@ -72,6 +117,10 @@ When `atomic.spring.security` exists and `atomic.security.enabled=true` (default
 Still required from app:
 
 - your `SecurityFilterChain` configuration that applies `JwtSecurityConfigurerAdapter`
+- `atomic.security.jwt.access-key` and `atomic.security.jwt.refresh-key` when JWT helper auto-config is enabled
+- current behavior: `JwtSecurityConfigurerAdapter` requires `JwtProvider` (auto or custom).
+  - if `atomic.security.enabled=true` and provider is missing, startup fails (fail-fast).
+  - if `atomic.security.jwt.enabled=false`, register custom `JwtProvider` or disable security auto-config.
 
 ### spring.oauth2
 
@@ -185,6 +234,48 @@ atomic:
     logging:
       enabled: true
       queue-size: 10000
+    rate-limit:
+      enabled: true
+      store: auto
+      limit: 100
+      window-seconds: 60
+      include-methods: [GET, POST, PUT, PATCH, DELETE]
+      exclude-path-prefixes: [/actuator]
+      path-key-strategy: rule-prefix
+      key-strategy: ip
+      ip:
+        trust-forwarded-headers: false
+      key-header-name: X-User-Id
+      missing-key-policy: reject
+      fail-open: true
+      response-body: Too many requests.
+      in-memory:
+        cleanup-interval: 1000
+      redis:
+        key-prefix: atomic:ratelimit:
+      filter:
+        order: -100
+        url-patterns:
+          - /*
+
+  idempotency:
+    enabled: true
+    header-name: Idempotency-Key
+    ttl-seconds: 300
+    processing-ttl-seconds: 3600
+    require-header: true
+    include-methods: [POST]
+    fail-open: true
+    replay-header-name: X-Idempotent-Replay
+    replay-body-omitted-header-name: X-Idempotent-Replay-Body-Omitted
+    max-cached-body-bytes: 262144
+    in-memory:
+      cleanup-interval: 1000
+    filter:
+      enabled: true
+      order: -50
+      url-patterns:
+        - /*
 
   security:
     jwt:
@@ -197,7 +288,7 @@ atomic:
   oauth2:
     state:
       enabled: true
-      signing-secret: your-state-signing-secret-at-least-32-bytes
+      signing-secret: your-state-signing-secret-at-least-32-bytes # must be >= 32 bytes
       in-memory-store:
         enabled: false
     providers:
@@ -209,15 +300,15 @@ atomic:
           web:
             client-id: your-google-web-client-id
             client-secret: your-google-web-client-secret
-            server-redirect-uri: https://api.example.com/oauth/google/callback
+            server-redirect-uri: https://api.example.com/oauth/callback/google
           android:
             client-id: your-google-android-client-id
             client-secret: your-google-android-client-secret
-            server-redirect-uri: https://api.example.com/oauth/google/callback
+            server-redirect-uri: https://api.example.com/oauth/callback/google
           ios:
             client-id: your-google-ios-client-id
             client-secret: your-google-ios-client-secret
-            server-redirect-uri: https://api.example.com/oauth/google/callback
+            server-redirect-uri: https://api.example.com/oauth/callback/google
       kakao:
         enabled: true
         default-client-key: web
@@ -225,20 +316,20 @@ atomic:
           web:
             client-id: your-kakao-web-client-id
             client-secret: your-kakao-web-client-secret
-            server-redirect-uri: https://api.example.com/oauth/kakao/callback
+            server-redirect-uri: https://api.example.com/oauth/callback/kakao
           app:
             client-id: your-kakao-app-client-id
-            server-redirect-uri: https://api.example.com/oauth/kakao/callback
+            server-redirect-uri: https://api.example.com/oauth/callback/kakao
       apple:
         enabled: true
         default-client-key: web
         clients:
           web:
             client-id: your-apple-web-client-id
-            server-redirect-uri: https://api.example.com/oauth/apple/callback
+            server-redirect-uri: https://api.example.com/oauth/callback/apple
           ios:
             client-id: your-apple-ios-client-id
-            server-redirect-uri: https://api.example.com/oauth/apple/callback
+            server-redirect-uri: https://api.example.com/oauth/callback/apple
 ```
 
 ## OAuth Routing Usage
@@ -272,6 +363,22 @@ provider.refreshToken(
 - If you want full custom behavior, define your own beans; starter beans back off with `@ConditionalOnMissingBean`.
 - Configure only modules you actually add to dependencies.
 - `atomic.app` APIs are provided by `atomic.app` auto-configuration (not by starter directly).
+- Rate-limit rules are evaluated in declaration order (first match wins).
+- `atomic.web.rate-limit.path-key-strategy` defaults to `rule-prefix` to avoid path-variable key sharding; use `request-uri` for legacy behavior.
+- `path-prefix`/`exclude-path-prefixes` use exact prefix boundary matching (`/api/v1` does not match `/api/v10`).
+- Effective rate-limit key is `actor|method|pathKey`; with default `rule-prefix`, unmatched routes use `pathKey=default` and share one bucket.
+- `atomic.web.rate-limit.key-strategy=header` rejects missing header keys by default (`missing-key-policy=reject`).
+- `atomic.web.rate-limit.key-strategy=ip` uses `remoteAddr` by default. set `atomic.web.rate-limit.ip.trust-forwarded-headers=true` only behind trusted proxy/ingress that rewrites forwarding headers.
+- `atomic.web.rate-limit.redis.key-prefix` must be non-blank when store is `redis` or `auto`.
+- `X-RateLimit-Reset` and `Retry-After` are seconds until current fixed-window boundary.
+- Any user-defined `RateLimitStore` bean overrides starter-provided store (`@ConditionalOnMissingBean`), even when `store` is not `custom`.
+- `atomic.spring.idempotency` default store is process-local in-memory; for multi-instance services register shared `IdempotencyStore`.
+- Replayed idempotent responses set `X-Idempotent-Replay=true`; when cached body is omitted by size limit, `X-Idempotent-Replay-Body-Omitted=true` is added.
+- `atomic.idempotency.max-cached-body-bytes` is a hard replay-body capture limit; replay omits non-replayable headers (`Set-Cookie`, hop-by-hop, dynamic server headers).
+- `atomic.idempotency.processing-ttl-seconds` controls in-flight lock TTL; `atomic.idempotency.ttl-seconds` controls completed replay entry TTL.
+- `Idempotency-Key` should be namespaced per actor/tenant to avoid cross-client collisions on shared endpoints.
+- non-5xx idempotent responses (including 4xx) are cached and replayed for the same key; 5xx/exception path removes active key.
+- Recommended default chain order is rate-limit first (`-100`) then idempotency (`-50`).
 - OAuth provider auto-configuration requires `atomic.oauth2.state.enabled=true` and `atomic.oauth2.state.signing-secret`, because providers depend on `OauthStateManager`.
 - Required minimum provider properties:
   - Google: (`client-id`,`client-secret`,`server-redirect-uri`) or `clients.{key}.*`

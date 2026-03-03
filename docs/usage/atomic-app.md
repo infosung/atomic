@@ -24,15 +24,13 @@ Internally, `atomic.app` is a bundle of:
 - `atomic.app` does not require `atomic.starter` for version API.
 - `atomic.app` image API requires storage beans, so starter-based setups usually add both.
 
-Recommended (starter-based):
+Current public publish workflow scope (Maven Central):
 
-```kotlin
-dependencies {
-  implementation("com.infosung:atomic.starter:0.0.1")
-  implementation("com.infosung:atomic.contract:0.0.1")
-  implementation("com.infosung:atomic.app:0.0.1")
-}
-```
+- `atomic-contract`
+- `atomic-spring-web`
+- `atomic-spring-security`
+
+`atomic.app` is outside current public publish workflow scope, so app API adoption usually uses local multi-module dependencies (below) or your internal artifact repository.
 
 Local multi-module:
 
@@ -48,8 +46,10 @@ Note:
 
 - `atomic.app.version` can work with JPA/datasource only.
 - `atomic.app.image` requires storage beans (`ImageService`, `storageClients`) and JPA.
+- if `atomic.app.image.enabled=true` and required image/storage beans are missing, startup can fail (not only API skipped).
 - `atomic.app.oauth.redirect` requires `OauthServiceProvider` + `OauthStateManager` beans (typically from `atomic.starter` + `atomic.spring.oauth2`).
 - OAuth relay store default is `entity`, so default setup also needs `DataSource` + `PlatformTransactionManager` + `ObjectMapper`.
+- with default `store.type=entity` + `store.fail-fast=true`, missing dependencies fail startup.
 - when `store.type=in-memory` or `store.type=cache`, entity(db) dependency validation is skipped.
 - if you use only in-memory/cache relay and do not provide datasource, disable JDBC auto-config or provide datasource config.
   - example: `spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration`
@@ -224,6 +224,7 @@ OAuth redirect exception semantics:
 - `400` relayCode is invalid/expired/already consumed (on consume API call)
 - OAuth callback/state errors from oauth module are mapped to `HttpStatusException(400)` in app oauth redirect service.
 - Status mapping above assumes your app maps `HttpStatusException` to HTTP response status (for example via `BaseExceptionHandler`).
+- invalid redirect-prefix configuration errors (`allowed-redirect-uri-prefixes`) are mapped to `400` in current behavior.
 
 Security notes:
 
@@ -232,6 +233,8 @@ Security notes:
 - Always configure `allowed-redirect-uri-prefixes` in production to prevent open redirect.
   - match uses scheme/host/port/path-prefix boundary (not raw string startsWith).
   - each entry must be an absolute URI without query/fragment.
+  - invalid entry format is detected at redirect/callback request time.
+  - current behavior: invalid entry format is returned as `400`.
   - `https://app.example.com/oauth` allows `https://app.example.com/oauth/callback` but rejects `https://app.example.com.evil.com/...`.
   - if this list is empty, any absolute `redirectUri` is accepted.
 
@@ -253,6 +256,65 @@ Relay store notes:
 - for cache backends, configure backend TTL/eviction policy to avoid stale expired keys accumulating.
 - for entity store, run periodic cleanup (for example `DELETE FROM atomic_oauth_relay_code WHERE expires_at <= NOW()`) to remove unconsumed expired rows.
 - `in-memory.cleanup-interval <= 0` disables periodic expired-entry cleanup.
+
+## DDL Examples (PostgreSQL)
+
+Use these as a starting point for production migrations. Adjust naming/index policy to your standard.
+
+```sql
+CREATE TABLE IF NOT EXISTS service_version (
+  id BIGSERIAL PRIMARY KEY,
+  main_version INTEGER NOT NULL,
+  minor_version INTEGER NOT NULL,
+  patch_number INTEGER NOT NULL,
+  require_update BOOLEAN NOT NULL DEFAULT FALSE,
+  platform VARCHAR(32) NOT NULL,
+  service VARCHAR(64) NOT NULL,
+  store_url TEXT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_service_version_service_platform_version
+  ON service_version (service, platform, main_version DESC, minor_version DESC, patch_number DESC);
+```
+
+```sql
+CREATE TABLE IF NOT EXISTS image (
+  id VARCHAR(64) PRIMARY KEY,
+  bucket VARCHAR(255) NOT NULL,
+  service_name VARCHAR(64) NOT NULL,
+  storage_service VARCHAR(64) NOT NULL,
+  status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
+  uploader_id VARCHAR(128) NULL,
+  storage_type VARCHAR(128) NOT NULL,
+  file_name TEXT NULL,
+  thumbnail_file_name TEXT NULL,
+  url TEXT NOT NULL,
+  thumbnail_url TEXT NULL,
+  width INTEGER NULL,
+  height INTEGER NULL,
+  file_size BIGINT NOT NULL,
+  thumbnail_width INTEGER NULL,
+  thumbnail_height INTEGER NULL,
+  thumbnail_file_size BIGINT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_image_service_storage
+  ON image (service_name, storage_service);
+```
+
+```sql
+CREATE TABLE IF NOT EXISTS atomic_oauth_relay_code (
+  relay_code VARCHAR(255) PRIMARY KEY,
+  payload_json TEXT NOT NULL,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_atomic_oauth_relay_code_expires_at
+  ON atomic_oauth_relay_code (expires_at);
+```
 
 ## Operational Checklist
 

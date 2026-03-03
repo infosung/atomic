@@ -7,6 +7,8 @@ import com.infosung.atomic.app.storage.ImageEntity
 import com.infosung.atomic.app.storage.ImageRepository
 import com.infosung.atomic.storage.StorageClient
 import com.infosung.atomic.storage.image.ImageService
+import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
@@ -40,6 +42,8 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories
 @EntityScan(basePackageClasses = [ImageEntity::class])
 @EnableJpaRepositories(basePackageClasses = [ImageRepository::class])
 class AtomicAppImageAutoConfiguration {
+  private val log = LoggerFactory.getLogger(this::class.java)
+
   @Bean
   @ConditionalOnMissingBean
   fun appImageEntityTxService(
@@ -65,12 +69,31 @@ class AtomicAppImageAutoConfiguration {
     )
   }
 
+  /**
+   * Registers image API controller.
+   *
+   * Fail-fast policy:
+   * - When `atomic.app.image.enabled=true`, controller requires AppImageApiService.
+   * - Missing AppImageApiService (for example storage/image prerequisites are absent) fails startup
+   *   with explicit guidance.
+   */
   @Bean
   @ConditionalOnMissingBean
   fun appStorageController(
-      appImageApiService: AppImageApiService,
+      appImageApiServiceProvider: ObjectProvider<AppImageApiService>,
       properties: AtomicAppImageProperties,
   ): AppStorageController {
+    val appImageApiService =
+        appImageApiServiceProvider.getIfAvailable()
+            ?: throw IllegalStateException(
+                    "atomic.app.image.enabled=true requires AppImageApiService. " +
+                        "Ensure ImageService and storageClients are configured (for starter usage: atomic.storage.enabled=true).",
+                )
+                .also {
+                  log.error(
+                      "Image API auto-configuration fail-fast: AppImageApiService is missing while atomic.app.image.enabled=true.",
+                  )
+                }
     return AppStorageController(
         appImageApiService = appImageApiService,
         properties = properties,

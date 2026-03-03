@@ -10,6 +10,7 @@ include(
     ":atomic-starter",
     ":atomic-contract",
     ":atomic-storage",
+    ":atomic-spring-idempotency",
     ":atomic-spring-oauth2",
     ":atomic-spring-web",
     ":atomic-spring-security",

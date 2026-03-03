@@ -238,18 +238,29 @@ class AppOauthRedirectService(
     val uri =
         runCatching { URI(raw) }
             .getOrElse {
-              throw IllegalStateException(
-                  "Invalid allowed redirect URI entry: $raw",
+              log.warn("Invalid allowed redirect URI entry: {}", raw)
+              throw HttpStatusException(
+                  status = 400,
+                  message = "Invalid allowed redirect URI entry: $raw",
               )
             }
     if (!uri.isAbsolute || uri.scheme.isNullOrBlank()) {
-      throw IllegalStateException("Allowed redirect URI must be absolute: $raw")
+      log.warn("Allowed redirect URI must be absolute: {}", raw)
+      throw HttpStatusException(status = 400, message = "Allowed redirect URI must be absolute.")
     }
     if (!uri.userInfo.isNullOrBlank()) {
-      throw IllegalStateException("Allowed redirect URI must not contain user info: $raw")
+      log.warn("Allowed redirect URI must not contain user info: {}", raw)
+      throw HttpStatusException(
+          status = 400,
+          message = "Allowed redirect URI must not contain user info.",
+      )
     }
     if (!uri.rawQuery.isNullOrBlank() || !uri.rawFragment.isNullOrBlank()) {
-      throw IllegalStateException("Allowed redirect URI must not include query or fragment: $raw")
+      log.warn("Allowed redirect URI must not include query or fragment: {}", raw)
+      throw HttpStatusException(
+          status = 400,
+          message = "Allowed redirect URI must not include query or fragment.",
+      )
     }
 
     return AllowedRedirectPattern(
