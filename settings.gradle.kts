@@ -5,6 +5,7 @@ rootProject.name = "atomic"
 include(
     ":atomic-app",
     ":atomic-app:app-version",
+    ":atomic-app:oauth-redirect",
     ":atomic-app:storage-api",
     ":atomic-starter",
     ":atomic-contract",

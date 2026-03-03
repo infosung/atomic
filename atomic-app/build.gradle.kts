@@ -17,6 +17,7 @@ repositories { mavenCentral() }
 
 dependencies {
   api(project(":atomic-app:app-version"))
+  api(project(":atomic-app:oauth-redirect"))
   api(project(":atomic-app:storage-api"))
 
   testImplementation(libs.spring.boot.starter.test)

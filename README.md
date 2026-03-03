@@ -32,6 +32,7 @@ Relationship summary:
 - `atomic.app`: app-level API bundle module (independent from starter)
 - You can use `atomic.app` without starter for version API (JPA required).
 - Image API in `atomic.app` needs storage beans, so typical setup is `atomic.app` + `atomic.starter` + `atomic.storage`.
+- OAuth redirect API in `atomic.app` needs OAuth beans (`OauthServiceProvider`, `OauthStateManager`), typically from `atomic.starter` + `atomic.spring.oauth2`.
 
 ## Dependency Setup
 
@@ -75,6 +76,7 @@ dependencies {
 | Storage (`storageClients`, `storageProfiles`, `ImageService`) | `atomic.starter` + `atomic.storage` | `atomic.storage.enabled=true` (default) and valid `atomic.storage.backends.*` | none |
 | Common version check API (`GET /api/v1/version/check`) | `atomic.app` (+ datasource/JPA) | `atomic.app.version.enabled=true` | `service_version` table schema and version policy data |
 | Common image upload/delete API (`POST/DELETE /api/v1/storage/image/{service}/{storageService}`) | `atomic.app` + `atomic.starter` + storage backend config | `atomic.app.image.enabled=true`, `atomic.storage.enabled=true` (+ optional uploader tracking config) | `image` table schema |
+| Common OAuth redirect/callback relay API (`/oauth/redirect`, `/oauth/callback`) | `atomic.app` + `atomic.starter` + `atomic.spring.oauth2` | `atomic.app.oauth.redirect.enabled=true`, oauth state/provider properties | login API that consumes relayCode |
 | Web logging/json helpers | `atomic.starter` + `atomic.spring.web` | `atomic.web.enabled=true` (default), `atomic.web.logging.enabled=true` (default) | `LogSaver` implementation + `ApiLogAspect` subclass (for API logging), `BaseExceptionHandler` subclass (for exception mapping) |
 | Security JWT helpers | `atomic.starter` + `atomic.spring.security` | `atomic.security.enabled=true` (default), `atomic.security.jwt.enabled=true` (default), JWT keys | your `SecurityFilterChain` that applies `JwtSecurityConfigurerAdapter` |
 | OAuth provider beans/service | `atomic.starter` + `atomic.spring.oauth2` | `atomic.oauth2.enabled=true` (default), `atomic.oauth2.state.enabled=true` (default), `atomic.oauth2.state.signing-secret`, `atomic.oauth2.state.in-memory-store.enabled=false` (default), per-provider `enabled=true` | callback/redirect controller endpoints |
@@ -96,6 +98,26 @@ atomic:
       max-quality: 1.0
       uploader-parameter-enabled: false
       uploader-parameter-name: uploaderId
+    oauth:
+      redirect:
+        enabled: true
+        redirect-endpoint-path: /oauth/redirect
+        callback-endpoint-path: /oauth/callback # base path. final callback path is /{provider} or /apple
+        relay-code-query-parameter-name: relayCode
+        relay-code-ttl-seconds: 300 # must be > 0
+        store:
+          type: entity # in-memory, cache, entity
+          fail-fast: true
+          in-memory:
+            cleanup-interval: 100 # <= 0 disables periodic expired-entry cleanup
+          cache:
+            cache-name: atomicOauthRelayCode # must exist in CacheManager at startup
+            key-prefix: atomic:oauth:relay:
+            ttl-seconds: 300 # optional, must be > 0
+          entity:
+            table-name: atomic_oauth_relay_code # only [A-Za-z0-9_]
+        allowed-redirect-uri-prefixes:
+          - https://app.example.com
 
   storage:
     enabled: true
@@ -189,7 +211,8 @@ Register `SecurityFilterChain` and apply auto-configured `JwtSecurityConfigurerA
 
 ### 3) OAuth2 module
 
-Implement callback endpoints (for example `/oauth/redirect/{provider}`, `/oauth/callback/{provider}`) and integrate with `OauthServiceProvider`.
+If you do **not** use `atomic.app.oauth.redirect`, implement callback endpoints (for example `/oauth/redirect/{provider}`, `/oauth/callback/{provider}`) and integrate with `OauthServiceProvider`.
+If you use `atomic.app.oauth.redirect.enabled=true`, `AppOauthRedirectController` provides common redirect/callback endpoints.
 
 ### 4) App module (`atomic.app`)
 
@@ -197,11 +220,19 @@ Implement callback endpoints (for example `/oauth/redirect/{provider}`, `/oauth/
 
 - version check (`AppVersionController`)
 - image upload/delete (`AppStorageController`)
+- oauth redirect/callback relay (`AppOauthRedirectController`)
 
 Prerequisites:
 
 - Version API needs JPA datasource and `service_version` table.
 - Image API needs JPA datasource + `image` table + storage beans (`ImageService`, `storageClients`).
+- OAuth redirect API needs `OauthServiceProvider` and `OauthStateManager` beans.
+- OAuth relay store default is `entity`, so default setup also needs `DataSource`, `PlatformTransactionManager`, and `ObjectMapper`.
+- when `store.type=in-memory` or `store.type=cache`, entity(db) dependency validation is skipped.
+- if your service uses only in-memory/cache relay and has no datasource, disable JDBC auto-config or provide datasource config.
+  - example: `spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration`
+- if `store.type=entity` (default), prepare relay table (`atomic_oauth_relay_code` or configured table-name) before rollout.
+- Login API should consume relay payload using `AppOauthRelayCodeService.consumeRelayCode(relayCode)`.
 
 Image uploader identity option (without security coupling):
 
@@ -210,6 +241,37 @@ Image uploader identity option (without security coupling):
 - upload stores that value in `ImageEntity.uploaderId`.
 - delete requires same parameter value and rejects mismatch (`403`).
 - when enabled in production, align `image` table with nullable `uploader_id` column.
+
+OAuth relay option (without token in callback query):
+
+- `atomic.app.oauth.redirect.enabled=true` enables redirect/callback endpoints.
+- callback redirects frontend with `relayCode` only (no raw `id_token`/`access_token` in URL).
+- login API consumes relay payload via `AppOauthRelayCodeService.consumeRelayCode(relayCode)`.
+- redirect endpoint input `redirectUri` must be an absolute URI and must not include user-info.
+- configure `allowed-redirect-uri-prefixes` for production.
+  - matching uses scheme/host/port/path-prefix boundary (not raw string startsWith).
+  - each entry must be an absolute URI without query/fragment.
+  - example: `https://app.example.com/oauth` allows `https://app.example.com/oauth/callback` but rejects `https://app.example.com.evil.com/...`.
+- if `allowed-redirect-uri-prefixes` is empty, any absolute `redirectUri` is accepted.
+- relay store type default is `entity` (`atomic.app.oauth.redirect.store.type=entity`).
+- selected relay store dependencies are validated (`in-memory`/`cache`/`entity`); unselected store dependencies are not validated.
+- global relay settings (for example `relay-code-ttl-seconds`) are validated regardless of store type.
+- provider callback path mapping:
+  - Google/Kakao: `https://{host}{callback-endpoint-path}/{provider}`
+  - Apple: `https://{host}{callback-endpoint-path}/apple` (`POST`, `form_post`)
+- `GET {callback-endpoint-path}/apple` is rejected with `400` (Apple callback supports `POST` only).
+- keep provider `server-redirect-uri` registration aligned with mapping above.
+- `cache` uses Spring `CacheManager` (for example Redis cache), `entity` uses datasource/transaction manager.
+- `relay-code-ttl-seconds` must be greater than zero (validated at startup).
+- `store.type=cache` requires configured `cache-name` to exist in `CacheManager` at startup.
+- `store.type=entity` table name allows only letters, numbers, and underscores.
+- cache/entity stores validate expiration on consume (`pop`) and remove consumed relay data.
+- for cache backends, configure backend TTL/eviction to avoid stale expired keys accumulating.
+- for entity store, run periodic cleanup (for example `DELETE FROM atomic_oauth_relay_code WHERE expires_at <= NOW()`) for unconsumed expired rows.
+- HTTP status semantics assume your app maps `HttpStatusException` via exception handler configuration.
+- OAuth callback/state errors from oauth module are mapped to `HttpStatusException(400)` in app oauth redirect service.
+- with `store.fail-fast=false`, selected store errors (missing deps, invalid cache-name/ttl, unavailable cache) do not fail startup and fall back to in-memory store.
+- in-memory fallback is process-local per instance and can break relay one-time guarantees in multi-instance deployments.
 
 **Important (Spring Security):**
 When you use Spring Security, explicitly include the storage API path in your security authorization rules.

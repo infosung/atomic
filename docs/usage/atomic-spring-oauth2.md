@@ -190,11 +190,16 @@ class OauthRedirectController(
         stateJwt.claims["redirect_uri"] as? String
             ?: throw InvalidOauthRequestException("redirect_uri is missing in state")
 
-    val query = tokenResult.idToken?.let { "id_token=$it" } ?: "access_token=${tokenResult.accessToken}"
-    return "redirect:$clientRedirectUri?$query"
+    // Store tokenResult server-side and issue one-time relay code.
+    // Example: relayCodeStore.save(relayCode, tokenResult, ttl = 300s)
+    val relayCode = "generated-relay-code"
+    return "redirect:$clientRedirectUri?relayCode=$relayCode"
   }
 }
 ```
+
+Use relayCode in your login API to consume stored OAuth payload.
+Avoid redirecting raw `id_token` or `access_token` via query parameters.
 
 ## State Verification Patterns
 

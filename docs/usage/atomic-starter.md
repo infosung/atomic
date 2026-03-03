@@ -28,6 +28,7 @@ dependencies {
 
 - `atomic.app.version` API can run with JPA alone.
 - `atomic.app.image` API needs storage beans (`ImageService`, `storageClients`), typically from `atomic.starter` + `atomic.storage`.
+- `atomic.app.oauth.redirect` API needs oauth beans (`OauthServiceProvider`, `OauthStateManager`), typically from `atomic.starter` + `atomic.spring.oauth2`.
 
 ## What Gets Auto-Configured
 
