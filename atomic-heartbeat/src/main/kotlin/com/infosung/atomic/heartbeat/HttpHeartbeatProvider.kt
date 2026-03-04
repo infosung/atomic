@@ -25,13 +25,13 @@ class HttpHeartbeatProvider(
           HeartbeatEventType.FAIL -> failUrl
         }
 
-    val requestBuilder = HttpRequest.newBuilder().uri(URI.create(targetUrl)).GET().timeout(requestTimeout)
-    headers.forEach { (name, value) ->
-      requestBuilder.header(name, value)
-    }
+    val requestBuilder =
+        HttpRequest.newBuilder().uri(URI.create(targetUrl)).GET().timeout(requestTimeout)
+    headers.forEach { (name, value) -> requestBuilder.header(name, value) }
     val response = client.send(requestBuilder.build(), HttpResponse.BodyHandlers.discarding())
     if (response.statusCode() >= 400) {
-      throw IllegalStateException("Heartbeat ping failed with HTTP ${response.statusCode()}: $targetUrl")
+      throw IllegalStateException(
+          "Heartbeat ping failed with HTTP ${response.statusCode()}: $targetUrl")
     }
   }
 }

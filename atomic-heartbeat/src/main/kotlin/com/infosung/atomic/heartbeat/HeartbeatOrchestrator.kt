@@ -2,8 +2,8 @@ package com.infosung.atomic.heartbeat
 
 import com.infosung.atomic.contract.time.TimeProvider
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.Executors
 import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 import java.util.concurrent.Future
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.ScheduledFuture
@@ -112,7 +112,8 @@ class HeartbeatOrchestrator(
       checkTask: ExecutorService,
       plan: DependencyCheckPlan,
   ): DependencyCheckResult {
-    val future: Future<DependencyCheckResult> = checkTask.submit<DependencyCheckResult> { plan.checker.check() }
+    val future: Future<DependencyCheckResult> =
+        checkTask.submit<DependencyCheckResult> { plan.checker.check() }
     return try {
       future.get(plan.timeout.toMillis(), TimeUnit.MILLISECONDS)
     } catch (_: TimeoutException) {
