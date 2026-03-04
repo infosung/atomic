@@ -39,14 +39,18 @@ class HeartbeatOrchestrator(
   fun start() {
     if (!started.compareAndSet(false, true)) return
 
-    val checkThreadCounter = AtomicInteger(0)
     checkExecutor =
-        Executors.newFixedThreadPool(maxOf(1, checkPlans.size)) { runnable ->
-          Thread(
-                  runnable,
-                  "$schedulerThreadPrefix-check-${checkThreadCounter.incrementAndGet()}",
-              )
-              .apply { isDaemon = true }
+        if (checkPlans.isEmpty()) {
+          null
+        } else {
+          val checkThreadCounter = AtomicInteger(0)
+          Executors.newFixedThreadPool(checkPlans.size) { runnable ->
+            Thread(
+                    runnable,
+                    "$schedulerThreadPrefix-check-${checkThreadCounter.incrementAndGet()}",
+                )
+                .apply { isDaemon = true }
+          }
         }
 
     val poolSize = maxOf(1, checkPlans.size + 1)

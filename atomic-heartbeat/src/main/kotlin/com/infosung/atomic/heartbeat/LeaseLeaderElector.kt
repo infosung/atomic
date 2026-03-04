@@ -19,6 +19,7 @@ class LeaseLeaderElector(
     private val tryRenew: () -> Boolean,
     private val tryRelease: () -> Unit,
 ) : LeaderElector {
+  private val log = System.getLogger(LeaseLeaderElector::class.java.name)
   private val leader = AtomicBoolean(false)
   private val running = AtomicBoolean(false)
 
@@ -51,7 +52,13 @@ class LeaseLeaderElector(
             tryRelease()
           }
         }
-        .onFailure {}
+        .onFailure {
+          log.log(
+              System.Logger.Level.WARNING,
+              "Failed to release heartbeat leader lease during stop",
+              it,
+          )
+        }
     leader.set(false)
     scheduler?.shutdownNow()
     scheduler = null
@@ -63,7 +70,15 @@ class LeaseLeaderElector(
     if (!running.get()) return
     val stillLeader =
         if (leader.get()) {
-          runCatching { tryRenew() }.getOrElse { false }
+          runCatching { tryRenew() }
+              .onFailure {
+                log.log(
+                    System.Logger.Level.WARNING,
+                    "Failed to renew heartbeat leader lease",
+                    it,
+                )
+              }
+              .getOrElse { false }
         } else {
           false
         }
@@ -71,7 +86,16 @@ class LeaseLeaderElector(
       leader.set(true)
       return
     }
-    val acquired = runCatching { tryAcquire() }.getOrElse { false }
+    val acquired =
+        runCatching { tryAcquire() }
+            .onFailure {
+              log.log(
+                  System.Logger.Level.WARNING,
+                  "Failed to acquire heartbeat leader lease",
+                  it,
+              )
+            }
+            .getOrElse { false }
     leader.set(acquired)
   }
 }

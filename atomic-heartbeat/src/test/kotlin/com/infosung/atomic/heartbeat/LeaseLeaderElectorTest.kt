@@ -68,6 +68,27 @@ class LeaseLeaderElectorTest {
     }
   }
 
+  @Test
+  fun `stop should tolerate release failure and clear leadership`() {
+    val elector =
+        LeaseLeaderElector(
+            renewInterval = Duration.ofMillis(40),
+            schedulerThreadName = "lease-elector-release-failure",
+            tryAcquire = { true },
+            tryRenew = { true },
+            tryRelease = { throw IllegalStateException("release failed") },
+        )
+
+    elector.start()
+    try {
+      eventually(1_500) { elector.isLeader() }
+    } finally {
+      elector.stop()
+    }
+
+    assertFalse(elector.isLeader())
+  }
+
   private fun eventually(timeoutMillis: Long, assertion: () -> Boolean) {
     val start = System.currentTimeMillis()
     while (System.currentTimeMillis() - start < timeoutMillis) {

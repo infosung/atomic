@@ -397,10 +397,7 @@ private class JdbcDependencyChecker(
     dataSource.connection.use { connection ->
       connection.prepareStatement(query).use { statement ->
         statement.queryTimeout = queryTimeoutSeconds
-        val hasResultSet = statement.execute()
-        if (hasResultSet) {
-          statement.resultSet?.use {}
-        }
+        statement.execute()
       }
     }
     return DependencyCheckResult(healthy = true)

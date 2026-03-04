@@ -3,6 +3,7 @@ package com.infosung.atomic.heartbeat
 import java.time.Duration
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArraySet
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -375,6 +376,33 @@ class HeartbeatOrchestratorTest {
       assertTrue(
           threadNames.all { it.matches(Regex("atomic-heartbeat-check-\\d+")) },
           threadNames.toString())
+    } finally {
+      orchestrator.stop()
+    }
+  }
+
+  @Test
+  fun `orchestrator with no checks should not create check executor threads`() {
+    val prefix = "hb-no-check-${System.nanoTime()}"
+    val observedThreadNames = CopyOnWriteArraySet<String>()
+    val orchestrator =
+        HeartbeatOrchestrator(
+            provider = HeartbeatProvider { observedThreadNames.add(Thread.currentThread().name) },
+            pingIntervalMillis = 40,
+            sendStartEvent = false,
+            pingFailOpen = false,
+            dedupMode = DedupMode.NONE,
+            leaderElector = NoopLeaderElector(),
+            checkPlans = emptyList(),
+            schedulerThreadPrefix = prefix,
+        )
+
+    orchestrator.start()
+    try {
+      eventually(1_500) { observedThreadNames.any { it.startsWith("$prefix-loop-") } }
+      assertTrue(
+          observedThreadNames.none { it.startsWith("$prefix-check-") },
+          observedThreadNames.toString())
     } finally {
       orchestrator.stop()
     }
