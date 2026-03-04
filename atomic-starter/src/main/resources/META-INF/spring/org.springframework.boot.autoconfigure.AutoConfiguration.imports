@@ -4,3 +4,4 @@ com.infosung.atomic.starter.autoconfigure.storage.AtomicStorageAutoConfiguration
 com.infosung.atomic.starter.autoconfigure.web.AtomicWebAutoConfiguration
 com.infosung.atomic.starter.autoconfigure.security.AtomicSecurityAutoConfiguration
 com.infosung.atomic.starter.autoconfigure.oauth2.AtomicOauth2AutoConfiguration
+com.infosung.atomic.starter.autoconfigure.heartbeat.AtomicHeartbeatAutoConfiguration

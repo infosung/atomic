@@ -35,6 +35,7 @@ Use only the modules you need.
 - `atomic.spring.idempotency`: HTTP idempotency filter for one-time POST processing
 - `atomic.spring.security`: JWT issue/verify + Spring Security filter integration
 - `atomic.spring.oauth2`: OAuth provider integration (Google/Kakao/Apple), redirect flow and id token/userinfo identity resolution
+- `atomic.heartbeat`: periodic heartbeat ping orchestration with optional DB/Redis dependency checks and dedup policy
 
 ## 2. Dependencies
 
@@ -55,7 +56,7 @@ Current `.github/workflows/publish-maven-central.yml` publishes only:
 - `atomic-spring-security`
 
 `atomic.starter` is also outside current public publish workflow scope.
-For full-stack adoption (`starter`, `storage`, `app`, `spring-idempotency`, `spring-oauth2`), use local module dependencies (or your internal artifact repository):
+For full-stack adoption (`starter`, `storage`, `app`, `spring-idempotency`, `spring-oauth2`, `heartbeat`), use local module dependencies (or your internal artifact repository):
 
 ```kotlin
 dependencies {
@@ -69,13 +70,14 @@ dependencies {
   implementation(project(":atomic-spring-idempotency"))
   implementation(project(":atomic-spring-security"))
   implementation(project(":atomic-spring-oauth2"))
+  implementation(project(":atomic-heartbeat"))
 }
 ```
 
 ## 3. Quick Start (First Day)
 
 1. Add `atomic.starter` and `atomic.contract` first.
-2. Add one feature module only (`app`, `storage`, `web`, `idempotency`, `security`, or `oauth2`).
+2. Add one feature module only (`app`, `storage`, `web`, `idempotency`, `security`, `oauth2`, or `heartbeat`).
 3. Register only minimum required beans from that guide.
 4. Run one smoke endpoint.
 5. Add optional features after baseline works.
@@ -94,6 +96,7 @@ dependencies {
 | HTTP idempotency (POST replay-safe) | `starter` + `contract` + `spring.idempotency` | enable `atomic.idempotency.enabled`, configure key/ttl, and choose replay headers/body-cache limit |
 | JWT auth for your API | `starter` + `contract` + `spring.security` | set `atomic.security.jwt.*` and apply `JwtSecurityConfigurerAdapter` |
 | Social login redirect flow | `starter` + `contract` + `spring.oauth2` | set `atomic.oauth2.state.*` + `atomic.oauth2.providers.*` |
+| Heartbeat ping + dependency checks | `starter` + `contract` + `heartbeat` | enable `atomic.heartbeat.enabled`, set provider URL, optional DB/Redis checks and dedup mode |
 | Full typical server stack | all modules | start with `starter` -> `storage/web` -> `security` -> `oauth2` |
 
 ## 5. Configuration Policy
@@ -106,6 +109,7 @@ dependencies {
 - Rate-limit rules are evaluated in declaration order (first match wins), and reset/retry headers follow fixed-window boundary seconds.
 - Rate-limit storage key is `actor|method|pathKey`; with default `path-key-strategy=rule-prefix`, unmatched routes share one `default` bucket.
 - When both are enabled, run rate-limit before idempotency (starter defaults: rate-limit `-100`, idempotency `-50`).
+- Heartbeat dedup `leader` mode automatically re-elects on lease expiry; choose backend (`redis`, `jdbc`, or `custom`) and tune renew/lease values.
 - Start with minimum modules and add optional beans as needed.
 
 ## 6. Operational Checklist (All Modules)
@@ -127,6 +131,7 @@ dependencies {
 - OAuth redirect prefix format issue: invalid `allowed-redirect-uri-prefixes` returns `400`; validate URI format in config/CI.
 - JWT unauthorized unexpectedly: check channel resolver and token source.
 - API logs missing: check `ServiceLogger.send()` scheduling.
+- Heartbeat fail flood or silence: verify `atomic.heartbeat.dedup.mode`, leader backend bean availability, and ping/check intervals.
 - Artifact not found: switch to `project(":...")` dependency until repository resolution is ready.
 
 ## 8. Recommended Reading Order
@@ -139,3 +144,4 @@ dependencies {
 6. [atomic.spring.idempotency Guide](atomic-spring-idempotency.md)
 7. [atomic.spring.security Guide](atomic-spring-security.md)
 8. [atomic.spring.oauth2 Guide](atomic-spring-oauth2.md)
+9. [atomic.heartbeat Guide](atomic-heartbeat.md)
