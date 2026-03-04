@@ -1,7 +1,6 @@
 plugins {
   `java-library`
   alias(libs.plugins.kotlin.jvm)
-  alias(libs.plugins.spring.dependency.management)
   alias(libs.plugins.vanniktech.maven.publish)
 }
 
@@ -18,14 +17,11 @@ repositories { mavenCentral() }
 dependencies {
   api(project(":atomic-contract"))
 
-  testImplementation(libs.spring.boot.starter.test)
   testImplementation(libs.kotlin.test.junit5)
   testImplementation(platform(libs.jupiter.bom))
   testRuntimeOnly(libs.jupiter.launcher)
   testRuntimeOnly(libs.jupiter)
 }
-
-dependencyManagement { imports { mavenBom(libs.spring.boot.dependencies.bom.get().toString()) } }
 
 kotlin {
   compilerOptions {

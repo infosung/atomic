@@ -2,6 +2,7 @@ package com.infosung.atomic.heartbeat
 
 import com.infosung.atomic.contract.time.TimeProvider
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ExecutionException
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
@@ -24,6 +25,7 @@ class HeartbeatOrchestrator(
     private val timeProvider: TimeProvider = TimeProvider(),
     private val schedulerThreadPrefix: String = "atomic-heartbeat",
 ) {
+  private val log = System.getLogger(HeartbeatOrchestrator::class.java.name)
   private val started = AtomicBoolean(false)
   private val checkStates = ConcurrentHashMap<String, CheckState>()
   private val pingSendFailureCount = AtomicLong(0)
@@ -122,6 +124,21 @@ class HeartbeatOrchestrator(
           healthy = false,
           message = "Dependency check timed out: ${plan.id}",
       )
+    } catch (e: InterruptedException) {
+      future.cancel(true)
+      Thread.currentThread().interrupt()
+      DependencyCheckResult(
+          healthy = false,
+          message = "Dependency check interrupted: ${plan.id} (${e.javaClass.simpleName})",
+      )
+    } catch (e: ExecutionException) {
+      future.cancel(true)
+      // Future.get wraps checker failures, so expose underlying cause type for diagnosis.
+      val rootCause = e.cause ?: e
+      DependencyCheckResult(
+          healthy = false,
+          message = "Dependency check failed: ${plan.id} (${rootCause.javaClass.simpleName})",
+      )
     } catch (e: Exception) {
       future.cancel(true)
       DependencyCheckResult(
@@ -187,10 +204,28 @@ class HeartbeatOrchestrator(
 
   private fun sendEvent(event: HeartbeatEvent) {
     if (pingFailOpen) {
-      runCatching { provider.send(event) }.onFailure {}
+      runCatching { provider.send(event) }
+          .onFailure {
+            log.log(
+                System.Logger.Level.DEBUG,
+                "Heartbeat transport failure (fail-open): event={0}, error={1}",
+                event.type,
+                it.javaClass.simpleName,
+            )
+          }
       return
     }
-    provider.send(event)
+    try {
+      provider.send(event)
+    } catch (e: Exception) {
+      log.log(
+          System.Logger.Level.DEBUG,
+          "Heartbeat transport failure (strict): event={0}, error={1}",
+          event.type,
+          e.javaClass.simpleName,
+      )
+      throw e
+    }
   }
 
   internal fun pingSendFailureCount(): Long = pingSendFailureCount.get()

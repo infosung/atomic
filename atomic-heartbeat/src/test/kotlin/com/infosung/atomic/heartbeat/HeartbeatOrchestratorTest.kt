@@ -204,6 +204,44 @@ class HeartbeatOrchestratorTest {
   }
 
   @Test
+  fun `dependency checker exception should expose root cause class in fail message`() {
+    val events = Collections.synchronizedList(mutableListOf<HeartbeatEvent>())
+    val orchestrator =
+        HeartbeatOrchestrator(
+            provider = HeartbeatProvider { events.add(it) },
+            pingIntervalMillis = 50,
+            sendStartEvent = false,
+            pingFailOpen = false,
+            dedupMode = DedupMode.NONE,
+            leaderElector = NoopLeaderElector(),
+            checkPlans =
+                listOf(
+                    DependencyCheckPlan(
+                        id = "db",
+                        checker = DependencyChecker { throw IllegalArgumentException("boom") },
+                        required = true,
+                        interval = Duration.ofMillis(30),
+                        timeout = Duration.ofMillis(100),
+                    )),
+        )
+
+    orchestrator.start()
+    try {
+      eventually(1_500) {
+        events.any {
+          it.type == HeartbeatEventType.FAIL &&
+              it.message?.contains("IllegalArgumentException") == true
+        }
+      }
+      val failMessage = events.lastOrNull { it.type == HeartbeatEventType.FAIL }?.message ?: ""
+      assertTrue(failMessage.contains("IllegalArgumentException"), failMessage)
+      assertTrue(!failMessage.contains("ExecutionException"), failMessage)
+    } finally {
+      orchestrator.stop()
+    }
+  }
+
+  @Test
   fun `provider exception should not stop future ping attempts when failOpen is false`() {
     val attempts = AtomicInteger(0)
     val orchestrator =

@@ -30,8 +30,9 @@ class HttpHeartbeatProvider(
     headers.forEach { (name, value) -> requestBuilder.header(name, value) }
     val response = client.send(requestBuilder.build(), HttpResponse.BodyHandlers.discarding())
     if (response.statusCode() >= 400) {
+      // Do not include full URL because providers often embed monitor tokens in path/query.
       throw IllegalStateException(
-          "Heartbeat ping failed with HTTP ${response.statusCode()}: $targetUrl")
+          "Heartbeat ping failed with HTTP ${response.statusCode()} for ${event.type} event")
     }
   }
 }
