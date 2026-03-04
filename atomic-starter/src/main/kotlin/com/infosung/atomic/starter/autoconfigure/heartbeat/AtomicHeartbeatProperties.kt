@@ -14,7 +14,9 @@ class AtomicHeartbeatProperties {
   var dedup: Dedup = Dedup()
 
   fun validate() {
-    require(ping.interval > Duration.ZERO) { "atomic.heartbeat.ping.interval must be greater than zero." }
+    require(ping.interval > Duration.ZERO) {
+      "atomic.heartbeat.ping.interval must be greater than zero."
+    }
     if (provider.type == Provider.Type.HEALTHCHECKS) {
       require(provider.healthchecks.baseUrl.isNotBlank()) {
         "atomic.heartbeat.provider.healthchecks.base-url must not be blank."

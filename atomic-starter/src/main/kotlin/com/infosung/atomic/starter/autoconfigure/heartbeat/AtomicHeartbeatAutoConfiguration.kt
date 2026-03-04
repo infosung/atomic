@@ -56,9 +56,15 @@ class AtomicHeartbeatAutoConfiguration {
     val healthchecks = properties.provider.healthchecks
     val baseUrl = expandTemplate(healthchecks.baseUrl, properties.provider.instanceId)
     return HttpHeartbeatProvider(
-        successUrl = resolveUrl(baseUrl, expandTemplate(healthchecks.successPath, properties.provider.instanceId)),
-        failUrl = resolveUrl(baseUrl, expandTemplate(healthchecks.failPath, properties.provider.instanceId)),
-        startUrl = resolveUrl(baseUrl, expandTemplate(healthchecks.startPath, properties.provider.instanceId)),
+        successUrl =
+            resolveUrl(
+                baseUrl, expandTemplate(healthchecks.successPath, properties.provider.instanceId)),
+        failUrl =
+            resolveUrl(
+                baseUrl, expandTemplate(healthchecks.failPath, properties.provider.instanceId)),
+        startUrl =
+            resolveUrl(
+                baseUrl, expandTemplate(healthchecks.startPath, properties.provider.instanceId)),
         connectTimeout = properties.provider.connectTimeout,
         requestTimeout = properties.provider.timeout,
         headers = properties.provider.headers,
@@ -179,7 +185,8 @@ class AtomicHeartbeatAutoConfiguration {
                       "atomic.heartbeat.checks.db.enabled=true requires DataSource bean.")
                 }
                 AtomicHeartbeatProperties.Checks.MissingBeanPolicy.WARN -> {
-                  log.warn("DB check is enabled but DataSource is missing. DB check will be skipped.")
+                  log.warn(
+                      "DB check is enabled but DataSource is missing. DB check will be skipped.")
                   null
                 }
               }
@@ -262,24 +269,23 @@ class AtomicHeartbeatAutoConfiguration {
         renewInterval = java.time.Duration.ofMillis(renewIntervalMillis),
         schedulerThreadName = "$threadPrefix-leader",
         tryAcquire = {
-          redisTemplate.opsForValue().setIfAbsent(
-              key,
-              ownerId,
-              java.time.Duration.ofMillis(leaseMillis),
-          ) == true
+          redisTemplate
+              .opsForValue()
+              .setIfAbsent(
+                  key,
+                  ownerId,
+                  java.time.Duration.ofMillis(leaseMillis),
+              ) == true
         },
         tryRenew = {
           (redisTemplate.execute(
-                  renewScript,
-                  listOf(key),
-                  ownerId,
-                  leaseMillis.toString(),
-              )
-                  ?: 0L) > 0L
+              renewScript,
+              listOf(key),
+              ownerId,
+              leaseMillis.toString(),
+          ) ?: 0L) > 0L
         },
-        tryRelease = {
-          redisTemplate.execute(releaseScript, listOf(key), ownerId)
-        },
+        tryRelease = { redisTemplate.execute(releaseScript, listOf(key), ownerId) },
     )
   }
 
@@ -304,7 +310,8 @@ class AtomicHeartbeatAutoConfiguration {
 
     fun nowMillis(): Long =
         jdbcTemplate.queryForObject("SELECT CURRENT_TIMESTAMP", Timestamp::class.java)?.time
-            ?: throw IllegalStateException("Failed to resolve database current time for heartbeat leader lease.")
+            ?: throw IllegalStateException(
+                "Failed to resolve database current time for heartbeat leader lease.")
 
     return LeaseLeaderElector(
         renewInterval = java.time.Duration.ofMillis(renewIntervalMillis),
@@ -396,10 +403,7 @@ private class RedisDependencyChecker(
     private val redisTemplate: StringRedisTemplate,
 ) : DependencyChecker {
   override fun check(): DependencyCheckResult {
-    val pong =
-        redisTemplate.execute { connection ->
-          connection.ping()
-        }
+    val pong = redisTemplate.execute { connection -> connection.ping() }
     return if (pong.equals("PONG", ignoreCase = true)) {
       DependencyCheckResult(healthy = true)
     } else {

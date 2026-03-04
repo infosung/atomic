@@ -88,7 +88,9 @@ class AtomicHeartbeatAutoConfigurationTest {
         .run { context ->
           val failure = context.startupFailure
           assertNotNull(failure)
-          assertTrue(failure.message?.contains("requires StringRedisTemplate or RedisConnectionFactory") == true)
+          assertTrue(
+              failure.message?.contains("requires StringRedisTemplate or RedisConnectionFactory") ==
+                  true)
         }
   }
 
@@ -104,7 +106,9 @@ class AtomicHeartbeatAutoConfigurationTest {
         .run { context ->
           val failure = context.startupFailure
           assertNotNull(failure)
-          assertTrue(failure.message?.contains("requires StringRedisTemplate or RedisConnectionFactory") == true)
+          assertTrue(
+              failure.message?.contains("requires StringRedisTemplate or RedisConnectionFactory") ==
+                  true)
         }
   }
 
@@ -171,7 +175,6 @@ class AtomicHeartbeatAutoConfigurationTest {
 
   @Configuration
   class CustomHeartbeatProviderConfiguration {
-    @Bean
-    fun heartbeatProvider(): HeartbeatProvider = HeartbeatProvider { _: HeartbeatEvent -> }
+    @Bean fun heartbeatProvider(): HeartbeatProvider = HeartbeatProvider { _: HeartbeatEvent -> }
   }
 }
