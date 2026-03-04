@@ -2,6 +2,7 @@ package com.infosung.atomic.heartbeat
 
 import java.time.Duration
 import java.util.Collections
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -321,6 +322,59 @@ class HeartbeatOrchestratorTest {
     try {
       eventually(2_000) { attempts.get() >= 2 }
       assertTrue(orchestrator.pingSendFailureCount() >= 1)
+    } finally {
+      orchestrator.stop()
+    }
+  }
+
+  @Test
+  fun `check executor thread names should be unique with numbered suffix`() {
+    val threadNames = Collections.newSetFromMap(ConcurrentHashMap<String, Boolean>())
+    val slowChecker = DependencyChecker {
+      threadNames.add(Thread.currentThread().name)
+      Thread.sleep(200)
+      DependencyCheckResult(healthy = true)
+    }
+    val orchestrator =
+        HeartbeatOrchestrator(
+            provider = HeartbeatProvider {},
+            pingIntervalMillis = 500,
+            sendStartEvent = false,
+            pingFailOpen = false,
+            dedupMode = DedupMode.NONE,
+            leaderElector = NoopLeaderElector(),
+            checkPlans =
+                listOf(
+                    DependencyCheckPlan(
+                        id = "db1",
+                        checker = slowChecker,
+                        required = true,
+                        interval = Duration.ofMillis(400),
+                        timeout = Duration.ofSeconds(1),
+                    ),
+                    DependencyCheckPlan(
+                        id = "db2",
+                        checker = slowChecker,
+                        required = true,
+                        interval = Duration.ofMillis(400),
+                        timeout = Duration.ofSeconds(1),
+                    ),
+                    DependencyCheckPlan(
+                        id = "db3",
+                        checker = slowChecker,
+                        required = true,
+                        interval = Duration.ofMillis(400),
+                        timeout = Duration.ofSeconds(1),
+                    ),
+                ),
+        )
+
+    orchestrator.start()
+    try {
+      eventually(2_000) { threadNames.size >= 2 }
+      assertTrue(
+          threadNames.all { it.matches(Regex("atomic-heartbeat-check-\\d+")) },
+          threadNames.toString())
     } finally {
       orchestrator.stop()
     }

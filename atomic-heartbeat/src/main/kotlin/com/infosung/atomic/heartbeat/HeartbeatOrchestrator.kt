@@ -11,6 +11,7 @@ import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
 /** Runs dependency checks and sends periodic heartbeat pings. */
@@ -38,15 +39,25 @@ class HeartbeatOrchestrator(
   fun start() {
     if (!started.compareAndSet(false, true)) return
 
+    val checkThreadCounter = AtomicInteger(0)
     checkExecutor =
         Executors.newFixedThreadPool(maxOf(1, checkPlans.size)) { runnable ->
-          Thread(runnable, "$schedulerThreadPrefix-check").apply { isDaemon = true }
+          Thread(
+                  runnable,
+                  "$schedulerThreadPrefix-check-${checkThreadCounter.incrementAndGet()}",
+              )
+              .apply { isDaemon = true }
         }
 
     val poolSize = maxOf(1, checkPlans.size + 1)
+    val schedulerThreadCounter = AtomicInteger(0)
     val newScheduler =
         Executors.newScheduledThreadPool(poolSize) { runnable ->
-          Thread(runnable, "$schedulerThreadPrefix-loop").apply { isDaemon = true }
+          Thread(
+                  runnable,
+                  "$schedulerThreadPrefix-loop-${schedulerThreadCounter.incrementAndGet()}",
+              )
+              .apply { isDaemon = true }
         }
     scheduler = newScheduler
 

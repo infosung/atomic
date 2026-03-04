@@ -3,9 +3,11 @@ package com.infosung.atomic.starter.autoconfigure.heartbeat
 import com.infosung.atomic.heartbeat.HeartbeatEvent
 import com.infosung.atomic.heartbeat.HeartbeatOrchestrator
 import com.infosung.atomic.heartbeat.HeartbeatProvider
+import javax.sql.DataSource
 import kotlin.test.Test
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import org.mockito.Mockito
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.context.annotation.Bean
@@ -130,6 +132,24 @@ class AtomicHeartbeatAutoConfigurationTest {
   }
 
   @Test
+  fun `leader jdbc mode should reject invalid table name before using it in SQL`() {
+    contextRunner
+        .withUserConfiguration(MockDataSourceConfiguration::class.java)
+        .withPropertyValues(
+            "atomic.heartbeat.enabled=true",
+            "atomic.heartbeat.provider.healthchecks.base-url=https://hc-ping.com/test",
+            "atomic.heartbeat.dedup.mode=leader",
+            "atomic.heartbeat.dedup.leader.backend=jdbc",
+            "atomic.heartbeat.dedup.leader.jdbc.table-name=atomic_heartbeat_leader;drop_table",
+        )
+        .run { context ->
+          val failure = context.startupFailure
+          assertNotNull(failure)
+          assertTrue(failure.message?.contains("table-name") == true)
+        }
+  }
+
+  @Test
   fun `custom provider type should allow startup without healthchecks url when custom bean exists`() {
     contextRunner
         .withUserConfiguration(CustomHeartbeatProviderConfiguration::class.java)
@@ -176,5 +196,10 @@ class AtomicHeartbeatAutoConfigurationTest {
   @Configuration
   class CustomHeartbeatProviderConfiguration {
     @Bean fun heartbeatProvider(): HeartbeatProvider = HeartbeatProvider { _: HeartbeatEvent -> }
+  }
+
+  @Configuration
+  class MockDataSourceConfiguration {
+    @Bean fun dataSource(): DataSource = Mockito.mock(DataSource::class.java)
   }
 }

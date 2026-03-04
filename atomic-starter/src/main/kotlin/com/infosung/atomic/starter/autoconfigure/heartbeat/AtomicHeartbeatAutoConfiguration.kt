@@ -80,6 +80,7 @@ class AtomicHeartbeatAutoConfiguration {
       dataSourceProvider: ObjectProvider<DataSource>,
       customLeaderElectorProvider: ObjectProvider<LeaderElector>,
   ): LeaderElector {
+    properties.validate()
     if (properties.dedup.mode != AtomicHeartbeatProperties.Dedup.Mode.LEADER) {
       return NoopLeaderElector()
     }
@@ -299,6 +300,9 @@ class AtomicHeartbeatAutoConfiguration {
       autoCreateTable: Boolean,
       threadPrefix: String,
   ): LeaderElector {
+    require(TABLE_NAME_REGEX.matches(tableName)) {
+      "atomic.heartbeat.dedup.leader.jdbc.table-name must match [A-Za-z0-9_]+."
+    }
     if (autoCreateTable) {
       jdbcTemplate.execute(
           "CREATE TABLE IF NOT EXISTS $tableName (" +
@@ -378,6 +382,10 @@ class AtomicHeartbeatAutoConfiguration {
   }
 
   private object HeartbeatPropertiesValidation
+
+  companion object {
+    private val TABLE_NAME_REGEX = Regex("^[A-Za-z0-9_]+$")
+  }
 }
 
 private class JdbcDependencyChecker(
