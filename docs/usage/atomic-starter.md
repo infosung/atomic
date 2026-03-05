@@ -7,7 +7,7 @@ Use `atomic.starter` to reduce boilerplate bean registration.
 - auto-configuration activates only when corresponding atomic module is on classpath
 - `atomic.app` is not bundled in starter (must be added separately)
 - add `atomic.contract` when app code directly uses `BaseResponse` / `HttpStatusException`
-- you still choose feature modules explicitly (`app`, `storage`, `spring.web`, `spring.idempotency`, `spring.security`, `spring.oauth2`)
+- you still choose feature modules explicitly (`app`, `storage`, `spring.web`, `spring.idempotency`, `spring.security`, `spring.oauth2`, `heartbeat`)
 - heavy dependencies are not forced unless you add that module
 
 ## Dependency Pattern
@@ -45,6 +45,7 @@ dependencies {
   implementation(project(":atomic-spring-idempotency"))
   implementation(project(":atomic-spring-security"))
   implementation(project(":atomic-spring-oauth2"))
+  implementation(project(":atomic-heartbeat"))
 }
 ```
 
@@ -138,6 +139,19 @@ Still required from app:
 
 - callback controller / redirect handling
 - optional provider customization beans (if you need non-default verifier/parser/client behavior)
+
+### heartbeat
+
+When `atomic.heartbeat` exists and `atomic.heartbeat.enabled=true`:
+
+- `HeartbeatProvider` (default HTTP provider using healthchecks-style endpoint mapping)
+- dedup policy mode (`none`, `leader`, `per-instance`) and leader backend (`redis`, `jdbc`, `custom`)
+- `HeartbeatOrchestrator` (init/destroy lifecycle managed)
+- optional DB/Redis dependency checks with per-check intervals
+- `provider.type=custom` requires custom `HeartbeatProvider` bean (missing bean fails startup)
+- `dedup.leader.backend=custom` requires custom `LeaderElector` bean (missing bean fails startup)
+- in `leader + jdbc`, default `auto-create-table=false` means lock table should be migration-managed in production
+- see [atomic.heartbeat Guide](atomic-heartbeat.md) for property reference and behavior details
 
 OAuth provider beans are skipped unless:
 

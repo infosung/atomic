@@ -7,6 +7,7 @@ include(
     ":atomic-app:app-version",
     ":atomic-app:oauth-redirect",
     ":atomic-app:storage-api",
+    ":atomic-heartbeat",
     ":atomic-starter",
     ":atomic-contract",
     ":atomic-storage",

@@ -23,7 +23,7 @@ You must add:
 
 1. `atomic-starter`
 2. `atomic.contract` (required when your app directly uses `BaseResponse` / `HttpStatusException`)
-3. only the feature modules you want (`storage`, `spring.web`, `spring.idempotency`, `spring.security`, `spring.oauth2`, `app`)
+3. only the feature modules you want (`storage`, `spring.web`, `spring.idempotency`, `spring.security`, `spring.oauth2`, `heartbeat`, `app`)
 
 If a feature module is not on classpath, its auto-configuration is skipped.
 
@@ -54,7 +54,7 @@ Current `.github/workflows/publish-maven-central.yml` publishes only:
 - `atomic-spring-security`
 
 `atomic.starter` is also outside current public publish workflow scope.
-For modules outside that workflow scope (`starter`, `storage`, `app`, `spring-idempotency`, `spring-oauth2`), use local multi-module dependencies or your internal publish pipeline.
+For modules outside that workflow scope (`starter`, `storage`, `app`, `spring-idempotency`, `spring-oauth2`, `heartbeat`), use local multi-module dependencies or your internal publish pipeline.
 
 ### Multi-module local setup
 
@@ -70,6 +70,7 @@ dependencies {
   implementation(project(":atomic-spring-idempotency"))
   implementation(project(":atomic-spring-security"))
   implementation(project(":atomic-spring-oauth2"))
+  implementation(project(":atomic-heartbeat"))
 }
 ```
 
@@ -86,6 +87,7 @@ dependencies {
 | HTTP idempotency filter | `atomic.starter` + `atomic.spring.idempotency` | `atomic.idempotency.enabled=true` | optional custom `IdempotencyStore`, optional custom `IdempotencyFingerprintResolver` |
 | Security JWT helpers | `atomic.starter` + `atomic.spring.security` | `atomic.security.enabled=true` (default), `atomic.security.jwt.enabled=true` (default), JWT keys | your `SecurityFilterChain` that applies `JwtSecurityConfigurerAdapter` |
 | OAuth provider beans/service | `atomic.starter` + `atomic.spring.oauth2` | `atomic.oauth2.enabled=true` (default), `atomic.oauth2.state.enabled=true` (default), `atomic.oauth2.state.signing-secret`, `atomic.oauth2.state.in-memory-store.enabled=false` (default), per-provider `enabled=true` | callback/redirect controller endpoints |
+| Heartbeat ping + dependency checks (`db`, `redis`) | `atomic.starter` + `atomic.heartbeat` | `atomic.heartbeat.enabled=true` | monitor endpoint URL config, optional DataSource/Redis, optional leader dedup backend |
 
 ## Minimal application.yml (starter-based)
 
@@ -226,7 +228,58 @@ atomic:
         enabled: ${ATOMIC_OAUTH2_APPLE_ENABLED:false}
         client-id: ${ATOMIC_OAUTH2_APPLE_CLIENT_ID:}
         server-redirect-uri: ${ATOMIC_OAUTH2_APPLE_SERVER_REDIRECT_URI:}
+
+  heartbeat:
+    enabled: false
+    scheduler-thread-prefix: atomic-heartbeat
+    ping:
+      interval: 30s
+      send-start-event: false
+      fail-open: true
+    provider:
+      type: healthchecks # healthchecks, custom
+      connect-timeout: 1s
+      timeout: 2s
+      instance-id: ${HOSTNAME:default}
+      healthchecks:
+        base-url: ${ATOMIC_HEARTBEAT_BASE_URL:}
+        success-path: ""
+        fail-path: /fail
+        start-path: /start
+    checks:
+      missing-bean-policy: warn # warn, fail
+      db:
+        enabled: false
+        required: true
+        interval: 30s
+        timeout: 2s
+        query: SELECT 1
+      redis:
+        enabled: false
+        required: true
+        interval: 30s
+        timeout: 2s
+    dedup:
+      mode: none # none, leader, per-instance
+      leader:
+        backend: redis # redis, jdbc, custom
+        owner-id: ${HOSTNAME:}
+        lease-duration: 45s
+        renew-interval: 15s
+        redis:
+          key: atomic:heartbeat:leader
+        jdbc:
+          table-name: atomic_heartbeat_leader
+          lock-name: default
+          auto-create-table: false
 ```
+
+Heartbeat operational notes:
+
+- `atomic.heartbeat.provider.type=custom` requires a custom `HeartbeatProvider` bean.
+- `atomic.heartbeat.dedup.leader.backend=custom` requires a custom `LeaderElector` bean.
+- in `leader + jdbc` mode, keep `auto-create-table=false` for production and prepare lock table by migration.
+- in `per-instance` mode, use instance-specific monitor URL template (`{instanceId}`) to avoid signal collisions.
 
 ## Environment Variable Checklist
 
@@ -243,6 +296,8 @@ At minimum by feature:
 - OAuth2
   - `ATOMIC_OAUTH2_STATE_SIGNING_SECRET` (must be at least 32 bytes, otherwise startup fails)
   - provider specific values (for enabled providers only)
+- Heartbeat
+  - `ATOMIC_HEARTBEAT_BASE_URL` (required when `provider.type=healthchecks`)
 
 ## Component Registration You Still Need
 
@@ -308,6 +363,12 @@ Prerequisites:
   - example: `spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration`
 - if `store.type=entity` (default), prepare relay table (`atomic_oauth_relay_code` or configured table-name) before rollout.
 - Login API should consume relay payload using `AppOauthRelayCodeService.consumeRelayCode(relayCode)`.
+
+### 6) Heartbeat module (`atomic.heartbeat`)
+
+- `provider.type=custom`: register `HeartbeatProvider` bean explicitly.
+- `dedup.leader.backend=custom`: register `LeaderElector` bean explicitly.
+- `dedup.mode=leader` + `backend=jdbc`: provision lock table before rollout (recommended), keep `auto-create-table=false` in production.
 
 Image uploader identity option (without security coupling):
 
@@ -411,6 +472,7 @@ This README now consolidates those points into one starter-first onboarding path
 - [atomic.spring.idempotency Guide](docs/usage/atomic-spring-idempotency.md)
 - [atomic.spring.security Guide](docs/usage/atomic-spring-security.md)
 - [atomic.spring.oauth2 Guide](docs/usage/atomic-spring-oauth2.md)
+- [atomic.heartbeat Guide](docs/usage/atomic-heartbeat.md)
 
 ---
 Developed with Codex.

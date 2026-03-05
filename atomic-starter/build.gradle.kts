@@ -21,6 +21,7 @@ dependencies {
 
   compileOnly(projects.atomicContract)
   compileOnly(projects.atomicStorage)
+  compileOnly(projects.atomicHeartbeat)
   compileOnly(projects.atomicSpringWeb)
   compileOnly(projects.atomicSpringIdempotency)
   compileOnly(projects.atomicSpringSecurity)
@@ -30,16 +31,19 @@ dependencies {
   compileOnly(libs.google.api.client)
   compileOnly(libs.spring.data.redis)
   compileOnly(libs.jackson.module.kotlin)
+  compileOnly("org.springframework:spring-jdbc")
 
   annotationProcessor(libs.spring.boot.configuration.processor)
 
   testImplementation(projects.atomicContract)
   testImplementation(projects.atomicStorage)
+  testImplementation(projects.atomicHeartbeat)
   testImplementation(projects.atomicSpringWeb)
   testImplementation(projects.atomicSpringIdempotency)
   testImplementation(projects.atomicSpringSecurity)
   testImplementation(projects.atomicSpringOauth2)
   testImplementation(libs.spring.data.redis)
+  testImplementation("org.springframework:spring-jdbc")
   testImplementation(libs.spring.boot.starter.test)
   testImplementation(libs.kotlin.test.junit5)
   testImplementation(platform(libs.jupiter.bom))
