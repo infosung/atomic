@@ -57,6 +57,8 @@ Note:
 
 ## Properties
 
+Full property index (default / required condition / description): [Property Reference by Module](environment-variables.md) -> `atomic.app.version`, `atomic.app.image`, `atomic.app.oauth.redirect`
+
 ```yaml
 atomic:
   app:
@@ -220,10 +222,12 @@ OAuth redirect exception semantics:
 
 - `400` unsupported provider
 - `400` invalid/missing redirectUri
-- `400` invalid callback request/state
+- `400` invalid callback request/state validation
 - `400` relayCode is invalid/expired/already consumed (on consume API call)
-- OAuth callback/state errors from oauth module are mapped to `HttpStatusException(400)` in app oauth redirect service.
-- Status mapping above assumes your app maps `HttpStatusException` to HTTP response status (for example via `BaseExceptionHandler`).
+- callback/state validation errors are wrapped as `HttpStatusException(400)` in app oauth redirect service.
+- upstream provider I/O errors can propagate as `HttpStatusException(500)` from oauth module.
+- `HttpStatusException` status is applied to HTTP response only when your app has exception mapping (for example `BaseExceptionHandler`).
+- without that mapping, default Spring MVC error handling can return `500` even when exception has `status=400`.
 - invalid redirect-prefix configuration errors (`allowed-redirect-uri-prefixes`) are mapped to `400` in current behavior.
 
 Security notes:

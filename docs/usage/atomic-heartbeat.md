@@ -27,10 +27,12 @@ atomic:
     provider:
       type: healthchecks
       healthchecks:
-        base-url: ${ATOMIC_HEARTBEAT_BASE_URL}
+        base-url: https://hc-ping.com/your-check-id
 ```
 
 ## Property Reference
+
+Full property index (default / required condition / description): [Property Reference by Module](environment-variables.md) -> `atomic.heartbeat`
 
 ### Top-level
 
@@ -213,5 +215,5 @@ Operational notes:
 
 - monitor leader-backend availability (`redis`/`jdbc`) separately from heartbeat target.
 - avoid sharing one monitor URL across all instances in `per-instance` mode.
-- set `owner-id` explicitly (for example `${HOSTNAME}`) if deterministic owner naming is needed.
+- set `owner-id` explicitly (for example `pod-1`) if deterministic owner naming is needed.
 - verify `checks.missing-bean-policy` aligns with rollout policy (`warn` for soft rollout, `fail` for strict).

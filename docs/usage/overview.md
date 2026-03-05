@@ -77,7 +77,7 @@ dependencies {
 ## 3. Quick Start (First Day)
 
 1. Add `atomic.starter` and `atomic.contract` first.
-2. Add one feature module only (`app`, `storage`, `web`, `idempotency`, `security`, `oauth2`, or `heartbeat`).
+2. Add one feature module only (`app`, `storage`, `web`, `idempotency`, `security`, `oauth2`, or `heartbeat`); for `app` image/oauth redirect features, also add their prerequisite modules/beans from the module matrix below.
 3. Register only minimum required beans from that guide.
 4. Run one smoke endpoint.
 5. Add optional features after baseline works.
@@ -104,7 +104,8 @@ dependencies {
 - `atomic.starter` activates only when corresponding module classes are on classpath.
 - `atomic.app` APIs are disabled by default and enabled by `atomic.app.version.enabled` / `atomic.app.image.enabled` / `atomic.app.oauth.redirect.enabled`.
 - Some features still require application-specific beans (for example `BaseExceptionHandler`, `ApiLogAspect`, `LogSaver`).
-- OAuth provider beans are registered only when `atomic.oauth2.state.enabled=true`, `atomic.oauth2.state.signing-secret` is set, and each provider `enabled=true`.
+- `HttpStatusException` status is reflected in HTTP response only when your app maps it (for example `BaseExceptionHandler` subclass); without mapping, default error handling can return `500`.
+- OAuth provider beans from properties are registered when `OauthStateManager` is available and each provider `enabled=true` (auto path: `atomic.oauth2.state.enabled=true` + `atomic.oauth2.state.signing-secret`, or custom manager bean).
 - `atomic.oauth2.state.signing-secret` must be at least 32 bytes; shorter values fail startup.
 - Rate-limit rules are evaluated in declaration order (first match wins), and reset/retry headers follow fixed-window boundary seconds.
 - Rate-limit storage key is `actor|method|pathKey`; with default `path-key-strategy=rule-prefix`, unmatched routes share one `default` bucket.
@@ -125,7 +126,7 @@ dependencies {
 - Response shape mismatch: check `BaseResponse` usage consistency.
 - Storage upload `Unknown storageType`: check storage client/profile map keys and call-site `storageType` value.
 - App image API setup may fail startup (not only API skip): check `atomic.app.image.enabled=true` with `ImageService`/`storageClients` bean availability.
-- App oauth redirect setup may fail startup (default `store.type=entity`, `store.fail-fast=true`): check `atomic.app.oauth.redirect.enabled=true`, `OauthServiceProvider`, `OauthStateManager`, and selected relay store prerequisites.
+- App oauth redirect setup can fail in two ways: startup fail (for example default `store.type=entity` + missing required beans with `store.fail-fast=true`) or conditional endpoint skip/`404` (for example missing `OauthStateManager`/`OauthServiceProvider`); check selected store and OAuth bean prerequisites together.
 - OAuth callback errors: check state and redirect URI mapping.
 - OAuth relay cache store startup failure: check `atomic.app.oauth.redirect.store.cache.cache-name` exists in `CacheManager` (with default `store.fail-fast=true`).
 - OAuth redirect prefix format issue: invalid `allowed-redirect-uri-prefixes` returns `400`; validate URI format in config/CI.
@@ -145,3 +146,4 @@ dependencies {
 7. [atomic.spring.security Guide](atomic-spring-security.md)
 8. [atomic.spring.oauth2 Guide](atomic-spring-oauth2.md)
 9. [atomic.heartbeat Guide](atomic-heartbeat.md)
+10. [Property Reference by Module](environment-variables.md)

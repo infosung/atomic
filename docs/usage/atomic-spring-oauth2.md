@@ -43,6 +43,9 @@ In short:
 4. Implement `/oauth/redirect/{provider}` and `/oauth/callback/{provider}`.
 5. Verify one end-to-end login in dev.
 
+Property reference:
+- Full property index (default / required condition / description): [Property Reference by Module](environment-variables.md) -> `atomic.oauth2`
+
 ## Required Components (Typical)
 
 - provider bean (`GoogleOauthProvider`/`KakaoOauthProvider`/`AppleOauthProvider`)
@@ -57,7 +60,7 @@ In short:
 | Browser redirect login | provider bean, `OauthStateManager`, callback controller | state store |
 | ID token verification only | provider bean with id token path | userinfo path |
 | Multi-provider routing | multiple providers + `OauthServiceProvider` | runtime `supports(...)` checks |
-| Single-use state consume | `OauthStateStore` + state manager with store | separate read-only state manager |
+| Single-use state consume | `OauthStateStore` + state manager with store | separate read-only state manager (optional for clearer separation) |
 
 ## Minimal Working Bean Config (Google)
 
@@ -183,7 +186,7 @@ class OauthRedirectController(
     // exchangeCode performs provider/state validation.
     val tokenResult = oauthProvider.exchangeCode(OauthTokenExchangeRequest(code = code, state = state))
 
-    // Use a read-only state manager (no store) to read redirect_uri without consume conflict.
+    // Optional: use a read-only state manager (no store) for controller-side claim reading.
     val providerName = OauthProviderName.valueOf(provider.uppercase())
     val stateJwt = stateReader.readState(signedState = state, expectedProvider = providerName)
     val clientRedirectUri =
@@ -213,7 +216,7 @@ Avoid redirecting raw `id_token` or `access_token` via query parameters.
 
 - Use one `OauthStateManager` with `OauthStateStore` in provider path.
 - Use another read-only `OauthStateManager` (same secret/issuer/ttl, `store = null`) in controller for reading `redirect_uri` after exchange.
-- This avoids double-consume conflicts while keeping provider-side single-use consume behavior.
+- `readState(...)` itself does not consume store entries, so dual-manager is optional but can make responsibility separation explicit.
 
 ## Provider Capability Notes
 
@@ -230,13 +233,13 @@ Use `provider.supports(...)` if your service needs runtime capability checks.
 - Always require `state` in callback exchange path.
 - Define scope policy per provider before production.
 - Validate nonce/audience policy for ID token verification.
-- Do not manually verify-and-consume state twice with the same store-backed manager.
+- Avoid duplicate consume paths (for example `consumeState(...)` and then `exchangeCode(...)`) for the same callback.
 
 ## Troubleshooting
 
 - Callback fails with invalid state: check signing secret, issuer, ttl, and state transport.
 - Redirect target wrong: confirm `redirectUri` is stored in state and mapped back correctly.
-- State consume conflict: apply dual-manager pattern (store-backed + read-only).
+- State already used/expired: check one-time consume flow and ensure callback is processed once.
 - Unsupported operation errors: check provider capability before calling refresh/revoke/exchange.
 
 ## Notes

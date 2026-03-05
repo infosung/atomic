@@ -18,12 +18,16 @@ It provides:
 3. Add one excluded health endpoint.
 4. Verify one protected endpoint with valid/invalid token.
 
+Property reference:
+- Full property index (default / required condition / description): [Property Reference by Module](environment-variables.md) -> `atomic.security`
+
 ## What You Need to Configure
 
 Required:
 
 - `JwtProvider`
 - `SecurityFilterChain` with `JwtSecurityConfigurerAdapter`
+- `ObjectMapper` bean for auto-configured `JwtSecurityConfigurerAdapter` path (usually provided by Spring Boot web stack)
 
 Recommended:
 
@@ -33,7 +37,7 @@ Recommended:
 Optional:
 
 - `TimeProvider` for deterministic tests or custom clock behavior
-- `ClientChannelResolver` for web/app channel distinction
+- `ClientChannelResolver` for explicit web/app channel distinction (default resolver returns `UNKNOWN`)
 - custom `SecurityCookiePolicy`
 
 ## Feature-to-Bean Matrix
