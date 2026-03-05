@@ -222,7 +222,7 @@ Avoid redirecting raw `id_token` or `access_token` via query parameters.
 
 - Google: authorization URL, exchange, refresh, revoke, identity(id token/userinfo)
 - Kakao: authorization URL, exchange, refresh, identity(id token/userinfo), revoke unsupported
-- Apple: authorization URL + id token identity 중심, exchange/refresh/revoke unsupported in current implementation
+- Apple: authorization URL + id token identity-centric flow; exchange/refresh/revoke are unsupported in current implementation
 
 Use `provider.supports(...)` if your service needs runtime capability checks.
 

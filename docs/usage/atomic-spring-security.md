@@ -75,8 +75,8 @@ class AtomicSecurityConfig {
   @Bean
   fun jwtProvider(timeProvider: TimeProvider): JwtProvider =
       JwtProvider(
-          accessKey = "replace-with-strong-access-key",
-          refreshKey = "replace-with-strong-refresh-key",
+          accessKey = "CHANGE_ME_WITH_STRONG_RANDOM_ACCESS_KEY_64B",
+          refreshKey = "CHANGE_ME_WITH_STRONG_RANDOM_REFRESH_KEY_64B",
           accessExpiredSecond = 60 * 15,
           refreshExpiredSecond = 60L * 60L * 24L * 14L,
           serviceName = "MyService",
@@ -98,7 +98,10 @@ class AtomicSecurityConfig {
       timeProvider: TimeProvider,
       clientChannelResolver: ClientChannelResolver,
   ): SecurityFilterChain {
-    http.csrf { it.disable() }
+    http.csrf { csrf ->
+      // Avoid global CSRF disable. Scope ignore rules to required callback paths only.
+      csrf.ignoringRequestMatchers("/oauth/callback/apple")
+    }
     http.sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
     http.exceptionHandling {
       it.authenticationEntryPoint(JwtAuthenticationEntryPoint(objectMapper))
@@ -120,6 +123,8 @@ class AtomicSecurityConfig {
   }
 }
 ```
+
+If you do not use form callbacks (for example Apple `POST` callback), keep CSRF defaults and avoid broad ignore rules.
 
 ## Protect Storage API Path
 

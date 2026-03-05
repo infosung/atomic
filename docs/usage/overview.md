@@ -1,7 +1,7 @@
 # Usage Overview
 
 > Status: Development in progress (pre-release).
-> 현재 개발 중(배포 전)입니다.
+> Currently under development (pre-release).
 
 ## Before You Start
 
@@ -11,6 +11,10 @@
 - Use `atomic.starter` to enable conditional auto-configuration.
 - Add `atomic.contract` when your app directly uses `BaseResponse` / `HttpStatusException`.
 - Add only the feature modules you use.
+
+Recommended entry docs:
+- Start with minimal setup: [Atomic Quick Start](quick-start.md)
+- Move to production criteria: [Advanced Operations Playbook](advanced-playbook.md)
 
 ## What Atomic Solves
 
@@ -76,7 +80,7 @@ dependencies {
 
 ## 3. Quick Start (First Day)
 
-1. Add `atomic.starter` and `atomic.contract` first.
+1. Add `atomic.starter` first. Add `atomic.contract` only when your app directly uses `BaseResponse` / `HttpStatusException` (exception: `atomic.app` version-only single-track starts are possible via [Atomic Quick Start](quick-start.md)).
 2. Add one feature module only (`app`, `storage`, `web`, `idempotency`, `security`, `oauth2`, or `heartbeat`); for `app` image/oauth redirect features, also add their prerequisite modules/beans from the module matrix below.
 3. Register only minimum required beans from that guide.
 4. Run one smoke endpoint.
@@ -88,15 +92,15 @@ dependencies {
 |---|---|---|
 | Standard API response + shared contracts | `starter` + `contract` | Use `BaseResponse`, `HttpStatusException` |
 | App-ready version/image APIs | `app` + (`starter` + `storage` for image API) | enable `atomic.app.version.enabled` and/or `atomic.app.image.enabled` |
-| App-ready OAuth redirect/callback relay | `app` + `starter` + `spring.oauth2` | enable `atomic.app.oauth.redirect.enabled`, consume `relayCode` in login API, and configure store prerequisites (default `store.type=entity`) |
+| App-ready OAuth redirect/callback relay | `app` + `starter` + `spring.oauth2` | enable `atomic.app.oauth.redirect.enabled`, consume `relayCode` in login API, configure store prerequisites (default `store.type=entity`), and set `allowed-redirect-uri-prefixes` for production |
 | Object storage and media processing | `starter` + `storage` | set `atomic.storage.backends.*` and use `ImageService` |
-| Exception response standardization | `starter` + `contract` + `spring.web` | `BaseExceptionHandler` subclass |
-| API request/response audit logs | `starter` + `contract` + `spring.web` | add `LogSaver` + `ApiLogAspect` implementation |
-| API rate-limit filter | `starter` + `contract` + `spring.web` | enable `atomic.web.rate-limit.enabled`, choose store (`auto/in-memory/redis/custom`), and review key policies (`path-key-strategy`, `missing-key-policy`, `ip.trust-forwarded-headers`) |
-| HTTP idempotency (POST replay-safe) | `starter` + `contract` + `spring.idempotency` | enable `atomic.idempotency.enabled`, configure key/ttl, and choose replay headers/body-cache limit |
-| JWT auth for your API | `starter` + `contract` + `spring.security` | set `atomic.security.jwt.*` and apply `JwtSecurityConfigurerAdapter` |
-| Social login redirect flow | `starter` + `contract` + `spring.oauth2` | set `atomic.oauth2.state.*` + `atomic.oauth2.providers.*` |
-| Heartbeat ping + dependency checks | `starter` + `contract` + `heartbeat` | enable `atomic.heartbeat.enabled`, set provider URL, optional DB/Redis checks and dedup mode |
+| Exception response standardization | `starter` + `spring.web` (+ `contract` when app directly uses `BaseResponse` / `HttpStatusException`) | `BaseExceptionHandler` subclass |
+| API request/response audit logs | `starter` + `spring.web` | add `LogSaver` + `ApiLogAspect` implementation |
+| API rate-limit filter | `starter` + `spring.web` | enable `atomic.web.rate-limit.enabled`, choose store (`auto/in-memory/redis/custom`), and review key policies (`path-key-strategy`, `missing-key-policy`, `ip.trust-forwarded-headers`) |
+| HTTP idempotency (POST replay-safe) | `starter` + `spring.idempotency` | enable `atomic.idempotency.enabled`, configure key/ttl, and choose replay headers/body-cache limit |
+| JWT auth for your API | `starter` + `spring.security` | set `atomic.security.jwt.*` and apply `JwtSecurityConfigurerAdapter` |
+| Social login redirect flow | `starter` + `spring.oauth2` | set `atomic.oauth2.state.*` + `atomic.oauth2.providers.*`, and define one-time state store strategy (`in-memory-store.enabled=true` for single-node or custom/shared store) |
+| Heartbeat ping + dependency checks | `starter` + `heartbeat` | enable `atomic.heartbeat.enabled`, set provider URL, optional DB/Redis checks and dedup mode |
 | Full typical server stack | all modules | start with `starter` -> `storage/web` -> `security` -> `oauth2` |
 
 ## 5. Configuration Policy
@@ -107,6 +111,9 @@ dependencies {
 - `HttpStatusException` status is reflected in HTTP response only when your app maps it (for example `BaseExceptionHandler` subclass); without mapping, default error handling can return `500`.
 - OAuth provider beans from properties are registered when `OauthStateManager` is available and each provider `enabled=true` (auto path: `atomic.oauth2.state.enabled=true` + `atomic.oauth2.state.signing-secret`, or custom manager bean).
 - `atomic.oauth2.state.signing-secret` must be at least 32 bytes; shorter values fail startup.
+- OAuth one-time state consume requires store path (`in-memory-store.enabled=true` or custom/shared `OauthStateStore`).
+- for OAuth relay in production, keep `allowed-redirect-uri-prefixes` non-empty.
+- when Spring Security is enabled, explicitly configure callback/redirect authorization and CSRF policy (especially Apple `POST` callback path).
 - Rate-limit rules are evaluated in declaration order (first match wins), and reset/retry headers follow fixed-window boundary seconds.
 - Rate-limit storage key is `actor|method|pathKey`; with default `path-key-strategy=rule-prefix`, unmatched routes share one `default` bucket.
 - When both are enabled, run rate-limit before idempotency (starter defaults: rate-limit `-100`, idempotency `-50`).
@@ -137,13 +144,15 @@ dependencies {
 
 ## 8. Recommended Reading Order
 
-1. [atomic.starter Guide](atomic-starter.md)
-2. [atomic.contract Guide](atomic-contract.md)
-3. [atomic.app Guide](atomic-app.md)
-4. [atomic.storage Guide](atomic-storage.md)
-5. [atomic.spring.web Guide](atomic-spring-web.md)
-6. [atomic.spring.idempotency Guide](atomic-spring-idempotency.md)
-7. [atomic.spring.security Guide](atomic-spring-security.md)
-8. [atomic.spring.oauth2 Guide](atomic-spring-oauth2.md)
-9. [atomic.heartbeat Guide](atomic-heartbeat.md)
-10. [Property Reference by Module](environment-variables.md)
+1. [Atomic Quick Start](quick-start.md)
+2. [Advanced Operations Playbook](advanced-playbook.md)
+3. [atomic.starter Guide](atomic-starter.md)
+4. [atomic.contract Guide](atomic-contract.md)
+5. [atomic.app Guide](atomic-app.md)
+6. [atomic.storage Guide](atomic-storage.md)
+7. [atomic.spring.web Guide](atomic-spring-web.md)
+8. [atomic.spring.idempotency Guide](atomic-spring-idempotency.md)
+9. [atomic.spring.security Guide](atomic-spring-security.md)
+10. [atomic.spring.oauth2 Guide](atomic-spring-oauth2.md)
+11. [atomic.heartbeat Guide](atomic-heartbeat.md)
+12. [Property Reference by Module](environment-variables.md)
