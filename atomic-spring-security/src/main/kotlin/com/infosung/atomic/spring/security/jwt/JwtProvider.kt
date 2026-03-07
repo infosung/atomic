@@ -302,7 +302,6 @@ class JwtProvider(
 
   private fun tokenSummary(jwt: String): String {
     if (jwt.isBlank()) return "blank"
-    val suffix = jwt.takeLast(8)
-    return "len=${jwt.length},suffix=$suffix"
+    return "len=${jwt.length}"
   }
 }

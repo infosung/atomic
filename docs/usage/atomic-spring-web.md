@@ -70,11 +70,18 @@ Important runtime rule:
 - `ServiceLogger` queues logs.
 - persistence happens when `serviceLogger.send()` runs.
 
+Logging safety notes:
+
+- `ApiLogAspect` trace logs avoid full header/body dumps and keep metadata only (`method`, `uri`, `traceId`, payload presence flags).
+- request query/body payloads are persisted through `JsonTransfer` with sensitive-key masking.
+- keep `TRACE` off in production for `ServiceLogger` unless required for incident response.
+
 ### C) Outbound HTTP Standardization
 
 Purpose:
 
 - convert outbound `RestTemplate` errors to module-defined exception behavior
+- log upstream error metadata (`status`, `bodyLength`) with sanitized URL (query/fragment removed) and without raw error body output
 
 Required:
 
@@ -347,6 +354,7 @@ val resolved =
 
 - Register only feature packs you actually use.
 - If using API logging, define and test `ServiceLogger.send()` schedule/policy.
+- Set `atomic.web.json.sensitive-key-pattern` for your domain-specific secret keys.
 - Verify `FilterRegistrationBean` order does not conflict with other filters.
 - For rate-limit with multi-instance deployment, use Redis/custom shared store instead of in-memory.
 - Any user-defined `RateLimitStore` bean overrides starter-provided store (`@ConditionalOnMissingBean`).
@@ -357,11 +365,14 @@ val resolved =
 - Effective rate-limit key is `actor|method|pathKey`; with default `rule-prefix`, unmatched routes use `pathKey=default` and share one bucket.
 - Default `key-strategy=ip` uses `remoteAddr`; enable `ip.trust-forwarded-headers=true` only behind trusted proxy/ingress that sanitizes forwarding headers.
 - Ensure exception handler is in component scan scope.
+- If upstream error payload analysis is required, handle `HttpRemoteCallException.responseBody` in application code; module logs keep only metadata (`status`, `bodyLength`).
+- `HttpRemoteCallException.url` and `HttpRequestExecutionException.url` keep original request URL; treat them as sensitive when logging/alerting.
 
 ## Troubleshooting
 
 - API logs missing response logs: `ApiLogFilter` missing or not registered.
 - API logs not persisted: `serviceLogger.send()` not invoked.
+- Upstream 4xx/5xx response body is not visible in logs by design: check `HttpRemoteCallException.responseBody` at handling boundary.
 - Exception response not standardized: `BaseExceptionHandler` subclass not active.
 - Duplicate logs: filter registered multiple times.
 - Unexpected `429`: verify `atomic.web.rate-limit.include-methods`, key strategy, and rule/path matching.

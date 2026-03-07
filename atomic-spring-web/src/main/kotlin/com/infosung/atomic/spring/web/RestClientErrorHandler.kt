@@ -25,14 +25,22 @@ class RestClientErrorHandler : ResponseErrorHandler {
       response: ClientHttpResponse,
   ) {
     val body = response.body.bufferedReader().use { it.readText() }
+    val safeUrl = sanitizeUriForLog(url)
+    val bodyLength = body.length
     log.debug(
         "Handling rest client error response: method={}, url={}, status={}",
         method,
-        url,
+        safeUrl,
         response.statusCode,
     )
     if (response.statusCode.is4xxClientError) {
-      log.warn("Rest client 4xx error: method={}, url={}, body={}", method, url, body)
+      log.warn(
+          "Rest client 4xx error: method={}, url={}, status={}, bodyLength={}",
+          method,
+          safeUrl,
+          response.statusCode,
+          bodyLength,
+      )
       throw HttpRemoteCallException(
           status = response.statusCode.value(),
           method = method.name(),
@@ -40,7 +48,13 @@ class RestClientErrorHandler : ResponseErrorHandler {
           responseBody = body,
       )
     } else if (response.statusCode.is5xxServerError) {
-      log.error("Rest client 5xx error: method={}, url={}, body={}", method, url, body)
+      log.error(
+          "Rest client 5xx error: method={}, url={}, status={}, bodyLength={}",
+          method,
+          safeUrl,
+          response.statusCode,
+          bodyLength,
+      )
       throw HttpRemoteCallException(
           status = response.statusCode.value(),
           method = method.name(),
