@@ -163,6 +163,7 @@ Useful notes:
 - `serviceName` blank -> default `InfosungAtomic`
 - `getExpiredClaims(...)` is for already-expired access token handling use cases
 - use long random keys for `accessKey` and `refreshKey`
+- token summary logs include only token length (no raw token / suffix output)
 
 ## Operational Checklist
 
@@ -171,6 +172,7 @@ Useful notes:
 - Confirm channel resolver domain list matches runtime hosts.
 - Validate cookie policy (`secure`, `sameSite`) for deployment environment.
 - Add boundary tests around token expiration time.
+- Keep `DEBUG/TRACE` auth logging disabled in production unless incident response requires temporary enablement.
 
 ## Troubleshooting
 

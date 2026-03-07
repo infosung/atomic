@@ -40,7 +40,7 @@ Validation notes:
 | `atomic.web.logging.filter.enabled` | `true` | optional | Enables logging filter registration. |
 | `atomic.web.logging.filter.order` | `1` | optional | Servlet filter order for API logging filter. |
 | `atomic.web.logging.filter.url-patterns` | `/*` | optional | URL patterns for API logging filter. |
-| `atomic.web.json.sensitive-key-pattern` | empty | optional | Optional regex for sensitive key masking in JSON logging/transfer paths. |
+| `atomic.web.json.sensitive-key-pattern` | empty | optional | Optional regex for sensitive key masking in persisted JSON payloads (`query/body`) used by API logging. |
 
 ### Rate Limit
 

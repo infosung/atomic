@@ -218,6 +218,7 @@ class AppExceptionHandler(
 - [ ] Module checklists completed (storage/oauth2/security/idempotency/heartbeat)
 - [ ] Integration tests pass for `HttpStatusException` 400/401/404/500 cases
 - [ ] Multi-instance verification complete for idempotency/heartbeat
+- [ ] Logging policy verified: no raw request body or upstream error body is emitted in module logs
 - [ ] No secret/key/token values remain in repository config
 - [ ] Observability metrics prepared (401/403/409/429/5xx, state failure rate, heartbeat send failure rate)
 
