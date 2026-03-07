@@ -46,7 +46,9 @@ class RestClientLoggingSafetyTest {
 
     withListAppender(RestClientErrorHandler::class.java, Level.DEBUG) { events ->
       val exception =
-          assertThrows<HttpRemoteCallException> { handler.handleError(url, HttpMethod.POST, response) }
+          assertThrows<HttpRemoteCallException> {
+            handler.handleError(url, HttpMethod.POST, response)
+          }
 
       assertEquals("https://api.example.com/v1/callback?token=secretQuery", exception.url)
       assertEquals(responseBody, exception.responseBody)
@@ -63,7 +65,8 @@ class RestClientLoggingSafetyTest {
   @Test
   fun `RestClientErrorHandler should sanitize user info in logs`() {
     val handler = RestClientErrorHandler()
-    val response = MockClientHttpResponse("""{"error":"failed"}""".toByteArray(), HttpStatus.BAD_REQUEST)
+    val response =
+        MockClientHttpResponse("""{"error":"failed"}""".toByteArray(), HttpStatus.BAD_REQUEST)
     val url = URI("https://user:pass@api.example.com/v1/callback?token=secretQuery")
 
     withListAppender(RestClientErrorHandler::class.java, Level.DEBUG) { events ->
@@ -80,7 +83,8 @@ class RestClientLoggingSafetyTest {
   fun `RestClientInterceptor should log safe uri and attribute keys only`() {
     val interceptor = RestClientInterceptor()
     val request =
-        MockClientHttpRequest(HttpMethod.GET, URI("https://api.example.com/v1/users?token=secretQuery"))
+        MockClientHttpRequest(
+            HttpMethod.GET, URI("https://api.example.com/v1/users?token=secretQuery"))
     request.attributes["trace"] = "super-secret-value"
     val execution = ClientHttpRequestExecution { _, _ ->
       MockClientHttpResponse(ByteArray(0), HttpStatus.OK)
@@ -133,7 +137,9 @@ class RestClientLoggingSafetyTest {
     val execution = ClientHttpRequestExecution { _, _ -> throw IOException(leakingMessage) }
 
     withListAppender(RestClientInterceptor::class.java, Level.DEBUG) { events ->
-      assertThrows<HttpRequestExecutionException> { interceptor.intercept(request, ByteArray(0), execution) }
+      assertThrows<HttpRequestExecutionException> {
+        interceptor.intercept(request, ByteArray(0), execution)
+      }
       val logs = events.map { it.formattedMessage }
       assertFalse(logs.any { it.contains("token=secretQuery") })
       assertTrue(logs.any { it.contains("errorType=IOException") })
@@ -145,7 +151,8 @@ class RestClientLoggingSafetyTest {
   fun `RestClientErrorHandler should log metadata on 5xx without raw body`() {
     val handler = RestClientErrorHandler()
     val responseBody = """{"secret":"server-token","reason":"failed"}"""
-    val response = MockClientHttpResponse(responseBody.toByteArray(), HttpStatus.INTERNAL_SERVER_ERROR)
+    val response =
+        MockClientHttpResponse(responseBody.toByteArray(), HttpStatus.INTERNAL_SERVER_ERROR)
     val url = URI("https://api.example.com/v1/server?token=secretQuery")
 
     withListAppender(RestClientErrorHandler::class.java, Level.DEBUG) { events ->
