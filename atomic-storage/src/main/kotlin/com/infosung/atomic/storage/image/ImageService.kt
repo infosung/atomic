@@ -6,7 +6,7 @@ import com.infosung.atomic.storage.StorageProfile
 import java.io.File
 import java.io.InputStream
 import java.io.InterruptedIOException
-import java.util.logging.Logger
+import org.slf4j.LoggerFactory
 
 /**
  * High-level image upload/delete service.
@@ -246,13 +246,13 @@ class ImageService(
     if (!file.exists()) return
     if (!file.delete()) {
       file.deleteOnExit()
-      logger.warning(
+      logger.warn(
           "Failed to delete temporary file ($context): ${file.absolutePath}. Scheduled deleteOnExit().",
       )
     }
   }
 
   companion object {
-    private val logger: Logger = Logger.getLogger(ImageService::class.java.name)
+    private val logger = LoggerFactory.getLogger(ImageService::class.java)
   }
 }

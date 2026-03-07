@@ -2,6 +2,7 @@ package com.infosung.atomic.spring.web
 
 import com.infosung.atomic.spring.web.exception.HttpRemoteCallException
 import java.net.URI
+import java.security.MessageDigest
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpMethod
 import org.springframework.http.client.ClientHttpResponse
@@ -25,6 +26,8 @@ class RestClientErrorHandler : ResponseErrorHandler {
       response: ClientHttpResponse,
   ) {
     val body = response.body.bufferedReader().use { it.readText() }
+    val bodyLength = body.length
+    val bodyHash = sha256Hex(body)
     log.debug(
         "Handling rest client error response: method={}, url={}, status={}",
         method,
@@ -32,7 +35,14 @@ class RestClientErrorHandler : ResponseErrorHandler {
         response.statusCode,
     )
     if (response.statusCode.is4xxClientError) {
-      log.warn("Rest client 4xx error: method={}, url={}, body={}", method, url, body)
+      log.warn(
+          "Rest client 4xx error: method={}, url={}, status={}, bodyLength={}, bodySha256={}",
+          method,
+          url,
+          response.statusCode,
+          bodyLength,
+          bodyHash,
+      )
       throw HttpRemoteCallException(
           status = response.statusCode.value(),
           method = method.name(),
@@ -40,7 +50,14 @@ class RestClientErrorHandler : ResponseErrorHandler {
           responseBody = body,
       )
     } else if (response.statusCode.is5xxServerError) {
-      log.error("Rest client 5xx error: method={}, url={}, body={}", method, url, body)
+      log.error(
+          "Rest client 5xx error: method={}, url={}, status={}, bodyLength={}, bodySha256={}",
+          method,
+          url,
+          response.statusCode,
+          bodyLength,
+          bodyHash,
+      )
       throw HttpRemoteCallException(
           status = response.statusCode.value(),
           method = method.name(),
@@ -50,5 +67,10 @@ class RestClientErrorHandler : ResponseErrorHandler {
     }
 
     super.handleError(url, method, response)
+  }
+
+  private fun sha256Hex(value: String): String {
+    val bytes = MessageDigest.getInstance("SHA-256").digest(value.toByteArray(Charsets.UTF_8))
+    return bytes.joinToString("") { "%02x".format(it) }
   }
 }

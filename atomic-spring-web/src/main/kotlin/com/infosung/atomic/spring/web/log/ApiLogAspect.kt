@@ -51,8 +51,16 @@ abstract class ApiLogAspect(
         else null
 
     val headerDto = request.toHeaderDto(traceIdGenerator = traceIdGenerator)
-    log.trace("Request header dto={}", headerDto)
-    log.trace("Request body payload={}", requestBody)
+    val queryJson = jsonTransfer.mapToJson(request.parameterMap)
+    val bodyJson = jsonTransfer.mapToJson(requestBody)
+    log.trace(
+        "Request metadata captured: method={}, uri={}, traceId={}, hasQuery={}, hasBody={}",
+        request.method,
+        request.requestURI,
+        headerDto.traceId,
+        queryJson != null,
+        bodyJson != null,
+    )
 
     val startTime = timeProvider.nowMillis()
     val userId = getUserId()
@@ -67,8 +75,8 @@ abstract class ApiLogAspect(
             clientIp = headerDto.clientIp,
             customLang = headerDto.customLang,
             acceptLanguage = headerDto.acceptLanguage,
-            query = jsonTransfer.mapToJson(request.parameterMap),
-            body = jsonTransfer.mapToJson(requestBody),
+            query = queryJson,
+            body = bodyJson,
         )
     ApiLogContext.set(request, requestLog)
     logging(requestLog)
@@ -88,7 +96,14 @@ abstract class ApiLogAspect(
               return joinPoint.proceed()
             }
     val headerDto = request.toHeaderDto(traceIdGenerator = traceIdGenerator)
-    log.trace("Request header dto={}", headerDto)
+    val queryJson = jsonTransfer.mapToJson(request.parameterMap)
+    log.trace(
+        "Request metadata captured: method={}, uri={}, traceId={}, hasQuery={}",
+        request.method,
+        request.requestURI,
+        headerDto.traceId,
+        queryJson != null,
+    )
 
     val startTime = timeProvider.nowMillis()
     val userId = getUserId()
@@ -103,7 +118,7 @@ abstract class ApiLogAspect(
             clientIp = headerDto.clientIp,
             customLang = headerDto.customLang,
             acceptLanguage = headerDto.acceptLanguage,
-            query = jsonTransfer.mapToJson(request.parameterMap),
+            query = queryJson,
             body = requestBody,
         )
     ApiLogContext.set(request, requestLog)

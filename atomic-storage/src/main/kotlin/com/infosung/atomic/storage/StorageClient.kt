@@ -2,7 +2,7 @@ package com.infosung.atomic.storage
 
 import java.io.File
 import java.io.InputStream
-import java.util.logging.Logger
+import org.slf4j.LoggerFactory
 
 /**
  * File-based upload request for [StorageClient.putObject].
@@ -101,7 +101,7 @@ interface StorageClient {
     if (!tempFile.exists()) return
     if (!tempFile.delete()) {
       tempFile.deleteOnExit()
-      logger.warning(
+      logger.warn(
           "Failed to delete temporary file ($context): ${tempFile.absolutePath}. Scheduled deleteOnExit().",
       )
     }
@@ -109,6 +109,6 @@ interface StorageClient {
 
   companion object {
     const val CONTENT_LENGTH_METADATA_KEY: String = "content-length"
-    private val logger: Logger = Logger.getLogger(StorageClient::class.java.name)
+    private val logger = LoggerFactory.getLogger(StorageClient::class.java)
   }
 }
