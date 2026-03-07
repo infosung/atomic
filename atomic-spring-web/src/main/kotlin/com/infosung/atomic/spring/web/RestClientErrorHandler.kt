@@ -2,7 +2,6 @@ package com.infosung.atomic.spring.web
 
 import com.infosung.atomic.spring.web.exception.HttpRemoteCallException
 import java.net.URI
-import java.security.MessageDigest
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpMethod
 import org.springframework.http.client.ClientHttpResponse
@@ -26,22 +25,21 @@ class RestClientErrorHandler : ResponseErrorHandler {
       response: ClientHttpResponse,
   ) {
     val body = response.body.bufferedReader().use { it.readText() }
+    val safeUrl = sanitizeUriForLog(url)
     val bodyLength = body.length
-    val bodyHash = sha256Hex(body)
     log.debug(
         "Handling rest client error response: method={}, url={}, status={}",
         method,
-        url,
+        safeUrl,
         response.statusCode,
     )
     if (response.statusCode.is4xxClientError) {
       log.warn(
-          "Rest client 4xx error: method={}, url={}, status={}, bodyLength={}, bodySha256={}",
+          "Rest client 4xx error: method={}, url={}, status={}, bodyLength={}",
           method,
-          url,
+          safeUrl,
           response.statusCode,
           bodyLength,
-          bodyHash,
       )
       throw HttpRemoteCallException(
           status = response.statusCode.value(),
@@ -51,12 +49,11 @@ class RestClientErrorHandler : ResponseErrorHandler {
       )
     } else if (response.statusCode.is5xxServerError) {
       log.error(
-          "Rest client 5xx error: method={}, url={}, status={}, bodyLength={}, bodySha256={}",
+          "Rest client 5xx error: method={}, url={}, status={}, bodyLength={}",
           method,
-          url,
+          safeUrl,
           response.statusCode,
           bodyLength,
-          bodyHash,
       )
       throw HttpRemoteCallException(
           status = response.statusCode.value(),
@@ -67,10 +64,5 @@ class RestClientErrorHandler : ResponseErrorHandler {
     }
 
     super.handleError(url, method, response)
-  }
-
-  private fun sha256Hex(value: String): String {
-    val bytes = MessageDigest.getInstance("SHA-256").digest(value.toByteArray(Charsets.UTF_8))
-    return bytes.joinToString("") { "%02x".format(it) }
   }
 }

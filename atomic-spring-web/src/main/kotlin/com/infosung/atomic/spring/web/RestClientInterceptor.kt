@@ -20,24 +20,29 @@ class RestClientInterceptor : ClientHttpRequestInterceptor {
       body: ByteArray,
       execution: ClientHttpRequestExecution,
   ): ClientHttpResponse {
-    log.debug("Rest client request started: method={}, uri={}", request.method, request.uri)
-    log.trace("Rest client request attributes={}, bodyBytes={}", request.attributes, body.size)
+    val safeUri = sanitizeUriForLog(request.uri)
+    log.debug("Rest client request started: method={}, uri={}", request.method, safeUri)
+    log.trace(
+        "Rest client request metadata: attributeKeys={}, bodyBytes={}",
+        request.attributes.keys,
+        body.size,
+    )
     return try {
       val response = execution.execute(request, body)
       log.debug(
           "Rest client request completed: method={}, uri={}, status={}, statusText={}",
           request.method,
-          request.uri,
+          safeUri,
           response.statusCode,
           response.statusText,
       )
       response
     } catch (e: Exception) {
       log.error(
-          "Rest client request failed: method={}, uri={}",
+          "Rest client request failed: method={}, uri={}, errorType={}",
           request.method,
-          request.uri,
-          e,
+          safeUri,
+          e::class.java.simpleName,
       )
       throw HttpRequestExecutionException(
           method = request.method.name(),

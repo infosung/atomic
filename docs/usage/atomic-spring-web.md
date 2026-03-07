@@ -72,15 +72,16 @@ Important runtime rule:
 
 Logging safety notes:
 
-- `ApiLogAspect` trace logs do not print raw request body/header values directly.
+- `ApiLogAspect` trace logs avoid full header/body dumps and keep metadata only (`method`, `uri`, `traceId`, payload presence flags).
 - request query/body payloads are persisted through `JsonTransfer` with sensitive-key masking.
+- keep `TRACE` off in production for `ServiceLogger` unless required for incident response.
 
 ### C) Outbound HTTP Standardization
 
 Purpose:
 
 - convert outbound `RestTemplate` errors to module-defined exception behavior
-- log upstream error metadata (`status`, `bodyLength`, `bodySha256`) without raw error body output
+- log upstream error metadata (`status`, `bodyLength`) with sanitized URL (query/fragment removed) and without raw error body output
 
 Required:
 
@@ -364,7 +365,8 @@ val resolved =
 - Effective rate-limit key is `actor|method|pathKey`; with default `rule-prefix`, unmatched routes use `pathKey=default` and share one bucket.
 - Default `key-strategy=ip` uses `remoteAddr`; enable `ip.trust-forwarded-headers=true` only behind trusted proxy/ingress that sanitizes forwarding headers.
 - Ensure exception handler is in component scan scope.
-- If upstream error payload analysis is required, handle `HttpRemoteCallException.responseBody` in application code; module logs keep only body hash/length.
+- If upstream error payload analysis is required, handle `HttpRemoteCallException.responseBody` in application code; module logs keep only metadata (`status`, `bodyLength`).
+- `HttpRemoteCallException.url` and `HttpRequestExecutionException.url` keep original request URL; treat them as sensitive when logging/alerting.
 
 ## Troubleshooting
 

@@ -247,7 +247,7 @@ class ImageService(
     if (!file.delete()) {
       file.deleteOnExit()
       logger.warn(
-          "Failed to delete temporary file ($context): ${file.absolutePath}. Scheduled deleteOnExit().",
+          "Failed to delete temporary file ($context): ${file.name}. Scheduled deleteOnExit().",
       )
     }
   }

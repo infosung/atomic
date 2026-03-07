@@ -102,7 +102,7 @@ interface StorageClient {
     if (!tempFile.delete()) {
       tempFile.deleteOnExit()
       logger.warn(
-          "Failed to delete temporary file ($context): ${tempFile.absolutePath}. Scheduled deleteOnExit().",
+          "Failed to delete temporary file ($context): ${tempFile.name}. Scheduled deleteOnExit().",
       )
     }
   }
