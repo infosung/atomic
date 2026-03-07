@@ -3,7 +3,7 @@
 Atomic is a Kotlin/Spring library suite for backend services.
 
 > Status: Development in progress (pre-release).
-> 현재 개발 중(배포 전)입니다.
+> Currently under development (pre-release).
 
 ## Tested Baseline
 
@@ -12,6 +12,12 @@ Atomic is a Kotlin/Spring library suite for backend services.
 - Spring Boot `4.0.3`
 - `atomic.spring.web` AOP dependency uses `org.springframework.boot:spring-boot-starter-aspectj` (BOM-managed).
 
+## Start Here (Recommended Path)
+
+1. Minimal adoption: [Atomic Quick Start](docs/usage/quick-start.md)
+2. Production transition: [Advanced Operations Playbook](docs/usage/advanced-playbook.md)
+3. Module-level details: see `Detailed Guides` below
+
 ## Starter-First Policy
 
 `atomic-starter` is the entrypoint for auto-configuration, but it does **not** pull feature modules transitively.
@@ -19,11 +25,14 @@ Atomic is a Kotlin/Spring library suite for backend services.
 `atomic.app` is also a separate feature module.
 It is **not included** in `atomic-starter`, and adding `atomic-starter` alone does not activate app APIs.
 
-You must add:
+For starter-based path, add:
 
 1. `atomic-starter`
 2. `atomic.contract` (required when your app directly uses `BaseResponse` / `HttpStatusException`)
 3. only the feature modules you want (`storage`, `spring.web`, `spring.idempotency`, `spring.security`, `spring.oauth2`, `heartbeat`, `app`)
+
+Exception:
+- `atomic.app` version-only path can start without `atomic-starter` (see [Atomic Quick Start](docs/usage/quick-start.md)).
 
 If a feature module is not on classpath, its auto-configuration is skipped.
 
@@ -78,28 +87,31 @@ dependencies {
 
 | Feature | Required dependency | Activation properties | App-side required components |
 |---|---|---|---|
-| Contract utilities (`TimeProvider`, `TraceIdGenerator`) | `atomic.starter` + `atomic.contract` | none | use this when app directly uses `BaseResponse` / `HttpStatusException` |
-| Storage (`storageClients`, `storageProfiles`, `ImageService`) | `atomic.starter` + `atomic.storage` | `atomic.storage.enabled=true` (default) and valid `atomic.storage.backends.*` | none |
+| Contract utilities (`TimeProvider`, `TraceIdGenerator`) | `atomic.contract` (starter optional) | none | In starter-based flow these are auto-configured; for direct usage, `atomic.contract` alone is enough |
+| Storage (`storageClients`, `storageProfiles`, `ImageService`) | `atomic.starter` + `atomic.storage` | `atomic.storage.enabled=true` (default); configure at least one enabled `atomic.storage.backends.*` entry before storage API traffic | none |
 | Common version check API (`GET /api/v1/version/check`) | `atomic.app` (+ datasource/JPA) | `atomic.app.version.enabled=true` | `service_version` table schema and version policy data |
-| Common image upload/delete API (`POST/DELETE /api/v1/storage/image/{service}/{storageService}`) | `atomic.app` + `atomic.starter` + storage backend config | `atomic.app.image.enabled=true`, `atomic.storage.enabled=true` (+ optional uploader tracking config) | `image` table schema |
-| Common OAuth redirect/callback relay API (`/oauth/redirect`, `/oauth/callback`) | `atomic.app` + `atomic.starter` + `atomic.spring.oauth2` | `atomic.app.oauth.redirect.enabled=true`, oauth state/provider properties | login API that consumes relayCode |
+| Common image upload/delete API (`POST/DELETE /api/v1/storage/image/{service}/{storageService}`) | `atomic.app` + `atomic.starter` + `atomic.storage` + storage backend config | `atomic.app.image.enabled=true`, `atomic.storage.enabled=true` (+ optional uploader tracking config) | `image` table schema |
+| Common OAuth redirect/callback relay API (`/oauth/redirect/{provider}`, `/oauth/callback/{provider}`, `POST /oauth/callback/apple`) | `atomic.app` + `atomic.starter` + `atomic.spring.oauth2` | `atomic.app.oauth.redirect.enabled=true`, oauth state/provider properties | login API that consumes relayCode |
 | Web logging/json/rate-limit helpers | `atomic.starter` + `atomic.spring.web` | `atomic.web.enabled=true` (default), `atomic.web.logging.enabled=true` (default), `atomic.web.rate-limit.enabled=false` (default) | for logging/exception mapping: `LogSaver` + `ApiLogAspect` + `BaseExceptionHandler`; for rate-limit only: no mandatory app bean |
 | HTTP idempotency filter | `atomic.starter` + `atomic.spring.idempotency` | `atomic.idempotency.enabled=true` | optional custom `IdempotencyStore`, optional custom `IdempotencyFingerprintResolver` |
 | Security JWT helpers | `atomic.starter` + `atomic.spring.security` | `atomic.security.enabled=true` (default), `atomic.security.jwt.enabled=true` (default), JWT keys | your `SecurityFilterChain` that applies `JwtSecurityConfigurerAdapter` |
-| OAuth provider beans/service | `atomic.starter` + `atomic.spring.oauth2` | `atomic.oauth2.enabled=true` (default), `atomic.oauth2.state.enabled=true` (default), `atomic.oauth2.state.signing-secret`, `atomic.oauth2.state.in-memory-store.enabled=false` (default), per-provider `enabled=true` | callback/redirect controller endpoints |
+| OAuth provider beans/service | `atomic.starter` + `atomic.spring.oauth2` | `atomic.oauth2.enabled=true` (default), per-provider `enabled=true`, and available `OauthStateManager` (auto path: `state.enabled=true` + `state.signing-secret`; or custom bean) | callback/redirect controller endpoints |
 | Heartbeat ping + dependency checks (`db`, `redis`) | `atomic.starter` + `atomic.heartbeat` | `atomic.heartbeat.enabled=true` | monitor endpoint URL config, optional DataSource/Redis, optional leader dedup backend |
 
-## Minimal application.yml (starter-based)
+## Reference application.yml (feature template)
+
+> Warning: this is a feature template, not a copy-paste minimal config. Enable only tracks you actually use.
+> Warning: secret-like sample values below are for local bootstrap only. Replace before any shared/staging/prod deployment.
 
 ```yaml
 atomic:
   app:
     version:
-      enabled: true
+      enabled: false # enable only when version API prerequisites are ready
       endpoint-path: /api/v1/version/check
       default-store-url: https://www.infosung.com
     image:
-      enabled: true
+      enabled: false # enable only when image table + storage beans are ready
       endpoint-path: /api/v1/storage/image
       default-quality: 1.0
       min-quality: 0.1
@@ -108,7 +120,7 @@ atomic:
       uploader-parameter-name: uploaderId
     oauth:
       redirect:
-        enabled: true
+        enabled: false # enable only when oauth provider/state/store prerequisites are ready
         redirect-endpoint-path: /oauth/redirect
         callback-endpoint-path: /oauth/callback # base path. final callback path is /{provider} or /apple
         relay-code-query-parameter-name: relayCode
@@ -133,20 +145,20 @@ atomic:
       S3:
         enabled: true
         type: s3 # supported: s3, r2, minio
-        bucket: ${ATOMIC_STORAGE_BUCKET}
-        cdn: ${ATOMIC_STORAGE_CDN}
-        region: ${ATOMIC_STORAGE_REGION}
-        endpoint: ${ATOMIC_STORAGE_ENDPOINT:}
-        path-style-access-enabled: ${ATOMIC_STORAGE_PATH_STYLE:false}
-        access-key-id: ${ATOMIC_STORAGE_ACCESS_KEY_ID:}
-        secret-access-key: ${ATOMIC_STORAGE_SECRET_ACCESS_KEY:}
-        session-token: ${ATOMIC_STORAGE_SESSION_TOKEN:}
+        bucket: my-bucket
+        cdn: https://cdn.example.com
+        region: ap-northeast-2
+        endpoint: ""
+        path-style-access-enabled: false
+        access-key-id: ""
+        secret-access-key: ""
+        session-token: ""
 
   web:
     enabled: true
     logging:
       enabled: true
-      queue-size: ${ATOMIC_WEB_LOG_QUEUE_SIZE:10000}
+      queue-size: 10000
       filter:
         enabled: true
         order: 1
@@ -199,35 +211,35 @@ atomic:
     enabled: true
     jwt:
       enabled: true
-      access-key: ${ATOMIC_SECURITY_JWT_ACCESS_KEY}
-      refresh-key: ${ATOMIC_SECURITY_JWT_REFRESH_KEY}
-      service-name: ${ATOMIC_SECURITY_JWT_SERVICE_NAME:MyService}
-      access-expired-second: ${ATOMIC_SECURITY_JWT_ACCESS_EXPIRED_SECOND:3600}
-      refresh-expired-second: ${ATOMIC_SECURITY_JWT_REFRESH_EXPIRED_SECOND:1209600}
+      access-key: CHANGE_ME_WITH_STRONG_RANDOM_ACCESS_KEY_64B
+      refresh-key: CHANGE_ME_WITH_STRONG_RANDOM_REFRESH_KEY_64B
+      service-name: MyService
+      access-expired-second: 3600
+      refresh-expired-second: 1209600
 
   oauth2:
     enabled: true
     state:
       enabled: true
-      signing-secret: ${ATOMIC_OAUTH2_STATE_SIGNING_SECRET} # must be >= 32 bytes
-      issuer: ${ATOMIC_OAUTH2_STATE_ISSUER:atomic-oauth-state}
-      ttl-seconds: ${ATOMIC_OAUTH2_STATE_TTL_SECONDS:300}
+      signing-secret: CHANGE_ME_WITH_STRONG_RANDOM_STATE_SECRET_AT_LEAST_32_BYTES
+      issuer: atomic-oauth-state
+      ttl-seconds: 300
       in-memory-store:
         enabled: false # default false (recommended for multi-instance)
     providers:
       google:
-        enabled: ${ATOMIC_OAUTH2_GOOGLE_ENABLED:false}
-        client-id: ${ATOMIC_OAUTH2_GOOGLE_CLIENT_ID:}
-        client-secret: ${ATOMIC_OAUTH2_GOOGLE_CLIENT_SECRET:}
-        server-redirect-uri: ${ATOMIC_OAUTH2_GOOGLE_SERVER_REDIRECT_URI:}
+        enabled: false
+        client-id: ""
+        client-secret: ""
+        server-redirect-uri: ""
       kakao:
-        enabled: ${ATOMIC_OAUTH2_KAKAO_ENABLED:false}
-        client-id: ${ATOMIC_OAUTH2_KAKAO_CLIENT_ID:}
-        server-redirect-uri: ${ATOMIC_OAUTH2_KAKAO_SERVER_REDIRECT_URI:}
+        enabled: false
+        client-id: ""
+        server-redirect-uri: ""
       apple:
-        enabled: ${ATOMIC_OAUTH2_APPLE_ENABLED:false}
-        client-id: ${ATOMIC_OAUTH2_APPLE_CLIENT_ID:}
-        server-redirect-uri: ${ATOMIC_OAUTH2_APPLE_SERVER_REDIRECT_URI:}
+        enabled: false
+        client-id: ""
+        server-redirect-uri: ""
 
   heartbeat:
     enabled: false
@@ -240,9 +252,9 @@ atomic:
       type: healthchecks # healthchecks, custom
       connect-timeout: 1s
       timeout: 2s
-      instance-id: ${HOSTNAME:default}
+      instance-id: default
       healthchecks:
-        base-url: ${ATOMIC_HEARTBEAT_BASE_URL:}
+        base-url: ""
         success-path: ""
         fail-path: /fail
         start-path: /start
@@ -263,7 +275,7 @@ atomic:
       mode: none # none, leader, per-instance
       leader:
         backend: redis # redis, jdbc, custom
-        owner-id: ${HOSTNAME:}
+        owner-id: ""
         lease-duration: 45s
         renew-interval: 15s
         redis:
@@ -281,23 +293,29 @@ Heartbeat operational notes:
 - in `leader + jdbc` mode, keep `auto-create-table=false` for production and prepare lock table by migration.
 - in `per-instance` mode, use instance-specific monitor URL template (`{instanceId}`) to avoid signal collisions.
 
-## Environment Variable Checklist
+Production safety note:
+- Do not copy availability-first defaults to production without review (`atomic.web.rate-limit.fail-open`, `atomic.idempotency.fail-open`, `atomic.heartbeat.ping.fail-open`, `atomic.heartbeat.checks.missing-bean-policy`).
+
+## Property Checklist
+
+Detailed reference: [Property Reference by Module](docs/usage/environment-variables.md)
 
 At minimum by feature:
 
 - Storage
-  - `ATOMIC_STORAGE_BUCKET`, `ATOMIC_STORAGE_CDN`, `ATOMIC_STORAGE_REGION`
-  - optional credentials: `ATOMIC_STORAGE_ACCESS_KEY_ID`, `ATOMIC_STORAGE_SECRET_ACCESS_KEY`, `ATOMIC_STORAGE_SESSION_TOKEN`
+  - `atomic.storage.backends.<backend>.bucket`, `cdn`, `region`
+  - optional credentials: `access-key-id`, `secret-access-key`, `session-token`
 - App APIs
-  - no dedicated env var is mandatory
-  - `atomic.app.version.default-store-url` can be environment-backed when needed
+  - no dedicated starter-level required property
+  - `atomic.app.version.default-store-url` can be set from your config source when needed
 - Security
-  - `ATOMIC_SECURITY_JWT_ACCESS_KEY`, `ATOMIC_SECURITY_JWT_REFRESH_KEY`
+  - `atomic.security.jwt.access-key`, `atomic.security.jwt.refresh-key` (auto `JwtProvider` path)
 - OAuth2
-  - `ATOMIC_OAUTH2_STATE_SIGNING_SECRET` (must be at least 32 bytes, otherwise startup fails)
+  - `atomic.oauth2.state.signing-secret` (must be at least 32 bytes)
   - provider specific values (for enabled providers only)
+  - if providers are enabled without available `OauthStateManager`, provider beans can be skipped and callback endpoints may be missing
 - Heartbeat
-  - `ATOMIC_HEARTBEAT_BASE_URL` (required when `provider.type=healthchecks`)
+  - `atomic.heartbeat.provider.healthchecks.base-url` (required when `provider.type=healthchecks`)
 
 ## Component Registration You Still Need
 
@@ -318,9 +336,10 @@ Implement/register:
 ### 2) Security module
 
 Register `SecurityFilterChain` and apply auto-configured `JwtSecurityConfigurerAdapter`.
-- fail-fast policy: when `atomic.security.enabled=true`, `JwtSecurityConfigurerAdapter` requires
-  `JwtProvider` (auto by keys or custom bean). missing provider fails startup.
+- fail-fast policy: when `atomic.security.enabled=true` and `ObjectMapper` bean exists,
+  `JwtSecurityConfigurerAdapter` requires `JwtProvider` (auto by keys or custom bean). missing provider fails startup.
   - if `atomic.security.jwt.enabled=false`, register custom `JwtProvider` or disable security auto-config.
+  - if `ObjectMapper` is missing, `JwtSecurityConfigurerAdapter` is not auto-registered.
 
 ### 3) Idempotency module
 
@@ -391,12 +410,15 @@ OAuth relay option (without token in callback query):
   - current behavior: invalid entry format is returned as `400`.
   - example: `https://app.example.com/oauth` allows `https://app.example.com/oauth/callback` but rejects `https://app.example.com.evil.com/...`.
 - if `allowed-redirect-uri-prefixes` is empty, any absolute `redirectUri` is accepted.
+- in production, explicitly set `allowed-redirect-uri-prefixes` (empty value is unsafe).
 - relay store type default is `entity` (`atomic.app.oauth.redirect.store.type=entity`).
 - selected relay store dependencies are validated (`in-memory`/`cache`/`entity`); unselected store dependencies are not validated.
 - global relay settings (for example `relay-code-ttl-seconds`) are validated regardless of store type.
 - provider callback path mapping:
   - Google/Kakao: `https://{host}{callback-endpoint-path}/{provider}`
   - Apple: `https://{host}{callback-endpoint-path}/apple` (`POST`, `form_post`)
+- when Spring Security is enabled, explicitly allow callback/redirect paths and review CSRF policy for Apple `POST` callback path.
+  - typical setup: `permitAll` on redirect/callback endpoints + CSRF ignore rule for `{callback-endpoint-path}/apple`
 - `GET {callback-endpoint-path}/apple` is rejected with `400` (Apple callback supports `POST` only).
 - keep provider `server-redirect-uri` registration aligned with mapping above.
 - `cache` uses Spring `CacheManager` (for example Redis cache), `entity` uses datasource/transaction manager.
@@ -406,8 +428,10 @@ OAuth relay option (without token in callback query):
 - cache/entity stores validate expiration on consume (`pop`) and remove consumed relay data.
 - for cache backends, configure backend TTL/eviction to avoid stale expired keys accumulating.
 - for entity store, run periodic cleanup (for example `DELETE FROM atomic_oauth_relay_code WHERE expires_at <= NOW()`) for unconsumed expired rows.
-- HTTP status semantics assume your app maps `HttpStatusException` via exception handler configuration.
-- OAuth callback/state errors from oauth module are mapped to `HttpStatusException(400)` in app oauth redirect service.
+- callback/state validation errors are wrapped as `HttpStatusException(400)` in app oauth redirect service.
+- upstream provider I/O errors can propagate as `HttpStatusException(500)` from oauth module.
+- `HttpStatusException` status is applied to HTTP response only when your app maps it via exception handler configuration (for example `BaseExceptionHandler` subclass).
+- without that mapping, default Spring MVC error handling can return `500` even when exception has `status=400`.
 - with `store.fail-fast=false`, selected store errors (missing deps, invalid cache-name/ttl, unavailable cache) do not fail startup and fall back to in-memory store.
 - in-memory fallback is process-local per instance and can break relay one-time guarantees in multi-instance deployments.
 
@@ -425,6 +449,7 @@ Protect `POST/DELETE /api/v1/storage/image/**` (or your custom `atomic.app.image
   - keep audience values unique per client
 - For multi-instance production, prefer a shared/distributed `OauthStateStore` instead of default in-memory store.
 - `atomic.oauth2.state.in-memory-store.enabled` default is `false` because in-memory state store is process-local and can break callbacks in multi-instance deployments.
+- production one-time state policy should be explicit: either custom/shared state store path, or (single-node only) in-memory state store with clear operational limits.
 
 ## Customization / Override Strategy
 
@@ -457,12 +482,14 @@ Before this README rewrite, the main ambiguity points were:
 1. `atomic-starter` alone looks sufficient, but feature modules must be added explicitly.
 2. Module-specific mandatory properties were spread across separate docs.
 3. App-side required components (`LogSaver`, `ApiLogAspect`, `SecurityFilterChain`, callback controller) were not visible in one place.
-4. Environment variable setup examples were missing from root-level onboarding.
+4. Property setup examples were missing from root-level onboarding.
 
 This README now consolidates those points into one starter-first onboarding path.
 
 ## Detailed Guides
 
+- [Atomic Quick Start](docs/usage/quick-start.md)
+- [Advanced Operations Playbook](docs/usage/advanced-playbook.md)
 - [Usage Overview](docs/usage/overview.md)
 - [atomic.starter Guide](docs/usage/atomic-starter.md)
 - [atomic.contract Guide](docs/usage/atomic-contract.md)
@@ -473,6 +500,7 @@ This README now consolidates those points into one starter-first onboarding path
 - [atomic.spring.security Guide](docs/usage/atomic-spring-security.md)
 - [atomic.spring.oauth2 Guide](docs/usage/atomic-spring-oauth2.md)
 - [atomic.heartbeat Guide](docs/usage/atomic-heartbeat.md)
+- [Property Reference by Module](docs/usage/environment-variables.md)
 
 ---
 Developed with Codex.

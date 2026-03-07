@@ -70,6 +70,7 @@ When `atomic.storage` exists and `atomic.storage.enabled=true`:
 - `Map<String, StorageProfile>` bean name: `storageProfiles`
 - `ImageService`
 - backend `type` supports `s3`, `r2`, `minio` (all use S3-compatible client path)
+- if all backend entries are disabled/missing, maps can be empty and storage API fails at request time (unknown storage type).
 
 ### spring.web
 
@@ -119,8 +120,9 @@ Still required from app:
 
 - your `SecurityFilterChain` configuration that applies `JwtSecurityConfigurerAdapter`
 - `atomic.security.jwt.access-key` and `atomic.security.jwt.refresh-key` when JWT helper auto-config is enabled
-- current behavior: `JwtSecurityConfigurerAdapter` requires `JwtProvider` (auto or custom).
+- current behavior: when `ObjectMapper` is available, `JwtSecurityConfigurerAdapter` requires `JwtProvider` (auto or custom).
   - if `atomic.security.enabled=true` and provider is missing, startup fails (fail-fast).
+  - if `ObjectMapper` is missing, `JwtSecurityConfigurerAdapter` is not auto-registered.
   - if `atomic.security.jwt.enabled=false`, register custom `JwtProvider` or disable security auto-config.
 
 ### spring.oauth2
@@ -153,10 +155,11 @@ When `atomic.heartbeat` exists and `atomic.heartbeat.enabled=true`:
 - in `leader + jdbc`, default `auto-create-table=false` means lock table should be migration-managed in production
 - see [atomic.heartbeat Guide](atomic-heartbeat.md) for property reference and behavior details
 
-OAuth provider beans are skipped unless:
+OAuth provider beans from properties are registered when:
 
-- `atomic.oauth2.state.enabled=true` (default `true`)
-- `atomic.oauth2.state.signing-secret` is configured
+- `OauthStateManager` is available
+  - auto path: `atomic.oauth2.state.enabled=true` (default `true`) and `atomic.oauth2.state.signing-secret` configured
+  - or custom `OauthStateManager` bean
 - each provider `enabled=true`
 
 When multiple clients are configured for one provider:
@@ -231,6 +234,8 @@ State handling notes:
   - `id-token-allowed-audiences` / `clients.{clientKey}.id-token-allowed-audiences` (empty -> defaults to client id)
 
 ## Minimal Properties Example
+
+Complete property list by module is maintained in: [Property Reference by Module](environment-variables.md)
 
 ```yaml
 atomic:
@@ -393,7 +398,9 @@ provider.refreshToken(
 - `Idempotency-Key` should be namespaced per actor/tenant to avoid cross-client collisions on shared endpoints.
 - non-5xx idempotent responses (including 4xx) are cached and replayed for the same key; 5xx/exception path removes active key.
 - Recommended default chain order is rate-limit first (`-100`) then idempotency (`-50`).
-- OAuth provider auto-configuration requires `atomic.oauth2.state.enabled=true` and `atomic.oauth2.state.signing-secret`, because providers depend on `OauthStateManager`.
+- OAuth provider auto-configuration requires available `OauthStateManager`.
+  - auto path: `atomic.oauth2.state.enabled=true` and `atomic.oauth2.state.signing-secret`.
+  - custom `OauthStateManager` bean also satisfies this condition.
 - Required minimum provider properties:
   - Google: (`client-id`,`client-secret`,`server-redirect-uri`) or `clients.{key}.*`
   - Kakao: (`client-id`,`server-redirect-uri`) or `clients.{key}.*` (`client-secret` optional)

@@ -27,6 +27,9 @@ Enable only the feature packs you use.
 4. Add rate-limit filter if endpoint protection is required.
 5. Add helper utilities (`toHeaderDto`, locale resolver) where needed.
 
+Property reference:
+- Full property index (default / required condition / description): [Property Reference by Module](environment-variables.md) -> `atomic.web`
+
 ## Feature Packs
 
 ### A) Exception Handling

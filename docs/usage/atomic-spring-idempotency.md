@@ -35,6 +35,8 @@ starter registers:
 
 ## Properties
 
+Full property index (default / required condition / description): [Property Reference by Module](environment-variables.md) -> `atomic.idempotency`
+
 ```yaml
 atomic:
   idempotency:
