@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version (SemVer, example: 0.0.3)"
+        description: "Release version (SemVer, example: 0.1.0)"
         required: true
         type: string
 
@@ -54,7 +54,7 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TARGET_VERSION="${{ github.event.inputs.version }}"
             if ! [[ "${TARGET_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "Invalid version: ${TARGET_VERSION}. Use SemVer like 0.0.3"
+              echo "Invalid version: ${TARGET_VERSION}. Use SemVer like 0.1.0"
               exit 1
             fi
 
