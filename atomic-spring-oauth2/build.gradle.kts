@@ -6,7 +6,7 @@ plugins {
   alias(libs.plugins.vanniktech.maven.publish)
 }
 
-group = libs.versions.oauthModuleGroup.get()
+group = libs.versions.projectGroup.get()
 
 description = libs.versions.moduleDescriptionSpringOauth2.get()
 
