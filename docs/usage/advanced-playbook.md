@@ -37,7 +37,7 @@ References:
 - [ ] Enable only the APIs you actually use (`version`, `image`, `oauth redirect`)
 - [ ] Version API: prepare `service_version` table and policy rows
 - [ ] Image API: prepare `image` table, `storageClients`/`ImageService`, and endpoint security rules
-- [ ] OAuth redirect API: pin `allowed-redirect-uri-prefixes` to production domains
+- [ ] OAuth redirect API: set non-empty `allowed-redirect-uri-prefixes` in every enabled environment, and pin production prefixes to real domains only
 - [ ] OAuth redirect + Spring Security: define `permitAll` for redirect/callback and explicit CSRF policy for Apple `POST` callback
 - [ ] Document relay store policy (`entity`/`cache`/`in-memory`) and fail-fast behavior by deployment model
 
@@ -182,7 +182,7 @@ Setup:
 
 Behavior:
 - `HttpStatusException(status, message)` status is reflected in HTTP response
-- Response is standardized as `BaseResponse.error(e)`
+- Response is standardized as `BaseResponse.error(e)` for mapped exceptions, and `5xx` response messages are masked to `Internal Server Error`
 - `NoResourceFoundException` maps to 404, other uncaught exceptions map to 500
 
 Use when:

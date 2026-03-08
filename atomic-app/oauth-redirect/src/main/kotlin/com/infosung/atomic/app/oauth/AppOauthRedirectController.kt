@@ -1,8 +1,14 @@
 package com.infosung.atomic.app.oauth
 
+import com.infosung.atomic.app.oauth.autoconfigure.AtomicAppOauthRedirectProperties
 import com.infosung.atomic.contract.exception.HttpStatusException
 import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpServletResponse
+import java.security.SecureRandom
+import java.util.Base64
+import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
+import org.springframework.http.ResponseCookie
 import org.springframework.stereotype.Controller
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -13,7 +19,10 @@ import org.springframework.web.bind.annotation.RequestParam
 @Controller
 class AppOauthRedirectController(
     private val appOauthRedirectService: AppOauthRedirectService,
+    private val properties: AtomicAppOauthRedirectProperties,
 ) {
+  private val secureRandom = SecureRandom()
+
   /**
    * Redirects user-agent to provider authorization page.
    *
@@ -29,7 +38,9 @@ class AppOauthRedirectController(
       @RequestParam(name = "loginHint", required = false) loginHint: String?,
       @RequestParam(name = "responseMode", required = false) responseMode: String?,
       request: HttpServletRequest,
+      response: HttpServletResponse,
   ): String {
+    val callbackBindingToken = resolveCallbackBindingTokenForRedirect(request)
     val additionalParameters =
         readAdditionalParameters(
             request = request,
@@ -44,7 +55,11 @@ class AppOauthRedirectController(
             loginHint = loginHint,
             responseMode = responseMode,
             additionalParameters = additionalParameters,
+            callbackBindingToken = callbackBindingToken.token,
         )
+    if (callbackBindingToken.shouldSetCookie) {
+      setCallbackBindingTokenIfEnabled(response = response, token = callbackBindingToken.token)
+    }
     return "redirect:$authorizationUrl"
   }
 
@@ -59,7 +74,9 @@ class AppOauthRedirectController(
       @RequestParam("code") code: String,
       @RequestParam("state") state: String,
       request: HttpServletRequest,
+      response: HttpServletResponse,
   ): String {
+    val callbackBindingToken = readCallbackBindingTokenIfEnabled(request)
     val additionalParameters =
         readAdditionalParameters(
             request = request,
@@ -71,6 +88,7 @@ class AppOauthRedirectController(
             code = code,
             state = state,
             additionalParameters = additionalParameters,
+            callbackBindingToken = callbackBindingToken,
         )
     return "redirect:$frontendRedirectUrl"
   }
@@ -95,7 +113,9 @@ class AppOauthRedirectController(
       @RequestParam(name = "code", required = false) code: String?,
       @RequestParam(name = "user", required = false) user: String?,
       request: HttpServletRequest,
+      response: HttpServletResponse,
   ): String {
+    val callbackBindingToken = readCallbackBindingTokenIfEnabled(request)
     val additionalParameters =
         readAdditionalParameters(
             request = request,
@@ -108,8 +128,95 @@ class AppOauthRedirectController(
             code = code,
             user = user,
             additionalParameters = additionalParameters,
+            callbackBindingToken = callbackBindingToken,
         )
     return "redirect:$frontendRedirectUrl"
+  }
+
+  private data class CallbackBindingTokenResult(
+      val token: String?,
+      val shouldSetCookie: Boolean,
+  )
+
+  private fun resolveCallbackBindingTokenForRedirect(
+      request: HttpServletRequest,
+  ): CallbackBindingTokenResult {
+    if (!properties.callbackBinding.enabled) {
+      return CallbackBindingTokenResult(token = null, shouldSetCookie = false)
+    }
+    val existingToken = readCallbackBindingTokenIfEnabled(request)
+    if (!existingToken.isNullOrBlank()) {
+      return CallbackBindingTokenResult(token = existingToken, shouldSetCookie = false)
+    }
+    return CallbackBindingTokenResult(
+        token = newCallbackBindingToken(),
+        shouldSetCookie = true,
+    )
+  }
+
+  private fun setCallbackBindingTokenIfEnabled(
+      response: HttpServletResponse,
+      token: String?,
+  ) {
+    if (!properties.callbackBinding.enabled) {
+      return
+    }
+    val callbackToken =
+        token?.trim()?.takeIf { it.isNotBlank() }
+            ?: throw IllegalStateException("OAuth callback binding token is required.")
+    val cookie =
+        buildCallbackBindingCookie(
+            token = callbackToken,
+            maxAgeSeconds = properties.callbackBinding.cookieMaxAgeSeconds,
+        )
+    response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString())
+  }
+
+  private fun readCallbackBindingTokenIfEnabled(request: HttpServletRequest): String? {
+    if (!properties.callbackBinding.enabled) {
+      return null
+    }
+    val cookieName = resolveCallbackBindingCookieName()
+    val matchedCookies = request.cookies?.filter { it.name == cookieName }.orEmpty()
+    if (matchedCookies.size > 1) {
+      throw HttpStatusException(
+          status = 400,
+          message = "OAuth callback binding cookie is ambiguous.",
+      )
+    }
+    return matchedCookies.firstOrNull()?.value?.trim()?.takeIf { it.isNotBlank() }
+  }
+
+  private fun buildCallbackBindingCookie(
+      token: String,
+      maxAgeSeconds: Long,
+  ): ResponseCookie {
+    val cookieName = resolveCallbackBindingCookieName()
+    val sameSite = properties.callbackBinding.cookieSameSite.trim().ifBlank { "None" }
+    val path = properties.callbackBinding.cookiePath.trim().ifBlank { "/" }
+    return ResponseCookie.from(cookieName, token)
+        .httpOnly(true)
+        .secure(properties.callbackBinding.cookieSecure)
+        .sameSite(sameSite)
+        .path(path)
+        .maxAge(maxAgeSeconds)
+        .build()
+  }
+
+  private fun resolveCallbackBindingCookieName(): String {
+    val cookieName = properties.callbackBinding.cookieName.trim()
+    if (cookieName.isBlank()) {
+      throw IllegalStateException(
+          "atomic.app.oauth.redirect.callback-binding.cookie-name must not be blank when callback binding is enabled.",
+      )
+    }
+    return cookieName
+  }
+
+  private fun newCallbackBindingToken(): String {
+    val bytes = ByteArray(32)
+    secureRandom.nextBytes(bytes)
+    return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
   }
 
   private fun readAdditionalParameters(

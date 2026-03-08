@@ -30,9 +30,12 @@ class AtomicAppOauthRedirectProperties {
    * Allowed redirect URI patterns.
    *
    * Match is validated by scheme, host, port, and path prefix boundary (not raw string startsWith).
-   * If empty, any redirectUri is allowed. Configure for production.
+   * Must not be empty when redirect API is enabled.
    */
   var allowedRedirectUriPrefixes: List<String> = emptyList()
+
+  /** Callback request-binding options for OAuth redirect/callback anti-CSRF check. */
+  var callbackBinding: CallbackBinding = CallbackBinding()
 
   /** Relay code store settings. */
   var store: Store = Store()
@@ -83,6 +86,29 @@ class AtomicAppOauthRedirectProperties {
   class Entity {
     /** Table name for relay records. Only letters, numbers, and underscores are allowed. */
     var tableName: String = "atomic_oauth_relay_code"
+  }
+
+  class CallbackBinding {
+    /** Enables callback binding verification using state attributes + cookie token match. */
+    var enabled: Boolean = true
+
+    /** State attribute key used to store callback binding token. */
+    var stateAttributeKey: String = "atomicCallbackBinding"
+
+    /** Cookie name used to persist callback binding token between redirect and callback. */
+    var cookieName: String = "__Host-atomic_oauth_callback_binding"
+
+    /** Cookie SameSite policy (`None` recommended for provider callback compatibility). */
+    var cookieSameSite: String = "None"
+
+    /** Cookie path for callback binding token. */
+    var cookiePath: String = "/"
+
+    /** Secure cookie flag for callback binding token. */
+    var cookieSecure: Boolean = true
+
+    /** Max age in seconds for callback binding cookie. */
+    var cookieMaxAgeSeconds: Long = 600
   }
 
   enum class StoreType {

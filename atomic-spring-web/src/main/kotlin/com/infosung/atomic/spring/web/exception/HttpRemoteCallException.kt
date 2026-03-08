@@ -12,6 +12,6 @@ class HttpRemoteCallException(
 ) :
     HttpStatusException(
         status = status,
-        message = "Remote call failed: status=$status, method=$method, url=$url",
+        message = "Remote call failed: status=$status, method=$method",
         cause = cause,
     )

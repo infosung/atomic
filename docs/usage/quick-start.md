@@ -91,7 +91,9 @@ atomic:
 ```
 
 Notes:
-- Set `allowed-redirect-uri-prefixes` even in quick-start when possible; it is mandatory for production.
+- `allowed-redirect-uri-prefixes` is required when `atomic.app.oauth.redirect.enabled=true`.
+- Default callback-binding uses hardened cookie constraints (`cookie-name` with `__Host-` prefix, `cookie-secure=true`, `cookie-path=/`), so local plain HTTP callbacks can fail with `OAuth callback binding cookie is missing.`
+  - For local HTTP-only testing, use HTTPS tunneling or set `atomic.app.oauth.redirect.callback-binding.enabled=false` (dev-only).
 - `spring.autoconfigure.exclude` is a temporary quick-start shortcut for non-DB environments. For production, configure DataSource/store policy explicitly (`entity/cache/custom`).
 - If Spring Security is enabled, explicitly configure `permitAll` for redirect/callback endpoints and CSRF policy for Apple `POST` callback path.
 

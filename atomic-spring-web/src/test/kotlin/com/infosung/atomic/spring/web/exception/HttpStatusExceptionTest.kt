@@ -29,6 +29,7 @@ class HttpStatusExceptionTest {
     assertEquals("GET", exception.method)
     assertEquals("https://example.com/resource", exception.url)
     assertEquals("""{"code":"NOT_FOUND"}""", exception.responseBody)
+    assertEquals("Remote call failed: status=404, method=GET", exception.message)
   }
 
   @Test
@@ -38,6 +39,7 @@ class HttpStatusExceptionTest {
     assertEquals(500, exception.status)
     assertEquals("POST", exception.method)
     assertEquals("https://example.com", exception.url)
+    assertEquals("Request execution failed: method=POST", exception.message)
   }
 
   @Test

@@ -10,6 +10,6 @@ class HttpRequestExecutionException(
 ) :
     HttpStatusException(
         status = 500,
-        message = "Request execution failed: method=$method, url=$url",
+        message = "Request execution failed: method=$method",
         cause = cause,
     )
