@@ -81,7 +81,7 @@ jobs:
           echo "Release version guard passed: projectVersion=${PROJECT_VERSION}, previousTag=${PREV_TAG:-none}"
 
       - name: Verify
-        run: ./gradlew spotlessCheck test
+        run: ./gradlew --no-configuration-cache spotlessCheck test
 
   publish:
     runs-on: ubuntu-latest
@@ -93,8 +93,17 @@ jobs:
       matrix:
         module:
           - atomic-contract
+          - atomic-storage
           - atomic-spring-web
           - atomic-spring-security
+          - atomic-spring-idempotency
+          - atomic-spring-oauth2
+          - atomic-heartbeat
+          - atomic-starter
+          - "atomic-app:app-version"
+          - "atomic-app:oauth-redirect"
+          - "atomic-app:storage-api"
+          - atomic-app
 
     steps:
       - name: Checkout
@@ -110,7 +119,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Publish to Maven Central
-        run: ./gradlew :${{ matrix.module }}:publishAndReleaseToMavenCentral
+        run: ./gradlew --no-configuration-cache :${{ matrix.module }}:publishAndReleaseToMavenCentral
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}

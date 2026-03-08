@@ -65,10 +65,7 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
 
   @Test
   fun `relay-code-ttl-seconds should fail fast when non-positive`() {
-    val properties =
-        configuredProperties().apply {
-          relayCodeTtlSeconds = 0
-        }
+    val properties = configuredProperties().apply { relayCodeTtlSeconds = 0 }
 
     assertFailsWith<IllegalArgumentException> {
       autoConfiguration.appOauthRedirectPropertiesValidator(properties)
@@ -99,10 +96,7 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
         )
 
     invalidCases.forEach { mutate ->
-      val properties =
-          configuredProperties().apply {
-            mutate(this)
-          }
+      val properties = configuredProperties().apply { mutate(this) }
 
       assertFailsWith<IllegalArgumentException> {
         autoConfiguration.appOauthRedirectPropertiesValidator(properties)

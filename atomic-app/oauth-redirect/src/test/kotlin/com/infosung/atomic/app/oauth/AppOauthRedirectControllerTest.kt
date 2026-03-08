@@ -279,10 +279,7 @@ class AppOauthRedirectControllerTest {
 
   @Test
   fun `redirect should not set cookie when callback binding is disabled`() {
-    val properties =
-        configuredProperties().apply {
-          callbackBinding.enabled = false
-        }
+    val properties = configuredProperties().apply { callbackBinding.enabled = false }
     val provider = CapturingOauthProvider()
     val stateManager = mock(OauthStateManager::class.java)
     val relayCodeService =
