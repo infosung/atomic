@@ -1,4 +1,5 @@
 import com.diffplug.gradle.spotless.SpotlessExtension
+import org.gradle.api.publish.tasks.GenerateModuleMetadata
 
 val ktfmtVersion = libs.versions.ktfmt.get()
 val projectGroup = libs.versions.projectGroup.get()
@@ -66,10 +67,8 @@ subprojects {
 
   // Gradle 9 validates publication task inputs strictly.
   plugins.withId("com.vanniktech.maven.publish") {
-    tasks.configureEach {
-      if (name == "generateMetadataFileForMavenPublication") {
-        dependsOn("plainJavadocJar")
-      }
+    tasks.withType<GenerateModuleMetadata>().configureEach {
+      dependsOn(tasks.matching { it.name == "plainJavadocJar" })
     }
   }
 }
