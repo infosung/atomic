@@ -9,7 +9,6 @@ description = libs.versions.moduleDescriptionHeartbeat.get()
 java {
   toolchain { languageVersion = JavaLanguageVersion.of(libs.versions.java.get().toInt()) }
   withSourcesJar()
-  withJavadocJar()
 }
 
 repositories { mavenCentral() }
