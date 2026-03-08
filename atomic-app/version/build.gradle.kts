@@ -11,7 +11,6 @@ description = libs.versions.moduleDescriptionAppVersion.get()
 java {
   toolchain { languageVersion = JavaLanguageVersion.of(libs.versions.java.get().toInt()) }
   withSourcesJar()
-  withJavadocJar()
 }
 
 repositories { mavenCentral() }

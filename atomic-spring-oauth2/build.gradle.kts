@@ -13,7 +13,6 @@ description = libs.versions.moduleDescriptionSpringOauth2.get()
 java {
   toolchain { languageVersion = JavaLanguageVersion.of(libs.versions.java.get().toInt()) }
   withSourcesJar()
-  withJavadocJar()
 }
 
 repositories { mavenCentral() }

@@ -14,7 +14,6 @@ java {
         )
   }
   withSourcesJar()
-  withJavadocJar()
 }
 
 repositories { mavenCentral() }
