@@ -92,7 +92,7 @@ dependencies {
 |---|---|---|
 | Standard API response + shared contracts | `starter` + `contract` | Use `BaseResponse`, `HttpStatusException` |
 | App-ready version/image APIs | `app` + (`starter` + `storage` for image API) | enable `atomic.app.version.enabled` and/or `atomic.app.image.enabled` |
-| App-ready OAuth redirect/callback relay | `app` + `starter` + `spring.oauth2` | enable `atomic.app.oauth.redirect.enabled`, consume `relayCode` in login API, configure store prerequisites (default `store.type=entity`), and set `allowed-redirect-uri-prefixes` for production |
+| App-ready OAuth redirect/callback relay | `app` + `starter` + `spring.oauth2` | enable `atomic.app.oauth.redirect.enabled`, consume `relayCode` in login API, configure store prerequisites (default `store.type=entity`), and set non-empty `allowed-redirect-uri-prefixes` |
 | Object storage and media processing | `starter` + `storage` | set `atomic.storage.backends.*` and use `ImageService` |
 | Exception response standardization | `starter` + `spring.web` (+ `contract` when app directly uses `BaseResponse` / `HttpStatusException`) | `BaseExceptionHandler` subclass |
 | API request/response audit logs | `starter` + `spring.web` | add `LogSaver` + `ApiLogAspect` implementation |
@@ -112,7 +112,7 @@ dependencies {
 - OAuth provider beans from properties are registered when `OauthStateManager` is available and each provider `enabled=true` (auto path: `atomic.oauth2.state.enabled=true` + `atomic.oauth2.state.signing-secret`, or custom manager bean).
 - `atomic.oauth2.state.signing-secret` must be at least 32 bytes; shorter values fail startup.
 - OAuth one-time state consume requires store path (`in-memory-store.enabled=true` or custom/shared `OauthStateStore`).
-- for OAuth relay in production, keep `allowed-redirect-uri-prefixes` non-empty.
+- when `atomic.app.oauth.redirect.enabled=true`, `allowed-redirect-uri-prefixes` must be non-empty.
 - when Spring Security is enabled, explicitly configure callback/redirect authorization and CSRF policy (especially Apple `POST` callback path).
 - Rate-limit rules are evaluated in declaration order (first match wins), and reset/retry headers follow fixed-window boundary seconds.
 - Rate-limit storage key is `actor|method|pathKey`; with default `path-key-strategy=rule-prefix`, unmatched routes share one `default` bucket.
@@ -134,9 +134,9 @@ dependencies {
 - Storage upload `Unknown storageType`: check storage client/profile map keys and call-site `storageType` value.
 - App image API setup may fail startup (not only API skip): check `atomic.app.image.enabled=true` with `ImageService`/`storageClients` bean availability.
 - App oauth redirect setup can fail in two ways: startup fail (for example default `store.type=entity` + missing required beans with `store.fail-fast=true`) or conditional endpoint skip/`404` (for example missing `OauthStateManager`/`OauthServiceProvider`); check selected store and OAuth bean prerequisites together.
-- OAuth callback errors: check state and redirect URI mapping.
+- OAuth callback errors: check state and redirect URI mapping, and callback-binding failure type (`state is missing`, `cookie is missing`, `token mismatch`, `cookie is ambiguous`).
 - OAuth relay cache store startup failure: check `atomic.app.oauth.redirect.store.cache.cache-name` exists in `CacheManager` (with default `store.fail-fast=true`).
-- OAuth redirect prefix format issue: invalid `allowed-redirect-uri-prefixes` returns `400`; validate URI format in config/CI.
+- OAuth redirect prefix configuration issue: empty `allowed-redirect-uri-prefixes` fails startup; invalid prefix format returns `400` at redirect/callback request time.
 - JWT unauthorized unexpectedly: check channel resolver and token source.
 - API logs missing: check `ServiceLogger.send()` scheduling.
 - Heartbeat fail flood or silence: verify `atomic.heartbeat.dedup.mode`, leader backend bean availability, and ping/check intervals.
