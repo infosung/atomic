@@ -1,19 +1,34 @@
 name: Publish Maven Central
 
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_run:
+    workflows:
+      - Tag And Release
+    types:
+      - completed
   workflow_dispatch:
 
 jobs:
-  verify:
+  resolve:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    outputs:
+      should_publish: ${{ steps.resolve.outputs.should_publish }}
+      version: ${{ steps.resolve.outputs.version }}
+      tag: ${{ steps.resolve.outputs.tag }}
 
     steps:
-      - name: Checkout
+      - name: Checkout (workflow_run source SHA)
+        if: github.event_name == 'workflow_run'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Checkout (default)
+        if: github.event_name != 'workflow_run'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -26,15 +41,63 @@ jobs:
             exit 1
           fi
 
-      - name: Guard tag commit is on main
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Resolve release context
+        id: resolve
+        shell: bash
         run: |
-          TAG_COMMIT=$(git rev-list -n 1 "${GITHUB_REF}")
-          git fetch origin main --depth=1
-          if ! git merge-base --is-ancestor "${TAG_COMMIT}" origin/main; then
-            echo "Tag commit ${TAG_COMMIT} is not contained in origin/main"
+          PROJECT_VERSION=$(grep -E '^projectVersion = ' gradle/libs.versions.toml | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/')
+          if [ -z "${PROJECT_VERSION}" ]; then
+            echo "Failed to resolve projectVersion from gradle/libs.versions.toml"
             exit 1
           fi
+          EXPECTED_TAG="v${PROJECT_VERSION}"
+          SHOULD_PUBLISH=false
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if git ls-remote --exit-code --tags origin "refs/tags/${EXPECTED_TAG}" >/dev/null 2>&1; then
+              SHOULD_PUBLISH=true
+            else
+              echo "Tag ${EXPECTED_TAG} not found on origin. Refusing manual publish."
+              exit 1
+            fi
+          else
+            if [ "${{ github.event.workflow_run.head_branch }}" = "main" ]; then
+              SOURCE_SHA="${{ github.event.workflow_run.head_sha }}"
+              TAG_AT_SHA=$(git tag --points-at "${SOURCE_SHA}" | grep -Fx "${EXPECTED_TAG}" || true)
+              if [ -n "${TAG_AT_SHA}" ] && git ls-remote --exit-code --tags origin "refs/tags/${EXPECTED_TAG}" >/dev/null 2>&1; then
+                SHOULD_PUBLISH=true
+              else
+                echo "No release tag ${EXPECTED_TAG} on source SHA ${SOURCE_SHA}; skipping publish."
+              fi
+            else
+              echo "workflow_run head branch is not main; skipping publish."
+            fi
+          fi
+
+          echo "version=${PROJECT_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${EXPECTED_TAG}" >> "$GITHUB_OUTPUT"
+          echo "should_publish=${SHOULD_PUBLISH}" >> "$GITHUB_OUTPUT"
+
+  verify:
+    runs-on: ubuntu-latest
+    needs: resolve
+    permissions:
+      contents: read
+    if: needs.resolve.outputs.should_publish == 'true'
+
+    steps:
+      - name: Checkout (workflow_run source SHA)
+        if: github.event_name == 'workflow_run'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Checkout (default)
+        if: github.event_name != 'workflow_run'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -59,35 +122,41 @@ jobs:
             exit 1
           fi
 
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            TAG_VERSION="${GITHUB_REF_NAME#v}"
-            if [ "${TAG_VERSION}" != "${PROJECT_VERSION}" ]; then
-              echo "Tag version and projectVersion mismatch: tag=${TAG_VERSION}, projectVersion=${PROJECT_VERSION}"
-              exit 1
-            fi
-            PREV_TAG=$(git tag --list 'v*' --sort=-v:refname | grep -vx "${GITHUB_REF_NAME}" | head -n 1 || true)
-          else
-            PREV_TAG=$(git tag --list 'v*' --sort=-v:refname | head -n 1 || true)
+          EXPECTED_TAG="v${PROJECT_VERSION}"
+          if ! git ls-remote --exit-code --tags origin "refs/tags/${EXPECTED_TAG}" >/dev/null 2>&1; then
+            echo "Release tag does not exist on origin: ${EXPECTED_TAG}"
+            exit 1
           fi
 
-          if [ -n "${PREV_TAG}" ]; then
-            PREV_VERSION="${PREV_TAG#v}"
-            if [ "${PROJECT_VERSION}" = "${PREV_VERSION}" ]; then
-              echo "projectVersion is not bumped: current=${PROJECT_VERSION}, previous=${PREV_VERSION}"
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            TAG_COMMIT=$(git rev-list -n 1 "${EXPECTED_TAG}")
+            SOURCE_SHA="${{ github.event.workflow_run.head_sha }}"
+            if [ "${TAG_COMMIT}" != "${SOURCE_SHA}" ]; then
+              echo "Tag commit mismatch: ${EXPECTED_TAG} -> ${TAG_COMMIT}, workflow_run head_sha=${SOURCE_SHA}"
               exit 1
             fi
           fi
 
-          echo "Release version guard passed: projectVersion=${PROJECT_VERSION}, previousTag=${PREV_TAG:-none}"
+          git fetch origin main --depth=1
+          TAG_COMMIT=$(git rev-list -n 1 "${EXPECTED_TAG}")
+          if ! git merge-base --is-ancestor "${TAG_COMMIT}" origin/main; then
+            echo "Tag commit ${TAG_COMMIT} is not contained in origin/main"
+            exit 1
+          fi
+
+          echo "Release version guard passed: projectVersion=${PROJECT_VERSION}, tag=${EXPECTED_TAG}"
 
       - name: Verify
         run: ./gradlew --no-configuration-cache spotlessCheck test
 
   publish:
     runs-on: ubuntu-latest
-    needs: verify
+    needs:
+      - resolve
+      - verify
     permissions:
       contents: read
+    if: needs.resolve.outputs.should_publish == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -106,7 +175,14 @@ jobs:
           - atomic-app
 
     steps:
-      - name: Checkout
+      - name: Checkout (workflow_run source SHA)
+        if: github.event_name == 'workflow_run'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Checkout (default)
+        if: github.event_name != 'workflow_run'
         uses: actions/checkout@v4
 
       - name: Setup Java
