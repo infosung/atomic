@@ -63,4 +63,13 @@ allprojects {
 subprojects {
   group = projectGroup
   version = projectVersion
+
+  // Gradle 9 validates publication task inputs strictly.
+  plugins.withId("com.vanniktech.maven.publish") {
+    tasks.configureEach {
+      if (name == "generateMetadataFileForMavenPublication") {
+        dependsOn("plainJavadocJar")
+      }
+    }
+  }
 }
