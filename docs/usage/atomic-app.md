@@ -27,10 +27,20 @@ Internally, `atomic.app` is a bundle of:
 Current public publish workflow scope (Maven Central):
 
 - `atomic-contract`
+- `atomic-storage`
 - `atomic-spring-web`
 - `atomic-spring-security`
+- `atomic-spring-idempotency`
+- `atomic-spring-oauth2`
+- `atomic-heartbeat`
+- `atomic-starter`
+- `atomic-app`
+- `atomic-app:app-version`
+- `atomic-app:oauth-redirect`
+- `atomic-app:storage-api`
 
-`atomic.app` is outside current public publish workflow scope, so app API adoption usually uses local multi-module dependencies (below) or your internal artifact repository.
+`atomic.app` and its submodules are now part of Maven Central publish scope.
+Local multi-module adoption is still useful for source-level customization.
 
 Local multi-module:
 

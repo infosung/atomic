@@ -48,19 +48,33 @@ Current public publish workflow scope (Maven Central):
 ```kotlin
 dependencies {
   implementation("com.infosung:atomic.contract:0.0.1")
+  implementation("com.infosung:atomic.storage:0.0.1")
   implementation("com.infosung:atomic.spring.web:0.0.1")
   implementation("com.infosung:atomic.spring.security:0.0.1")
+  implementation("com.infosung:atomic.spring.idempotency:0.0.1")
+  implementation("com.infosung.atomic:atomic.spring.oauth2:0.0.1")
+  implementation("com.infosung:atomic.heartbeat:0.0.1")
+  implementation("com.infosung:atomic.starter:0.0.1")
+  implementation("com.infosung:atomic.app:0.0.1")
 }
 ```
 
-Current `.github/workflows/publish-maven-central.yml` publishes only:
+Current `.github/workflows/publish-maven-central.yml` publishes:
 
 - `atomic-contract`
+- `atomic-storage`
 - `atomic-spring-web`
 - `atomic-spring-security`
+- `atomic-spring-idempotency`
+- `atomic-spring-oauth2`
+- `atomic-heartbeat`
+- `atomic-starter`
+- `atomic-app`
+- `atomic-app:app-version`
+- `atomic-app:oauth-redirect`
+- `atomic-app:storage-api`
 
-`atomic.starter` is also outside current public publish workflow scope.
-For full-stack adoption (`starter`, `storage`, `app`, `spring-idempotency`, `spring-oauth2`, `heartbeat`), use local module dependencies (or your internal artifact repository):
+Local multi-module adoption is still available when you need source-level customization:
 
 ```kotlin
 dependencies {

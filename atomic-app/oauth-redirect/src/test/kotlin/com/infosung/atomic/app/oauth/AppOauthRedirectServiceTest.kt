@@ -164,7 +164,8 @@ class AppOauthRedirectServiceTest {
                 OauthAuthorizationRequest(
                     redirectUri = "https://app.example.com/oauth/callback",
                     stateAttributes =
-                        mapOf(properties.callbackBinding.stateAttributeKey to CALLBACK_BINDING_TOKEN),
+                        mapOf(
+                            properties.callbackBinding.stateAttributeKey to CALLBACK_BINDING_TOKEN),
                     additionalParameters = emptyMap(),
                 ),
             ),
@@ -214,7 +215,8 @@ class AppOauthRedirectServiceTest {
                 OauthAuthorizationRequest(
                     redirectUri = "https://client.example.com/login/callback",
                     stateAttributes =
-                        mapOf(properties.callbackBinding.stateAttributeKey to CALLBACK_BINDING_TOKEN),
+                        mapOf(
+                            properties.callbackBinding.stateAttributeKey to CALLBACK_BINDING_TOKEN),
                     additionalParameters = emptyMap(),
                 ),
             ),
@@ -246,10 +248,7 @@ class AppOauthRedirectServiceTest {
             relayCodeStore = InMemoryOauthRelayCodeStore(),
             properties = AtomicAppOauthRedirectProperties(),
         )
-    val properties =
-        configuredProperties().apply {
-          callbackBinding.enabled = false
-        }
+    val properties = configuredProperties().apply { callbackBinding.enabled = false }
     val service =
         AppOauthRedirectService(
             oauthServiceProvider = oauthServiceProvider,
