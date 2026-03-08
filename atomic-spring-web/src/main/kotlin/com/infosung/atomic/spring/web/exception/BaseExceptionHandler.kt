@@ -32,7 +32,7 @@ abstract class BaseExceptionHandler(
   ): ResponseEntity<BaseResponse<Any>> {
     val status = HttpStatus.INTERNAL_SERVER_ERROR.value()
     handle(e, request, status)
-    return ResponseEntity.status(status).body(BaseResponse.error(e = e))
+    return ResponseEntity.status(status).body(errorResponse(e = e, status = status))
   }
 
   /** Handles missing-resource exceptions as HTTP 404. */
@@ -43,7 +43,7 @@ abstract class BaseExceptionHandler(
   ): ResponseEntity<BaseResponse<Any>> {
     val status = HttpStatus.NOT_FOUND.value()
     handle(e, request, status)
-    return ResponseEntity.status(status).body(BaseResponse.error(e = e))
+    return ResponseEntity.status(status).body(errorResponse(e = e, status = status))
   }
 
   /** Handles [HttpStatusException] using its embedded status code. */
@@ -53,7 +53,7 @@ abstract class BaseExceptionHandler(
       request: HttpServletRequest,
   ): ResponseEntity<BaseResponse<Any>> {
     handle(e, request, e.status)
-    return ResponseEntity.status(e.status).body(BaseResponse.error(e = e))
+    return ResponseEntity.status(e.status).body(errorResponse(e = e, status = e.status))
   }
 
   private fun handle(
@@ -95,6 +95,19 @@ abstract class BaseExceptionHandler(
 
   /** Implement integration-specific alert delivery (for example Slack/Discord/email). */
   abstract fun alert(e: Exception, message: String)
+
+  private fun errorResponse(
+      e: Exception,
+      status: Int,
+  ): BaseResponse<Any> {
+    if (status >= HttpStatus.INTERNAL_SERVER_ERROR.value()) {
+      return BaseResponse(
+          code = e::class.java.simpleName,
+          message = HttpStatus.INTERNAL_SERVER_ERROR.reasonPhrase,
+      )
+    }
+    return BaseResponse.error(e = e)
+  }
 
   private fun stackTraceWithRequestInfo(request: HttpServletRequest, e: Exception): String {
     val stringBuilder = kotlin.text.StringBuilder()

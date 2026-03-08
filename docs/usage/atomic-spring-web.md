@@ -366,7 +366,8 @@ val resolved =
 - Default `key-strategy=ip` uses `remoteAddr`; enable `ip.trust-forwarded-headers=true` only behind trusted proxy/ingress that sanitizes forwarding headers.
 - Ensure exception handler is in component scan scope.
 - If upstream error payload analysis is required, handle `HttpRemoteCallException.responseBody` in application code; module logs keep only metadata (`status`, `bodyLength`).
-- `HttpRemoteCallException.url` and `HttpRequestExecutionException.url` keep original request URL; treat them as sensitive when logging/alerting.
+- `HttpRemoteCallException.url` and `HttpRequestExecutionException.url` fields keep original request URL; treat these fields as sensitive when logging/alerting.
+- Exception messages for those classes are sanitized and do not include raw URL query values.
 
 ## Troubleshooting
 
@@ -374,6 +375,7 @@ val resolved =
 - API logs not persisted: `serviceLogger.send()` not invoked.
 - Upstream 4xx/5xx response body is not visible in logs by design: check `HttpRemoteCallException.responseBody` at handling boundary.
 - Exception response not standardized: `BaseExceptionHandler` subclass not active.
+- When `BaseExceptionHandler` is active, `5xx` responses are masked to `Internal Server Error` by default.
 - Duplicate logs: filter registered multiple times.
 - Unexpected `429`: verify `atomic.web.rate-limit.include-methods`, key strategy, and rule/path matching.
 - Unexpected global throttling across endpoints: either define explicit `rules` per prefix or switch `path-key-strategy=request-uri`.

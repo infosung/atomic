@@ -20,6 +20,19 @@ class BaseExceptionHandlerTest {
     assertEquals("Unauthorized", response.body?.message)
   }
 
+  @Test
+  fun `exception should mask 500 message`() {
+    val handler = TestExceptionHandler()
+    val request = MockHttpServletRequest("GET", "/v1/test")
+    val exception = IllegalStateException("internal-detail")
+
+    val response = handler.exception(exception, request)
+
+    assertEquals(500, response.statusCode.value())
+    assertEquals("IllegalStateException", response.body?.code)
+    assertEquals("Internal Server Error", response.body?.message)
+  }
+
   private class TestExceptionHandler :
       BaseExceptionHandler(
           environment = MockEnvironment(),

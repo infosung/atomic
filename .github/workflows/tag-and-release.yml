@@ -1,0 +1,79 @@
+name: Tag And Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "gradle/libs.versions.toml"
+  workflow_dispatch:
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Guard main branch on manual run
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+            echo "workflow_dispatch must run on refs/heads/main. current=${GITHUB_REF}"
+            exit 1
+          fi
+
+      - name: Resolve version and tag decision
+        id: resolve
+        shell: bash
+        run: |
+          NEW_VERSION=$(grep -E '^projectVersion = ' gradle/libs.versions.toml | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/')
+          if [ -z "${NEW_VERSION}" ]; then
+            echo "Failed to resolve projectVersion"
+            exit 1
+          fi
+
+          if ! [[ "${NEW_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "projectVersion must be SemVer x.y.z for release tagging: ${NEW_VERSION}"
+            exit 1
+          fi
+
+          SHOULD_TAG=true
+          if [ "${{ github.event_name }}" = "push" ] && git rev-parse HEAD^ >/dev/null 2>&1; then
+            OLD_VERSION=$(git show HEAD^:gradle/libs.versions.toml 2>/dev/null | grep -E '^projectVersion = ' | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/' || true)
+            if [ -n "${OLD_VERSION}" ] && [ "${OLD_VERSION}" = "${NEW_VERSION}" ]; then
+              SHOULD_TAG=false
+              echo "projectVersion unchanged (${NEW_VERSION}); skipping tag"
+            fi
+          fi
+
+          if git ls-remote --exit-code --tags origin "refs/tags/v${NEW_VERSION}" >/dev/null 2>&1; then
+            SHOULD_TAG=false
+            echo "Tag already exists: v${NEW_VERSION}; skipping"
+          fi
+
+          echo "version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "should_tag=${SHOULD_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push tag
+        if: steps.resolve.outputs.should_tag == 'true'
+        run: |
+          TAG="v${{ steps.resolve.outputs.version }}"
+          git tag "${TAG}"
+          git push origin "${TAG}"
+
+      - name: Create GitHub Release
+        if: steps.resolve.outputs.should_tag == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v${{ steps.resolve.outputs.version }}"
+          gh release create "${TAG}" \
+            --target "${GITHUB_SHA}" \
+            --title "${TAG}" \
+            --generate-notes

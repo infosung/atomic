@@ -51,19 +51,31 @@ Relationship summary:
 ```kotlin
 dependencies {
   implementation("com.infosung:atomic.contract:0.0.1")
+  implementation("com.infosung:atomic.storage:0.0.1")
   implementation("com.infosung:atomic.spring.web:0.0.1")
   implementation("com.infosung:atomic.spring.security:0.0.1")
+  implementation("com.infosung:atomic.spring.idempotency:0.0.1")
+  implementation("com.infosung.atomic:atomic.spring.oauth2:0.0.1")
+  implementation("com.infosung:atomic.heartbeat:0.0.1")
+  implementation("com.infosung:atomic.starter:0.0.1")
+  implementation("com.infosung:atomic.app:0.0.1")
 }
 ```
 
-Current `.github/workflows/publish-maven-central.yml` publishes only:
+Current `.github/workflows/publish-maven-central.yml` publishes:
 
 - `atomic-contract`
+- `atomic-storage`
 - `atomic-spring-web`
 - `atomic-spring-security`
-
-`atomic.starter` is also outside current public publish workflow scope.
-For modules outside that workflow scope (`starter`, `storage`, `app`, `spring-idempotency`, `spring-oauth2`, `heartbeat`), use local multi-module dependencies or your internal publish pipeline.
+- `atomic-spring-idempotency`
+- `atomic-spring-oauth2`
+- `atomic-heartbeat`
+- `atomic-starter`
+- `atomic-app`
+- `atomic-app:app-version`
+- `atomic-app:oauth-redirect`
+- `atomic-app:storage-api`
 
 ### Multi-module local setup
 
@@ -125,6 +137,14 @@ atomic:
         callback-endpoint-path: /oauth/callback # base path. final callback path is /{provider} or /apple
         relay-code-query-parameter-name: relayCode
         relay-code-ttl-seconds: 300 # must be > 0
+        callback-binding:
+          enabled: true
+          state-attribute-key: atomicCallbackBinding
+          cookie-name: __Host-atomic_oauth_callback_binding
+          cookie-same-site: None
+          cookie-path: /
+          cookie-secure: true
+          cookie-max-age-seconds: 600
         store:
           type: entity # in-memory, cache, entity
           fail-fast: true
@@ -403,14 +423,16 @@ OAuth relay option (without token in callback query):
 - callback redirects frontend with `relayCode` only (no raw `id_token`/`access_token` in URL).
 - login API consumes relay payload via `AppOauthRelayCodeService.consumeRelayCode(relayCode)`.
 - redirect endpoint input `redirectUri` must be an absolute URI and must not include user-info.
-- configure `allowed-redirect-uri-prefixes` for production.
+- `allowed-redirect-uri-prefixes` is required when redirect API is enabled.
   - matching uses scheme/host/port/path-prefix boundary (not raw string startsWith).
   - each entry must be an absolute URI without query/fragment.
-  - invalid entry format is detected at redirect/callback request time.
-  - current behavior: invalid entry format is returned as `400`.
+  - invalid entry format is detected at redirect/callback request time and returned as `400`.
   - example: `https://app.example.com/oauth` allows `https://app.example.com/oauth/callback` but rejects `https://app.example.com.evil.com/...`.
-- if `allowed-redirect-uri-prefixes` is empty, any absolute `redirectUri` is accepted.
-- in production, explicitly set `allowed-redirect-uri-prefixes` (empty value is unsafe).
+- empty `allowed-redirect-uri-prefixes` fails startup (fail-fast).
+- callback binding is enabled by default and validates redirect/callback flow using state-attribute + cookie token match.
+  - hardened defaults require `cookie-name` with `__Host-` prefix, `cookie-secure=true`, and `cookie-path=/`.
+  - local plain HTTP callbacks can fail unless you use HTTPS or disable callback binding for local-only testing.
+  - callback-binding cookie is reused until max-age to avoid multi-tab OAuth flow clobber.
 - relay store type default is `entity` (`atomic.app.oauth.redirect.store.type=entity`).
 - selected relay store dependencies are validated (`in-memory`/`cache`/`entity`); unselected store dependencies are not validated.
 - global relay settings (for example `relay-code-ttl-seconds`) are validated regardless of store type.

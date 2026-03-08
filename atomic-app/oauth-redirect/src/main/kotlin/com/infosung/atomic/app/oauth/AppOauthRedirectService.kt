@@ -29,6 +29,7 @@ class AppOauthRedirectService(
    * Builds provider authorization redirect URL.
    *
    * @throws HttpStatusException 400 when provider or redirectUri is invalid.
+   * @throws IllegalStateException when required redirect configuration is missing.
    */
   fun buildAuthorizationRedirectUrl(
       provider: String,
@@ -38,6 +39,7 @@ class AppOauthRedirectService(
       loginHint: String?,
       responseMode: String?,
       additionalParameters: Map<String, String>,
+      callbackBindingToken: String? = null,
   ): String {
     val oauthProvider = resolveProvider(provider)
     val normalizedRedirectUri = validateRedirectUri(redirectUri)
@@ -49,6 +51,7 @@ class AppOauthRedirectService(
                 prompt = prompt?.takeIf { it.isNotBlank() },
                 loginHint = loginHint?.takeIf { it.isNotBlank() },
                 responseMode = responseMode?.takeIf { it.isNotBlank() },
+                stateAttributes = buildStateAttributes(callbackBindingToken),
                 additionalParameters = additionalParameters,
             ),
         )
@@ -70,6 +73,7 @@ class AppOauthRedirectService(
       code: String,
       state: String,
       additionalParameters: Map<String, String>,
+      callbackBindingToken: String? = null,
   ): String {
     return mapCallbackErrors(provider = provider) {
       val oauthProvider = resolveProvider(provider)
@@ -85,6 +89,7 @@ class AppOauthRedirectService(
               signedState = state,
               expectedProvider = oauthProvider.providerName,
           )
+      validateCallbackBinding(stateJwt, callbackBindingToken)
       val tokenResult =
           oauthProvider.exchangeCode(
               OauthTokenExchangeRequest(
@@ -130,6 +135,7 @@ class AppOauthRedirectService(
       code: String?,
       user: String?,
       additionalParameters: Map<String, String>,
+      callbackBindingToken: String? = null,
   ): String {
     return mapCallbackErrors(provider = OauthProviderName.APPLE.name) {
       val appleProvider = resolveProvider(OauthProviderName.APPLE.name)
@@ -138,6 +144,7 @@ class AppOauthRedirectService(
               signedState = state,
               expectedProvider = appleProvider.providerName,
           )
+      validateCallbackBinding(stateJwt, callbackBindingToken)
 
       val raw = linkedMapOf<String, Any?>()
       code?.takeIf { it.isNotBlank() }?.let { raw["code"] = it }
@@ -209,7 +216,9 @@ class AppOauthRedirectService(
     val allowedPrefixes =
         properties.allowedRedirectUriPrefixes.map { it.trim() }.filter { it.isNotBlank() }
     if (allowedPrefixes.isEmpty()) {
-      return normalized
+      throw IllegalStateException(
+          "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes must be configured.",
+      )
     }
     val allowedPatterns = allowedPrefixes.map { toAllowedRedirectPattern(it) }
     if (allowedPatterns.none { it.matches(candidateUri) }) {
@@ -356,6 +365,59 @@ class AppOauthRedirectService(
     if (key.isBlank()) {
       throw IllegalStateException(
           "atomic.app.oauth.redirect.relay-code-query-parameter-name must not be blank.",
+      )
+    }
+    return key
+  }
+
+  private fun buildStateAttributes(callbackBindingToken: String?): Map<String, String> {
+    if (!properties.callbackBinding.enabled) {
+      return emptyMap()
+    }
+    val stateAttributeKey = resolveCallbackBindingStateAttributeKey()
+    val bindingToken =
+        callbackBindingToken?.trim()?.takeIf { it.isNotBlank() }
+            ?: throw HttpStatusException(
+                status = 400,
+                message = "OAuth callback binding token is required.",
+            )
+    return mapOf(stateAttributeKey to bindingToken)
+  }
+
+  private fun validateCallbackBinding(
+      stateJwt: Jwt,
+      callbackBindingToken: String?,
+  ) {
+    if (!properties.callbackBinding.enabled) {
+      return
+    }
+    val stateAttributeKey = resolveCallbackBindingStateAttributeKey()
+    val stateAttributes = readStateAttributes(stateJwt)
+    val expectedToken =
+        stateAttributes[stateAttributeKey]?.trim()?.takeIf { it.isNotBlank() }
+            ?: throw HttpStatusException(
+                status = 400,
+                message = "OAuth callback binding state is missing.",
+            )
+    val actualToken =
+        callbackBindingToken?.trim()?.takeIf { it.isNotBlank() }
+            ?: throw HttpStatusException(
+                status = 400,
+                message = "OAuth callback binding cookie is missing.",
+            )
+    if (actualToken != expectedToken) {
+      throw HttpStatusException(
+          status = 400,
+          message = "OAuth callback binding token mismatch.",
+      )
+    }
+  }
+
+  private fun resolveCallbackBindingStateAttributeKey(): String {
+    val key = properties.callbackBinding.stateAttributeKey.trim()
+    if (key.isBlank()) {
+      throw IllegalStateException(
+          "atomic.app.oauth.redirect.callback-binding.state-attribute-key must not be blank when callback binding is enabled.",
       )
     }
     return key

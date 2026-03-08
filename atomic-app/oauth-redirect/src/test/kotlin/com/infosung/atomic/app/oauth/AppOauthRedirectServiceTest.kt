@@ -163,6 +163,9 @@ class AppOauthRedirectServiceTest {
             oauthProvider.buildAuthorizationUrl(
                 OauthAuthorizationRequest(
                     redirectUri = "https://app.example.com/oauth/callback",
+                    stateAttributes =
+                        mapOf(
+                            properties.callbackBinding.stateAttributeKey to CALLBACK_BINDING_TOKEN),
                     additionalParameters = emptyMap(),
                 ),
             ),
@@ -178,6 +181,7 @@ class AppOauthRedirectServiceTest {
             loginHint = null,
             responseMode = null,
             additionalParameters = emptyMap(),
+            callbackBindingToken = CALLBACK_BINDING_TOKEN,
         )
 
     assertEquals("https://provider/auth", result)
@@ -193,7 +197,10 @@ class AppOauthRedirectServiceTest {
             relayCodeStore = InMemoryOauthRelayCodeStore(),
             properties = AtomicAppOauthRedirectProperties(),
         )
-    val properties = AtomicAppOauthRedirectProperties()
+    val properties =
+        configuredProperties().apply {
+          allowedRedirectUriPrefixes = listOf("https://client.example.com")
+        }
     val service =
         AppOauthRedirectService(
             oauthServiceProvider = oauthServiceProvider,
@@ -207,6 +214,55 @@ class AppOauthRedirectServiceTest {
             oauthProvider.buildAuthorizationUrl(
                 OauthAuthorizationRequest(
                     redirectUri = "https://client.example.com/login/callback",
+                    stateAttributes =
+                        mapOf(
+                            properties.callbackBinding.stateAttributeKey to CALLBACK_BINDING_TOKEN),
+                    additionalParameters = emptyMap(),
+                ),
+            ),
+        )
+        .thenReturn("https://provider/auth")
+
+    val result =
+        service.buildAuthorizationRedirectUrl(
+            provider = "google",
+            redirectUri = "https://client.example.com/login/callback",
+            nonce = null,
+            prompt = null,
+            loginHint = null,
+            responseMode = null,
+            additionalParameters = emptyMap(),
+            callbackBindingToken = CALLBACK_BINDING_TOKEN,
+        )
+
+    assertEquals("https://provider/auth", result)
+  }
+
+  @Test
+  fun `buildAuthorizationRedirectUrl should not require callback binding token when disabled`() {
+    val oauthServiceProvider = mock(OauthServiceProvider::class.java)
+    val oauthProvider = mock(OauthProvider::class.java)
+    val stateManager = mock(OauthStateManager::class.java)
+    val relayCodeService =
+        AppOauthRelayCodeService(
+            relayCodeStore = InMemoryOauthRelayCodeStore(),
+            properties = AtomicAppOauthRedirectProperties(),
+        )
+    val properties = configuredProperties().apply { callbackBinding.enabled = false }
+    val service =
+        AppOauthRedirectService(
+            oauthServiceProvider = oauthServiceProvider,
+            oauthStateManager = stateManager,
+            relayCodeService = relayCodeService,
+            properties = properties,
+        )
+    `when`(oauthServiceProvider.getService("google")).thenReturn(oauthProvider)
+    `when`(oauthProvider.providerName).thenReturn(OauthProviderName.GOOGLE)
+    `when`(
+            oauthProvider.buildAuthorizationUrl(
+                OauthAuthorizationRequest(
+                    redirectUri = "https://client.example.com/login/callback",
+                    stateAttributes = emptyMap(),
                     additionalParameters = emptyMap(),
                 ),
             ),
@@ -237,7 +293,7 @@ class AppOauthRedirectServiceTest {
             relayCodeStore = InMemoryOauthRelayCodeStore(),
             properties = AtomicAppOauthRedirectProperties(),
         )
-    val properties = AtomicAppOauthRedirectProperties()
+    val properties = configuredProperties()
     val service =
         AppOauthRedirectService(
             oauthServiceProvider = oauthServiceProvider,
@@ -245,7 +301,13 @@ class AppOauthRedirectServiceTest {
             relayCodeService = relayCodeService,
             properties = properties,
         )
-    val stateJwt = stateJwt(provider = "GOOGLE", redirectUri = "https://client.example.com/oauth")
+    val stateJwt =
+        stateJwt(
+            provider = "GOOGLE",
+            redirectUri = "https://client.example.com/oauth",
+            callbackBindingKey = properties.callbackBinding.stateAttributeKey,
+            callbackBindingToken = CALLBACK_BINDING_TOKEN,
+        )
     `when`(oauthServiceProvider.getService("google")).thenReturn(oauthProvider)
     `when`(oauthProvider.providerName).thenReturn(OauthProviderName.GOOGLE)
     `when`(
@@ -279,6 +341,7 @@ class AppOauthRedirectServiceTest {
             code = "code-value",
             state = "state-value",
             additionalParameters = emptyMap(),
+            callbackBindingToken = CALLBACK_BINDING_TOKEN,
         )
 
     val relayCode = redirectUrl.substringAfter("relayCode=")
@@ -377,7 +440,7 @@ class AppOauthRedirectServiceTest {
             relayCodeStore = InMemoryOauthRelayCodeStore(),
             properties = AtomicAppOauthRedirectProperties(),
         )
-    val properties = AtomicAppOauthRedirectProperties()
+    val properties = configuredProperties()
     val service =
         AppOauthRedirectService(
             oauthServiceProvider = oauthServiceProvider,
@@ -385,7 +448,13 @@ class AppOauthRedirectServiceTest {
             relayCodeService = relayCodeService,
             properties = properties,
         )
-    val stateJwt = stateJwt(provider = "APPLE", redirectUri = "https://client.example.com/oauth")
+    val stateJwt =
+        stateJwt(
+            provider = "APPLE",
+            redirectUri = "https://client.example.com/oauth",
+            callbackBindingKey = properties.callbackBinding.stateAttributeKey,
+            callbackBindingToken = CALLBACK_BINDING_TOKEN,
+        )
     `when`(oauthServiceProvider.getService("APPLE")).thenReturn(appleProvider)
     `when`(appleProvider.providerName).thenReturn(OauthProviderName.APPLE)
     `when`(stateManager.verifyState("state-value", OauthProviderName.APPLE, null, null))
@@ -398,6 +467,7 @@ class AppOauthRedirectServiceTest {
             code = "apple-code",
             user = "{\"name\":\"apple-user\"}",
             additionalParameters = mapOf("foo" to "bar"),
+            callbackBindingToken = CALLBACK_BINDING_TOKEN,
         )
 
     val relayCode = redirectUrl.substringAfter("relayCode=")
@@ -408,9 +478,173 @@ class AppOauthRedirectServiceTest {
     assertEquals("apple-code", payload.raw["code"])
   }
 
+  @Test
+  fun `buildCallbackRedirectUrl should reject mismatched callback binding token`() {
+    val oauthServiceProvider = mock(OauthServiceProvider::class.java)
+    val oauthProvider = mock(OauthProvider::class.java)
+    val stateManager = mock(OauthStateManager::class.java)
+    val relayCodeService =
+        AppOauthRelayCodeService(
+            relayCodeStore = InMemoryOauthRelayCodeStore(),
+            properties = AtomicAppOauthRedirectProperties(),
+        )
+    val properties = configuredProperties()
+    val service =
+        AppOauthRedirectService(
+            oauthServiceProvider = oauthServiceProvider,
+            oauthStateManager = stateManager,
+            relayCodeService = relayCodeService,
+            properties = properties,
+        )
+    val stateJwt =
+        stateJwt(
+            provider = "GOOGLE",
+            redirectUri = "https://client.example.com/oauth",
+            callbackBindingKey = properties.callbackBinding.stateAttributeKey,
+            callbackBindingToken = CALLBACK_BINDING_TOKEN,
+        )
+    `when`(oauthServiceProvider.getService("google")).thenReturn(oauthProvider)
+    `when`(oauthProvider.providerName).thenReturn(OauthProviderName.GOOGLE)
+    `when`(
+            stateManager.readState(
+                "state-value",
+                OauthProviderName.GOOGLE,
+                null,
+                null,
+            ),
+        )
+        .thenReturn(stateJwt)
+
+    val exception =
+        assertFailsWith<HttpStatusException> {
+          service.buildCallbackRedirectUrl(
+              provider = "google",
+              code = "code-value",
+              state = "state-value",
+              additionalParameters = emptyMap(),
+              callbackBindingToken = "wrong-binding-token",
+          )
+        }
+
+    assertEquals(400, exception.status)
+    assertEquals("OAuth callback binding token mismatch.", exception.message)
+  }
+
+  @Test
+  fun `buildCallbackRedirectUrl should reject missing callback binding cookie token`() {
+    val oauthServiceProvider = mock(OauthServiceProvider::class.java)
+    val oauthProvider = mock(OauthProvider::class.java)
+    val stateManager = mock(OauthStateManager::class.java)
+    val relayCodeService =
+        AppOauthRelayCodeService(
+            relayCodeStore = InMemoryOauthRelayCodeStore(),
+            properties = AtomicAppOauthRedirectProperties(),
+        )
+    val properties = configuredProperties()
+    val service =
+        AppOauthRedirectService(
+            oauthServiceProvider = oauthServiceProvider,
+            oauthStateManager = stateManager,
+            relayCodeService = relayCodeService,
+            properties = properties,
+        )
+    val stateJwt =
+        stateJwt(
+            provider = "GOOGLE",
+            redirectUri = "https://client.example.com/oauth",
+            callbackBindingKey = properties.callbackBinding.stateAttributeKey,
+            callbackBindingToken = CALLBACK_BINDING_TOKEN,
+        )
+    `when`(oauthServiceProvider.getService("google")).thenReturn(oauthProvider)
+    `when`(oauthProvider.providerName).thenReturn(OauthProviderName.GOOGLE)
+    `when`(
+            stateManager.readState(
+                "state-value",
+                OauthProviderName.GOOGLE,
+                null,
+                null,
+            ),
+        )
+        .thenReturn(stateJwt)
+
+    val exception =
+        assertFailsWith<HttpStatusException> {
+          service.buildCallbackRedirectUrl(
+              provider = "google",
+              code = "code-value",
+              state = "state-value",
+              additionalParameters = emptyMap(),
+              callbackBindingToken = null,
+          )
+        }
+
+    assertEquals(400, exception.status)
+    assertEquals("OAuth callback binding cookie is missing.", exception.message)
+  }
+
+  @Test
+  fun `buildCallbackRedirectUrl should reject missing callback binding state attribute`() {
+    val oauthServiceProvider = mock(OauthServiceProvider::class.java)
+    val oauthProvider = mock(OauthProvider::class.java)
+    val stateManager = mock(OauthStateManager::class.java)
+    val relayCodeService =
+        AppOauthRelayCodeService(
+            relayCodeStore = InMemoryOauthRelayCodeStore(),
+            properties = AtomicAppOauthRedirectProperties(),
+        )
+    val properties = configuredProperties()
+    val service =
+        AppOauthRedirectService(
+            oauthServiceProvider = oauthServiceProvider,
+            oauthStateManager = stateManager,
+            relayCodeService = relayCodeService,
+            properties = properties,
+        )
+    val now = Instant.now()
+    val stateJwt =
+        Jwt(
+            "state-token",
+            now,
+            now.plusSeconds(300),
+            mapOf("alg" to "HS256"),
+            mapOf(
+                "provider" to "GOOGLE",
+                "redirect_uri" to "https://client.example.com/oauth",
+                "attributes" to emptyMap<String, String>(),
+            ),
+        )
+    `when`(oauthServiceProvider.getService("google")).thenReturn(oauthProvider)
+    `when`(oauthProvider.providerName).thenReturn(OauthProviderName.GOOGLE)
+    `when`(
+            stateManager.readState(
+                "state-value",
+                OauthProviderName.GOOGLE,
+                null,
+                null,
+            ),
+        )
+        .thenReturn(stateJwt)
+
+    val exception =
+        assertFailsWith<HttpStatusException> {
+          service.buildCallbackRedirectUrl(
+              provider = "google",
+              code = "code-value",
+              state = "state-value",
+              additionalParameters = emptyMap(),
+              callbackBindingToken = CALLBACK_BINDING_TOKEN,
+          )
+        }
+
+    assertEquals(400, exception.status)
+    assertEquals("OAuth callback binding state is missing.", exception.message)
+  }
+
   private fun stateJwt(
       provider: String,
       redirectUri: String,
+      callbackBindingKey: String,
+      callbackBindingToken: String,
   ): Jwt {
     val now = Instant.now()
     return Jwt(
@@ -421,7 +655,18 @@ class AppOauthRedirectServiceTest {
         mapOf(
             "provider" to provider,
             "redirect_uri" to redirectUri,
+            "attributes" to mapOf(callbackBindingKey to callbackBindingToken),
         ),
     )
+  }
+
+  private fun configuredProperties(): AtomicAppOauthRedirectProperties {
+    return AtomicAppOauthRedirectProperties().apply {
+      allowedRedirectUriPrefixes = listOf("https://app.example.com", "https://client.example.com")
+    }
+  }
+
+  companion object {
+    private const val CALLBACK_BINDING_TOKEN = "callback-binding-token"
   }
 }

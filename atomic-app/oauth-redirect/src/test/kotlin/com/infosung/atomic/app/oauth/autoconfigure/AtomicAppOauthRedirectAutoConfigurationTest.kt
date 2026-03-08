@@ -20,7 +20,7 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
 
   @Test
   fun `default store type should be entity and fail when dependencies are missing`() {
-    val properties = AtomicAppOauthRedirectProperties()
+    val properties = configuredProperties()
 
     assertFailsWith<IllegalStateException> {
       autoConfiguration.oauthRelayCodeStore(
@@ -35,9 +35,18 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
   }
 
   @Test
+  fun `allowlist should fail fast when redirect API is enabled`() {
+    val properties = AtomicAppOauthRedirectProperties()
+
+    assertFailsWith<IllegalArgumentException> {
+      autoConfiguration.appOauthRedirectPropertiesValidator(properties)
+    }
+  }
+
+  @Test
   fun `in-memory type should not validate cache and entity dependencies`() {
     val properties =
-        AtomicAppOauthRedirectProperties().apply {
+        configuredProperties().apply {
           store.type = AtomicAppOauthRedirectProperties.StoreType.IN_MEMORY
         }
 
@@ -56,28 +65,49 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
 
   @Test
   fun `relay-code-ttl-seconds should fail fast when non-positive`() {
-    val properties =
-        AtomicAppOauthRedirectProperties().apply {
-          store.type = AtomicAppOauthRedirectProperties.StoreType.IN_MEMORY
-          relayCodeTtlSeconds = 0
-        }
+    val properties = configuredProperties().apply { relayCodeTtlSeconds = 0 }
 
     assertFailsWith<IllegalArgumentException> {
-      autoConfiguration.oauthRelayCodeStore(
-          properties = properties,
-          timeProviderProvider = provider(),
-          objectMapperProvider = provider(),
-          cacheManagerProvider = provider(),
-          dataSourceProvider = provider(),
-          transactionManagerProvider = provider(),
-      )
+      autoConfiguration.appOauthRedirectPropertiesValidator(properties)
+    }
+  }
+
+  @Test
+  fun `validator should fail fast even when custom relay store bean is used`() {
+    val properties = AtomicAppOauthRedirectProperties()
+
+    assertFailsWith<IllegalArgumentException> {
+      autoConfiguration.appOauthRedirectPropertiesValidator(properties)
+    }
+  }
+
+  @Test
+  fun `callback-binding required properties should fail fast when invalid`() {
+    val invalidCases: List<(AtomicAppOauthRedirectProperties) -> Unit> =
+        listOf(
+            { it.callbackBinding.stateAttributeKey = " " },
+            { it.callbackBinding.cookieName = " " },
+            { it.callbackBinding.cookieName = "atomic_oauth_callback_binding" },
+            { it.callbackBinding.cookieSameSite = " " },
+            { it.callbackBinding.cookiePath = " " },
+            { it.callbackBinding.cookiePath = "/oauth/callback" },
+            { it.callbackBinding.cookieSecure = false },
+            { it.callbackBinding.cookieMaxAgeSeconds = 0 },
+        )
+
+    invalidCases.forEach { mutate ->
+      val properties = configuredProperties().apply { mutate(this) }
+
+      assertFailsWith<IllegalArgumentException> {
+        autoConfiguration.appOauthRedirectPropertiesValidator(properties)
+      }
     }
   }
 
   @Test
   fun `cache type with fail-fast disabled should fallback to in-memory when cache dependency is missing`() {
     val properties =
-        AtomicAppOauthRedirectProperties().apply {
+        configuredProperties().apply {
           store.type = AtomicAppOauthRedirectProperties.StoreType.CACHE
           store.failFast = false
         }
@@ -98,7 +128,7 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
   @Test
   fun `cache type with missing configured cache should fail when fail-fast enabled`() {
     val properties =
-        AtomicAppOauthRedirectProperties().apply {
+        configuredProperties().apply {
           store.type = AtomicAppOauthRedirectProperties.StoreType.CACHE
         }
 
@@ -125,7 +155,7 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
   @Test
   fun `entity type should create entity store when dependencies are present`() {
     val properties =
-        AtomicAppOauthRedirectProperties().apply {
+        configuredProperties().apply {
           store.type = AtomicAppOauthRedirectProperties.StoreType.ENTITY
         }
 
@@ -163,5 +193,11 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
 
   private inline fun <reified T : Any> provider(): ObjectProvider<T> {
     return provider(T::class.java)
+  }
+
+  private fun configuredProperties(): AtomicAppOauthRedirectProperties {
+    return AtomicAppOauthRedirectProperties().apply {
+      allowedRedirectUriPrefixes = listOf("https://app.example.com/oauth")
+    }
   }
 }

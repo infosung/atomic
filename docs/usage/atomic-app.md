@@ -27,10 +27,20 @@ Internally, `atomic.app` is a bundle of:
 Current public publish workflow scope (Maven Central):
 
 - `atomic-contract`
+- `atomic-storage`
 - `atomic-spring-web`
 - `atomic-spring-security`
+- `atomic-spring-idempotency`
+- `atomic-spring-oauth2`
+- `atomic-heartbeat`
+- `atomic-starter`
+- `atomic-app`
+- `atomic-app:app-version`
+- `atomic-app:oauth-redirect`
+- `atomic-app:storage-api`
 
-`atomic.app` is outside current public publish workflow scope, so app API adoption usually uses local multi-module dependencies (below) or your internal artifact repository.
+`atomic.app` and its submodules are now part of Maven Central publish scope.
+Local multi-module adoption is still useful for source-level customization.
 
 Local multi-module:
 
@@ -81,6 +91,14 @@ atomic:
         callback-endpoint-path: /oauth/callback # base path. final callback path is /{provider} or /apple
         relay-code-query-parameter-name: relayCode
         relay-code-ttl-seconds: 300 # must be > 0
+        callback-binding:
+          enabled: true
+          state-attribute-key: atomicCallbackBinding
+          cookie-name: __Host-atomic_oauth_callback_binding
+          cookie-same-site: None
+          cookie-path: /
+          cookie-secure: true
+          cookie-max-age-seconds: 600
         store:
           type: entity # in-memory, cache, entity
           fail-fast: true
@@ -198,6 +216,8 @@ Behavior:
 - frontend sends `relayCode` to your login API.
 - login API consumes relay payload using `AppOauthRelayCodeService.consumeRelayCode(relayCode)`.
 - redirect endpoint input `redirectUri` must be an absolute URI and must not include user-info.
+- callback binding validates redirect/callback continuity using one-time state attribute + cookie token.
+- callback-binding cookie is reused until `cookie-max-age-seconds` expiration to reduce multi-tab flow clobber.
 - relay store default type is `entity`.
 - selected store dependencies are validated; unselected store dependencies are ignored.
 - global relay settings (for example `relay-code-ttl-seconds`) are validated regardless of store type.
@@ -228,19 +248,20 @@ OAuth redirect exception semantics:
 - upstream provider I/O errors can propagate as `HttpStatusException(500)` from oauth module.
 - `HttpStatusException` status is applied to HTTP response only when your app has exception mapping (for example `BaseExceptionHandler`).
 - without that mapping, default Spring MVC error handling can return `500` even when exception has `status=400`.
-- invalid redirect-prefix configuration errors (`allowed-redirect-uri-prefixes`) are mapped to `400` in current behavior.
+- empty `allowed-redirect-uri-prefixes` fails startup (fail-fast).
 
 Security notes:
 
 - Explicitly configure security rules for callback/redirect paths.
 - Most services keep redirect/callback endpoints public and enforce authentication at login API.
-- Always configure `allowed-redirect-uri-prefixes` in production to prevent open redirect.
+- `allowed-redirect-uri-prefixes` must be non-empty when redirect API is enabled.
   - match uses scheme/host/port/path-prefix boundary (not raw string startsWith).
   - each entry must be an absolute URI without query/fragment.
-  - invalid entry format is detected at redirect/callback request time.
-  - current behavior: invalid entry format is returned as `400`.
+  - invalid entry format is detected at redirect/callback request time and returned as `400`.
   - `https://app.example.com/oauth` allows `https://app.example.com/oauth/callback` but rejects `https://app.example.com.evil.com/...`.
-  - if this list is empty, any absolute `redirectUri` is accepted.
+- Keep callback binding enabled in production; change cookie policy only when your provider callback topology requires it.
+- Callback-binding uses hardened cookie constraints when enabled: `cookie-name` must start with `__Host-`, `cookie-secure=true`, and `cookie-path=/`.
+- Local plain HTTP callback testing can fail unless you use HTTPS or disable callback binding in local-only environments.
 
 Relay store notes:
 
@@ -325,7 +346,7 @@ CREATE INDEX IF NOT EXISTS idx_atomic_oauth_relay_code_expires_at
 - Prepare database schema for `service_version` and `image` tables before enabling APIs.
 - if uploader tracking is enabled, add nullable `uploader_id` column to `image` table (or rely on JPA schema generation in non-production environments).
 - choose uploader parameter name per service (for example `memberId`, `userKey`, `ownerId`) and configure `atomic.app.image.uploader-parameter-name`.
-- for OAuth relay, set `atomic.app.oauth.redirect.allowed-redirect-uri-prefixes` before production rollout.
+- for OAuth relay, set `atomic.app.oauth.redirect.allowed-redirect-uri-prefixes` in every environment where `atomic.app.oauth.redirect.enabled=true`.
 - if `store.type=entity` (default), create relay table (`atomic_oauth_relay_code` or configured table-name) before rollout.
 - if `store.type=entity`, schedule expired-row cleanup for unconsumed relay entries.
 - Configure `atomic.storage.backends.*` before enabling image API.

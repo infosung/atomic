@@ -47,6 +47,15 @@ class AtomicAppOauthRedirectAutoConfiguration {
   private val log = LoggerFactory.getLogger(this::class.java)
 
   @Bean
+  fun appOauthRedirectPropertiesValidator(
+      properties: AtomicAppOauthRedirectProperties,
+  ): Any {
+    validateGlobalProperties(properties)
+    validateSecurityProperties(properties)
+    return Any()
+  }
+
+  @Bean
   @ConditionalOnMissingBean
   fun oauthRelayCodeStore(
       properties: AtomicAppOauthRedirectProperties,
@@ -56,9 +65,6 @@ class AtomicAppOauthRedirectAutoConfiguration {
       dataSourceProvider: ObjectProvider<DataSource>,
       transactionManagerProvider: ObjectProvider<PlatformTransactionManager>,
   ): OauthRelayCodeStore {
-    require(properties.relayCodeTtlSeconds > 0) {
-      "atomic.app.oauth.redirect.relay-code-ttl-seconds must be greater than zero."
-    }
     val timeProvider = timeProviderProvider.getIfAvailable { TimeProvider() }
 
     return when (properties.store.type) {
@@ -169,9 +175,11 @@ class AtomicAppOauthRedirectAutoConfiguration {
   @ConditionalOnBean(AppOauthRedirectService::class)
   fun appOauthRedirectController(
       appOauthRedirectService: AppOauthRedirectService,
+      properties: AtomicAppOauthRedirectProperties,
   ): AppOauthRedirectController {
     return AppOauthRedirectController(
         appOauthRedirectService = appOauthRedirectService,
+        properties = properties,
     )
   }
 
@@ -201,5 +209,47 @@ class AtomicAppOauthRedirectAutoConfiguration {
     }
     log.warn("{} Falling back to in-memory relay code store.", reason)
     return newInMemoryStore(properties = properties, timeProvider = timeProvider)
+  }
+
+  private fun validateSecurityProperties(properties: AtomicAppOauthRedirectProperties) {
+    val allowedRedirectUriPrefixes =
+        properties.allowedRedirectUriPrefixes.map { it.trim() }.filter { it.isNotBlank() }
+    require(allowedRedirectUriPrefixes.isNotEmpty()) {
+      "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes must not be empty when redirect API is enabled."
+    }
+
+    if (!properties.callbackBinding.enabled) {
+      return
+    }
+    require(properties.callbackBinding.stateAttributeKey.isNotBlank()) {
+      "atomic.app.oauth.redirect.callback-binding.state-attribute-key must not be blank when callback binding is enabled."
+    }
+    require(properties.callbackBinding.cookieName.isNotBlank()) {
+      "atomic.app.oauth.redirect.callback-binding.cookie-name must not be blank when callback binding is enabled."
+    }
+    require(properties.callbackBinding.cookieName.startsWith("__Host-")) {
+      "atomic.app.oauth.redirect.callback-binding.cookie-name must start with '__Host-' when callback binding is enabled."
+    }
+    require(properties.callbackBinding.cookieSameSite.isNotBlank()) {
+      "atomic.app.oauth.redirect.callback-binding.cookie-same-site must not be blank when callback binding is enabled."
+    }
+    require(properties.callbackBinding.cookiePath.isNotBlank()) {
+      "atomic.app.oauth.redirect.callback-binding.cookie-path must not be blank when callback binding is enabled."
+    }
+    require(properties.callbackBinding.cookiePath.trim() == "/") {
+      "atomic.app.oauth.redirect.callback-binding.cookie-path must be '/' when callback binding is enabled."
+    }
+    require(properties.callbackBinding.cookieSecure) {
+      "atomic.app.oauth.redirect.callback-binding.cookie-secure must be true when callback binding is enabled."
+    }
+    require(properties.callbackBinding.cookieMaxAgeSeconds > 0) {
+      "atomic.app.oauth.redirect.callback-binding.cookie-max-age-seconds must be greater than zero when callback binding is enabled."
+    }
+  }
+
+  private fun validateGlobalProperties(properties: AtomicAppOauthRedirectProperties) {
+    require(properties.relayCodeTtlSeconds > 0) {
+      "atomic.app.oauth.redirect.relay-code-ttl-seconds must be greater than zero."
+    }
   }
 }
