@@ -5,12 +5,12 @@ These items came out of the review but are intentionally not part of Phase 1.
 ## High Priority
 
 - decide whether oauth relay fallback to process-local memory should remain available in multi-instance deployments
+- make cache relay consume semantics truly one-time or constrain supported cache providers to those with atomic get-and-remove
 - decide whether `DELETE_PENDING` rows need a background reaper/admin recovery tool beyond request-time retry
 
 ## Medium Priority
 
 - separate external image response DTOs from `ImageEntity`
-- document whether `BaseExceptionHandler` is mandatory for official HTTP error semantics
 - review version-check query strategy for large policy sets
 - confirm whether callback-binding cookie lifecycle should be tightened further after multi-tab UX validation
 - review whether version policy resolution should avoid in-memory post-processing at larger scale

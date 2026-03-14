@@ -1,6 +1,7 @@
 package com.infosung.atomic.app.oauth.autoconfigure
 
 import com.infosung.atomic.app.oauth.AppOauthRedirectController
+import com.infosung.atomic.app.oauth.AppOauthRedirectHttpExceptionHandler
 import com.infosung.atomic.app.oauth.AppOauthRedirectService
 import com.infosung.atomic.app.oauth.AppOauthRelayCodeService
 import com.infosung.atomic.app.oauth.AllowedRedirectUriPolicy
@@ -195,6 +196,12 @@ class AtomicAppOauthRedirectAutoConfiguration {
     )
   }
 
+  @Bean
+  @ConditionalOnMissingBean
+  fun appOauthRedirectHttpExceptionHandler(): AppOauthRedirectHttpExceptionHandler {
+    return AppOauthRedirectHttpExceptionHandler()
+  }
+
   private fun newInMemoryStore(
       properties: AtomicAppOauthRedirectProperties,
       timeProvider: TimeProvider,
@@ -276,7 +283,7 @@ class AtomicAppOauthRedirectAutoConfiguration {
     if (
         oauthServiceProvider != null &&
             oauthStateManager != null &&
-            hasReplayProtection(oauthStateManager)
+            oauthStateManager.isReplayProtectionEnabled()
     ) {
       return
     }
@@ -287,20 +294,8 @@ class AtomicAppOauthRedirectAutoConfiguration {
         message,
         oauthServiceProvider != null,
         oauthStateManager != null,
-        oauthStateManager?.let { hasReplayProtection(it) } == true,
+        oauthStateManager?.isReplayProtectionEnabled() == true,
     )
     throw IllegalStateException(message)
-  }
-
-  private fun hasReplayProtection(oauthStateManager: OauthStateManager): Boolean {
-    return runCatching {
-          val storeField = OauthStateManager::class.java.getDeclaredField("store")
-          storeField.isAccessible = true
-          storeField.get(oauthStateManager) != null
-        }
-        .getOrElse { reflectionError ->
-          log.error("Failed to inspect OauthStateManager replay protection state.", reflectionError)
-          false
-        }
   }
 }

@@ -91,6 +91,7 @@ class OauthPublicApiContractTest {
     )
     assertEquals(
         listOf(
+            "isReplayProtectionEnabled():boolean",
             "issueState(OauthProviderName, String, String, Map):String",
             "readState(String, OauthProviderName, String, String):Jwt",
             "verifyState(String, OauthProviderName, String, String):Jwt",

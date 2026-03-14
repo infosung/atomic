@@ -2,6 +2,7 @@ package com.infosung.atomic.app.version.autoconfigure
 
 import com.infosung.atomic.app.version.AppVersionCheckService
 import com.infosung.atomic.app.version.AppVersionController
+import com.infosung.atomic.app.version.AppVersionHttpExceptionHandler
 import com.infosung.atomic.app.version.ServiceVersionRepository
 import kotlin.test.Test
 import kotlin.test.assertIs
@@ -21,6 +22,7 @@ class AtomicAppVersionAutoConfigurationContractTest {
     contextRunner.run { context ->
       assertTrue(context.getBeansOfType(AppVersionCheckService::class.java).isEmpty())
       assertTrue(context.getBeansOfType(AppVersionController::class.java).isEmpty())
+      assertTrue(context.getBeansOfType(AppVersionHttpExceptionHandler::class.java).isEmpty())
     }
   }
 
@@ -36,8 +38,10 @@ class AtomicAppVersionAutoConfigurationContractTest {
 
     val service = autoConfiguration.appVersionCheckService(repository, properties)
     val controller = autoConfiguration.appVersionController(service)
+    val handler = autoConfiguration.appVersionHttpExceptionHandler()
 
     assertIs<AppVersionCheckService>(service)
     assertIs<AppVersionController>(controller)
+    assertIs<AppVersionHttpExceptionHandler>(handler)
   }
 }

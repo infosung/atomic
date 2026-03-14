@@ -1,6 +1,7 @@
 package com.infosung.atomic.app.oauth.autoconfigure
 
 import com.infosung.atomic.app.oauth.AppOauthRedirectController
+import com.infosung.atomic.app.oauth.AppOauthRedirectHttpExceptionHandler
 import com.infosung.atomic.app.oauth.AppOauthRedirectService
 import com.infosung.atomic.app.oauth.AppOauthRelayCodeService
 import com.infosung.atomic.app.oauth.InMemoryOauthRelayCodeStore
@@ -23,6 +24,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import org.mockito.Mockito.doReturn
+import org.mockito.Mockito.mock
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 
@@ -40,6 +43,7 @@ class AtomicAppOauthRedirectAutoConfigurationContextTest {
       assertTrue(context.getBeansOfType(AppOauthRelayCodeService::class.java).isEmpty())
       assertTrue(context.getBeansOfType(AppOauthRedirectService::class.java).isEmpty())
       assertTrue(context.getBeansOfType(AppOauthRedirectController::class.java).isEmpty())
+      assertTrue(context.getBeansOfType(AppOauthRedirectHttpExceptionHandler::class.java).isEmpty())
     }
   }
 
@@ -109,6 +113,35 @@ class AtomicAppOauthRedirectAutoConfigurationContextTest {
         .run { context ->
           assertNotNull(context.getBean(AppOauthRedirectService::class.java))
           assertNotNull(context.getBean(AppOauthRedirectController::class.java))
+          assertNotNull(context.getBean(AppOauthRedirectHttpExceptionHandler::class.java))
+        }
+  }
+
+  @Test
+  fun `enabled oauth redirect should accept explicit replay protection capability without reflection coupling`() {
+    contextRunner
+        .withPropertyValues(
+            "atomic.app.oauth.redirect.enabled=true",
+            "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes=https://app.example.com/oauth",
+            "atomic.app.oauth.redirect.store.type=in-memory",
+        )
+        .withBean(
+            OauthServiceProvider::class.java,
+            { OauthServiceProvider(listOf(TestOauthProvider())) },
+        )
+        .withBean(
+            OauthStateManager::class.java,
+            {
+              mock(OauthStateManager::class.java).also {
+                doReturn(true).`when`(it).isReplayProtectionEnabled()
+              }
+            },
+        )
+        .run { context ->
+          assertTrue(context.startupFailure == null)
+          assertNotNull(context.getBean(AppOauthRedirectService::class.java))
+          assertNotNull(context.getBean(AppOauthRedirectController::class.java))
+          assertNotNull(context.getBean(AppOauthRedirectHttpExceptionHandler::class.java))
         }
   }
 

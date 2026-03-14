@@ -2,6 +2,7 @@ package com.infosung.atomic.app.version.autoconfigure
 
 import com.infosung.atomic.app.version.AppVersionCheckService
 import com.infosung.atomic.app.version.AppVersionController
+import com.infosung.atomic.app.version.AppVersionHttpExceptionHandler
 import com.infosung.atomic.app.version.ServiceVersionEntity
 import com.infosung.atomic.app.version.ServiceVersionRepository
 import org.springframework.boot.autoconfigure.AutoConfiguration
@@ -50,5 +51,11 @@ class AtomicAppVersionAutoConfiguration {
       appVersionCheckService: AppVersionCheckService,
   ): AppVersionController {
     return AppVersionController(appVersionCheckService = appVersionCheckService)
+  }
+
+  @Bean
+  @ConditionalOnMissingBean
+  fun appVersionHttpExceptionHandler(): AppVersionHttpExceptionHandler {
+    return AppVersionHttpExceptionHandler()
   }
 }

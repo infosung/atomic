@@ -7,6 +7,8 @@ import java.time.ZoneOffset
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class OauthStateManagerUsageContractTest {
   private val signingSecret = "s".repeat(32)
@@ -123,5 +125,18 @@ class OauthStateManagerUsageContractTest {
         }
 
     assertEquals("State token is too long. Reduce state attributes.", exception.message)
+  }
+
+  @Test
+  fun `replay protection capability should reflect backing store presence`() {
+    val withoutStore = OauthStateManager(signingSecret = signingSecret)
+    val withStore =
+        OauthStateManager(
+            signingSecret = signingSecret,
+            store = InMemoryOauthStateStore(),
+        )
+
+    assertFalse(withoutStore.isReplayProtectionEnabled())
+    assertTrue(withStore.isReplayProtectionEnabled())
   }
 }

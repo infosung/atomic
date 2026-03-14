@@ -2,6 +2,7 @@ package com.infosung.atomic.app.storage.autoconfigure
 
 import com.infosung.atomic.app.storage.AppImageApiService
 import com.infosung.atomic.app.storage.AppStorageController
+import com.infosung.atomic.app.storage.AppStorageHttpExceptionHandler
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
@@ -39,6 +40,13 @@ class AtomicAppImageAutoConfigurationTest {
         )
 
     assertIs<AppStorageController>(controller)
+  }
+
+  @Test
+  fun `app storage http exception handler should be created`() {
+    val handler = autoConfiguration.appStorageHttpExceptionHandler()
+
+    assertIs<AppStorageHttpExceptionHandler>(handler)
   }
 
   private fun <T : Any> provider(

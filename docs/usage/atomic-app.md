@@ -282,8 +282,8 @@ OAuth redirect exception semantics:
 - `400` relayCode is invalid/expired/already consumed (on consume API call)
 - callback/state validation errors are wrapped as `HttpStatusException(400)` in app oauth redirect service.
 - upstream provider I/O errors can propagate as `HttpStatusException(500)` from oauth module.
-- `HttpStatusException` status is applied to HTTP response only when your app has exception mapping (for example `BaseExceptionHandler`).
-- without that mapping, default Spring MVC error handling can return `500` even when exception has `status=400`.
+- app modules now ship controller-specific `HttpStatusException` mapping, so the documented HTTP status and `BaseResponse.error(...)` envelope are returned by default.
+- if your host app wants a different error envelope, register a higher-precedence `@RestControllerAdvice` to override the built-in handler.
 - empty `allowed-redirect-uri-prefixes` fails startup (fail-fast).
 - malformed `allowed-redirect-uri-prefixes` entry also fails startup (absolute URI only; no user-info/query/fragment).
 - enabling oauth redirect without both `OauthServiceProvider` and store-backed `OauthStateManager` fails startup.
@@ -311,6 +311,7 @@ Relay store notes:
   - `table-name` allows only letters, numbers, and underscores.
 - when `store.fail-fast=false`, selected store errors (missing deps, invalid cache-name/ttl, unavailable cache) do not fail startup and fall back to in-memory store.
 - in-memory fallback is process-local per instance and can break one-time relay semantics in multi-instance deployments.
+- oauth redirect readiness now checks explicit `OauthStateManager.isReplayProtectionEnabled()` capability instead of reflecting internal fields.
 - entity store expects table columns:
   - `relay_code` (PK, string)
   - `payload_json` (text/json string)

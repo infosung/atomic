@@ -1,8 +1,6 @@
 package com.infosung.atomic.app.oauth
 
 import com.infosung.atomic.app.oauth.autoconfigure.AtomicAppOauthRedirectProperties
-import com.infosung.atomic.contract.exception.HttpStatusException
-import com.infosung.atomic.contract.response.BaseResponse
 import com.infosung.atomic.oauth.api.OauthAuthorizationRequest
 import com.infosung.atomic.oauth.api.OauthIdentityRequest
 import com.infosung.atomic.oauth.api.OauthIdentityResult
@@ -22,14 +20,12 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.context.annotation.Bean
-import org.springframework.http.ResponseEntity
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.header
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
-import org.springframework.web.bind.annotation.ExceptionHandler
-import org.springframework.web.bind.annotation.RestControllerAdvice
 
 @SpringBootTest(
     classes = [AppOauthRedirectBootSmokeContractTest.TestApplication::class],
@@ -53,6 +49,15 @@ class AppOauthRedirectBootSmokeContractTest {
         .andExpect(status().is3xxRedirection)
         .andExpect(redirectedUrl("https://provider.example.com/oauth"))
         .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("__Host-")))
+  }
+
+  @Test
+  fun `boot mvc should keep documented 400 status without custom exception advice`() {
+    mockMvc
+        .perform(get("/oauth/callback/apple"))
+        .andExpect(status().isBadRequest)
+        .andExpect(jsonPath("$.code").value("HttpStatusException"))
+        .andExpect(jsonPath("$.message").value("Apple callback supports POST form_post only."))
   }
 
   @SpringBootConfiguration
@@ -84,7 +89,9 @@ class AppOauthRedirectBootSmokeContractTest {
     }
 
     @Bean
-    fun testExceptionHandler(): TestExceptionHandler = TestExceptionHandler()
+    fun appOauthRedirectHttpExceptionHandler(): AppOauthRedirectHttpExceptionHandler {
+      return AppOauthRedirectHttpExceptionHandler()
+    }
   }
 
   class TestOauthProvider : OauthProvider {
@@ -106,14 +113,6 @@ class AppOauthRedirectBootSmokeContractTest {
 
     override fun resolveIdentity(request: OauthIdentityRequest): OauthIdentityResult {
       return OauthIdentityResult(provider = providerName, userId = "user-1")
-    }
-  }
-
-  @RestControllerAdvice
-  class TestExceptionHandler {
-    @ExceptionHandler(HttpStatusException::class)
-    fun httpStatusException(e: HttpStatusException): ResponseEntity<BaseResponse<Any>> {
-      return ResponseEntity.status(e.status).body(BaseResponse.error(e))
     }
   }
 }

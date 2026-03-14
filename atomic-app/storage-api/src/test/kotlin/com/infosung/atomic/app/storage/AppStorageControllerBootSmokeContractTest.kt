@@ -2,7 +2,6 @@ package com.infosung.atomic.app.storage
 
 import com.infosung.atomic.app.storage.autoconfigure.AtomicAppImageProperties
 import com.infosung.atomic.contract.exception.HttpStatusException
-import com.infosung.atomic.contract.response.BaseResponse
 import java.time.LocalDateTime
 import java.util.UUID
 import org.junit.jupiter.api.Test
@@ -13,14 +12,11 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.context.annotation.Bean
-import org.springframework.http.ResponseEntity
 import org.springframework.mock.web.MockMultipartFile
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
-import org.springframework.web.bind.annotation.ExceptionHandler
-import org.springframework.web.bind.annotation.RestControllerAdvice
 
 @SpringBootTest(
     classes = [AppStorageControllerBootSmokeContractTest.TestApplication::class],
@@ -46,6 +42,19 @@ class AppStorageControllerBootSmokeContractTest {
         .andExpect(jsonPath("$.data.url").value("https://cdn.example.com/images/test/original.png"))
   }
 
+  @Test
+  fun `boot mvc should keep documented 400 status without custom exception advice`() {
+    mockMvc
+        .perform(
+            multipart("/test/api/storage/image/svc/s3")
+                .file(MockMultipartFile("file", "image.png", "image/png", byteArrayOf(1, 2, 3)))
+                .queryParam("quality", "0.05"),
+        )
+        .andExpect(status().isBadRequest)
+        .andExpect(jsonPath("$.code").value("HttpStatusException"))
+        .andExpect(jsonPath("$.message").value("quality must be in range 0.1..1.0"))
+  }
+
   @SpringBootConfiguration
   @EnableAutoConfiguration(
       excludeName =
@@ -62,19 +71,23 @@ class AppStorageControllerBootSmokeContractTest {
         mock(AppImageApiService::class.java) { invocation ->
           when (invocation.method.name) {
             "uploadImage" ->
-                ImageEntity(
-                    id = UUID.fromString("11111111-1111-1111-1111-111111111111"),
-                    bucket = "bucket",
-                    serviceName = "svc",
-                    storageService = "s3",
-                    storageType = "S3",
-                    fileName = "images/test/original.png",
-                    thumbnailFileName = "images/test/original_thumb.webp",
-                    url = "https://cdn.example.com/images/test/original.png",
-                    thumbnailUrl = "https://cdn.example.com/images/test/original_thumb.webp",
-                    fileSize = 12,
-                    createdAt = LocalDateTime.of(2026, 3, 14, 10, 0, 0),
-                )
+                if (invocation.arguments[3] == 0.05) {
+                  throw HttpStatusException(status = 400, message = "quality must be in range 0.1..1.0")
+                } else {
+                  ImageEntity(
+                      id = UUID.fromString("11111111-1111-1111-1111-111111111111"),
+                      bucket = "bucket",
+                      serviceName = "svc",
+                      storageService = "s3",
+                      storageType = "S3",
+                      fileName = "images/test/original.png",
+                      thumbnailFileName = "images/test/original_thumb.webp",
+                      url = "https://cdn.example.com/images/test/original.png",
+                      thumbnailUrl = "https://cdn.example.com/images/test/original_thumb.webp",
+                      fileSize = 12,
+                      createdAt = LocalDateTime.of(2026, 3, 14, 10, 0, 0),
+                  )
+                }
             else -> null
           }
         }
@@ -88,14 +101,8 @@ class AppStorageControllerBootSmokeContractTest {
     }
 
     @Bean
-    fun testExceptionHandler(): TestExceptionHandler = TestExceptionHandler()
-  }
-
-  @RestControllerAdvice
-  class TestExceptionHandler {
-    @ExceptionHandler(HttpStatusException::class)
-    fun httpStatusException(e: HttpStatusException): ResponseEntity<BaseResponse<Any>> {
-      return ResponseEntity.status(e.status).body(BaseResponse.error(e))
+    fun appStorageHttpExceptionHandler(): AppStorageHttpExceptionHandler {
+      return AppStorageHttpExceptionHandler()
     }
   }
 }

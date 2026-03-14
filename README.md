@@ -411,6 +411,8 @@ Prerequisites:
 - Image API needs JPA datasource + `image` table + storage beans (`ImageService`, `storageClients`).
 - if `atomic.app.image.enabled=true` and image/storage beans are missing, app startup can fail (not just API skipped).
 - OAuth redirect API needs `OauthServiceProvider` and `OauthStateManager` beans.
+- app module controllers now include built-in `HttpStatusException` mapping for their documented wire contract.
+- if your host app wants a different app-module error envelope, register a higher-precedence `@RestControllerAdvice`.
 - OAuth relay store default is `entity`, so default setup also needs `DataSource`, `PlatformTransactionManager`, and `ObjectMapper`.
 - with default `store.type=entity` + `store.fail-fast=true`, missing dependencies fail startup.
 - when `store.type=in-memory` or `store.type=cache`, entity(db) dependency validation is skipped.
@@ -450,13 +452,13 @@ OAuth relay option (without token in callback query):
 - `allowed-redirect-uri-prefixes` is required when redirect API is enabled.
   - matching uses scheme/host/port/path-prefix boundary (not raw string startsWith).
   - each entry must be an absolute URI without query/fragment.
-  - invalid entry format is detected at redirect/callback request time and returned as `400`.
+  - invalid entry format fails startup.
   - example: `https://app.example.com/oauth` allows `https://app.example.com/oauth/callback` but rejects `https://app.example.com.evil.com/...`.
 - empty `allowed-redirect-uri-prefixes` fails startup (fail-fast).
 - callback binding is enabled by default and validates redirect/callback flow using state-attribute + cookie token match.
   - hardened defaults require `cookie-name` with `__Host-` prefix, `cookie-secure=true`, and `cookie-path=/`.
   - local plain HTTP callbacks can fail unless you use HTTPS or disable callback binding for local-only testing.
-  - callback-binding cookie is reused until max-age to avoid multi-tab OAuth flow clobber.
+  - successful callback clears the callback-binding cookie immediately.
 - relay store type default is `entity` (`atomic.app.oauth.redirect.store.type=entity`).
 - selected relay store dependencies are validated (`in-memory`/`cache`/`entity`); unselected store dependencies are not validated.
 - global relay settings (for example `relay-code-ttl-seconds`) are validated regardless of store type.
@@ -476,8 +478,7 @@ OAuth relay option (without token in callback query):
 - for entity store, run periodic cleanup (for example `DELETE FROM atomic_oauth_relay_code WHERE expires_at <= NOW()`) for unconsumed expired rows.
 - callback/state validation errors are wrapped as `HttpStatusException(400)` in app oauth redirect service.
 - upstream provider I/O errors can propagate as `HttpStatusException(500)` from oauth module.
-- `HttpStatusException` status is applied to HTTP response only when your app maps it via exception handler configuration (for example `BaseExceptionHandler` subclass).
-- without that mapping, default Spring MVC error handling can return `500` even when exception has `status=400`.
+- app module controllers map `HttpStatusException` to the documented HTTP status and `BaseResponse.error(...)` envelope by default.
 - with `store.fail-fast=false`, selected store errors (missing deps, invalid cache-name/ttl, unavailable cache) do not fail startup and fall back to in-memory store.
 - in-memory fallback is process-local per instance and can break relay one-time guarantees in multi-instance deployments.
 
