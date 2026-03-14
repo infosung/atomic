@@ -18,5 +18,8 @@ class ServiceVersionSqlAssetResourceContractTest {
     assertTrue(sql.contains("minor_version"))
     assertTrue(sql.contains("patch_number"))
     assertTrue(sql.contains("CREATE INDEX IF NOT EXISTS idx_service_version_service_platform_version"))
+    assertTrue(
+        sql.contains("CREATE INDEX IF NOT EXISTS idx_service_version_service_platform_required_update"),
+    )
   }
 }

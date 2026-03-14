@@ -75,6 +75,7 @@ class AppVersionMigrationAssetContractTest {
         )
 
     assertTrue(indexes.contains("idx_service_version_service_platform_version"))
+    assertTrue(indexes.contains("idx_service_version_service_platform_required_update"))
   }
 
   private fun policy(

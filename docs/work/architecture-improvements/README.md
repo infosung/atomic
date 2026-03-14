@@ -18,6 +18,7 @@ This directory tracks contract-first architecture improvement work for `atomic`.
 - [Phase 6: OAuth Relay Cache Atomic Consume](phase-6-oauth-relay-cache-atomic-consume.md)
 - [Phase 7: DELETE_PENDING Recovery Service](phase-7-delete-pending-recovery-service.md)
 - [Phase 8: Image Response DTO Separation](phase-8-image-response-dto-separation.md)
+- [Phase 9: App-Version Policy Resolution Optimization](phase-9-app-version-policy-resolution-optimization.md)
 
 ## Scope Rules
 

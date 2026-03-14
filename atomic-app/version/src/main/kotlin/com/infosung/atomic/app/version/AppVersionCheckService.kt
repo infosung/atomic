@@ -2,6 +2,7 @@ package com.infosung.atomic.app.version
 
 import com.infosung.atomic.contract.exception.HttpStatusException
 import org.slf4j.LoggerFactory
+import org.springframework.data.domain.PageRequest
 
 /** Validates client app version against service/platform version policies. */
 class AppVersionCheckService(
@@ -27,26 +28,46 @@ class AppVersionCheckService(
         request.appVersion,
     )
 
-    val versions =
+    log.debug("Loading latest version policy row: service={}, platform={}", service, platform)
+    val current =
         serviceVersionRepository
-            .findAllByServiceAndPlatformOrderByMainVersionDescMinorVersionDescPatchNumberDesc(
+            .findFirstByServiceAndPlatformOrderByMainVersionDescMinorVersionDescPatchNumberDesc(
                 service,
                 platform,
             )
-    if (versions.isEmpty()) {
+    if (current == null) {
       log.warn("No version policies found: service={}, platform={}", service, platform)
       throw HttpStatusException(
           status = 404,
           message = "No service version policy found for service=$service, platform=$platform",
       )
     }
+    log.debug(
+        "Loaded latest version policy row: service={}, platform={}, currentVersion={}.{}.{}",
+        service,
+        platform,
+        current.mainVersion,
+        current.minorVersion,
+        current.patchNumber,
+    )
 
+    log.debug(
+        "Loading exact client version policy row: service={}, platform={}, clientVersion={}.{}.{}",
+        service,
+        platform,
+        parsedVersion.major,
+        parsedVersion.minor,
+        parsedVersion.patch,
+    )
     val userVersion =
-        versions.firstOrNull {
-          it.mainVersion == parsedVersion.major &&
-              it.minorVersion == parsedVersion.minor &&
-              it.patchNumber == parsedVersion.patch
-        }
+        serviceVersionRepository
+            .findFirstByServiceAndPlatformAndMainVersionAndMinorVersionAndPatchNumber(
+                service = service,
+                platform = platform,
+                mainVersion = parsedVersion.major,
+                minorVersion = parsedVersion.minor,
+                patchNumber = parsedVersion.patch,
+            )
             ?: throw HttpStatusException(
                     status = 400,
                     message = "Version does not match any registered service version policy.",
@@ -59,10 +80,34 @@ class AppVersionCheckService(
                       request.appVersion,
                   )
                 }
+    log.debug(
+        "Loaded exact client version policy row: service={}, platform={}, userVersion={}.{}.{}",
+        service,
+        platform,
+        userVersion.mainVersion,
+        userVersion.minorVersion,
+        userVersion.patchNumber,
+    )
 
+    log.debug(
+        "Loading required-update target above client version: service={}, platform={}, clientVersion={}.{}.{}",
+        service,
+        platform,
+        parsedVersion.major,
+        parsedVersion.minor,
+        parsedVersion.patch,
+    )
     val requiredTarget =
-        versions.firstOrNull { it.requireUpdate && isHigherVersion(it, parsedVersion) }
-    val current = versions.first()
+        serviceVersionRepository
+            .findRequiredUpdateTargetsHigherThan(
+                service = service,
+                platform = platform,
+                mainVersion = parsedVersion.major,
+                minorVersion = parsedVersion.minor,
+                patchNumber = parsedVersion.patch,
+                pageable = PageRequest.of(0, 1),
+            )
+            .firstOrNull()
 
     log.debug(
         "Checked app version: service={}, platform={}, userVersion={}, requiredUpdate={}",

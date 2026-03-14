@@ -4,13 +4,13 @@ These items came out of the review but are intentionally not part of Phase 1.
 
 ## High Priority
 
-- decide whether oauth relay fallback to process-local memory should remain available in multi-instance deployments
+- no open high-priority backlog items at the moment
 
 ## Medium Priority
 
-- review version-check query strategy for large policy sets
-- confirm whether callback-binding cookie lifecycle should be tightened further after multi-tab UX validation
-- review whether version policy resolution should avoid in-memory post-processing at larger scale
+- add callback-binding policy mode so host apps can choose stricter security or more permissive UX
+  - candidate shape: `strict | relaxed | disabled`
+  - keep the default conservative, but allow multi-tab/back-navigation-friendly opt-in
 - document synchronous request-thread image processing limits and async/offload threshold
 
 ## Long-Term Architecture

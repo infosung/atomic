@@ -12,3 +12,13 @@ CREATE TABLE IF NOT EXISTS service_version (
 
 CREATE INDEX IF NOT EXISTS idx_service_version_service_platform_version
   ON service_version (service, platform, main_version DESC, minor_version DESC, patch_number DESC);
+
+CREATE INDEX IF NOT EXISTS idx_service_version_service_platform_required_update
+  ON service_version (
+    service,
+    platform,
+    require_update,
+    main_version DESC,
+    minor_version DESC,
+    patch_number DESC
+  );
