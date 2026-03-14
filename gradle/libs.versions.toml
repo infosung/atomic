@@ -76,6 +76,8 @@ spring-data-redis = { module = "org.springframework.data:spring-data-redis" }
 spring-security-oauth2-jose = { module = "org.springframework.security:spring-security-oauth2-jose" }
 spring-boot-starter-webmvc = { module = "org.springframework.boot:spring-boot-starter-webmvc" }
 spring-boot-starter-aspectj = { module = "org.springframework.boot:spring-boot-starter-aspectj" }
+spring-jdbc = { module = "org.springframework:spring-jdbc" }
+spring-tx = { module = "org.springframework:spring-tx" }
 spring-boot-dependencies-bom = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "springboot" }
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
 spring-boot-data-jpa-test = { module = "org.springframework.boot:spring-boot-data-jpa-test" }

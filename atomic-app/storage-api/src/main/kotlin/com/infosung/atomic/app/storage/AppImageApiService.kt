@@ -149,6 +149,13 @@ class AppImageApiService(
       imageId: String,
       uploaderId: String? = null,
   ) {
+    log.debug(
+        "Deleting image: imageId={}, serviceName={}, storageService={}, uploaderTracked={}",
+        imageId,
+        serviceName,
+        storageService,
+        properties.uploaderParameterEnabled,
+    )
     val uuid =
         runCatching { UUID.fromString(imageId) }
             .getOrElse {
@@ -182,11 +189,12 @@ class AppImageApiService(
     validateDeleteUploader(imageEntity = imageEntity, uploaderId = uploaderId)
 
     val resolvedStorageType =
-        if (storageClients.containsKey(imageEntity.storageType)) {
-          imageEntity.storageType
-        } else {
-          resolveStorageType(serviceName = serviceName, storageService = storageService)
-        }
+        resolveStoredStorageTypeForDelete(
+            imageId = imageId,
+            imageEntity = imageEntity,
+            serviceName = serviceName,
+            storageService = storageService,
+        )
 
     imageService.deleteImage(
         storageType = resolvedStorageType,
@@ -200,7 +208,18 @@ class AppImageApiService(
         imageEntity.fileName,
         imageEntity.thumbnailFileName,
     )
-    imageEntityTxService.delete(imageEntity)
+    try {
+      imageEntityTxService.delete(imageEntity)
+    } catch (e: Exception) {
+      log.error(
+          "Image metadata delete failed after storage delete: imageId={}, storageType={}, fileName={}",
+          imageId,
+          resolvedStorageType,
+          imageEntity.fileName,
+          e,
+      )
+      throw e
+    }
     log.info(
         "Image metadata deleted: imageId={}, serviceName={}, storageService={}, uploaderTracked={}",
         imageId,
@@ -258,6 +277,37 @@ class AppImageApiService(
       )
     }
     return parameterName
+  }
+
+  private fun resolveStoredStorageTypeForDelete(
+      imageId: String,
+      imageEntity: ImageEntity,
+      serviceName: String,
+      storageService: String,
+  ): String {
+    val storedStorageType = imageEntity.storageType.trim()
+    if (storedStorageType.isBlank() || !storageClients.containsKey(storedStorageType)) {
+      log.warn(
+          "Delete rejected because stored storageType is unavailable: imageId={}, serviceName={}, storageService={}, storedStorageType={}, availableStorageTypes={}",
+          imageId,
+          serviceName,
+          storageService,
+          imageEntity.storageType,
+          storageClients.keys.sorted(),
+      )
+      throw HttpStatusException(
+          status = 400,
+          message = "stored storageType is unavailable for image delete: ${imageEntity.storageType}",
+      )
+    }
+    log.debug(
+        "Resolved stored storageType for delete: imageId={}, serviceName={}, storageService={}, storedStorageType={}",
+        imageId,
+        serviceName,
+        storageService,
+        storedStorageType,
+    )
+    return storedStorageType
   }
 
   private fun resolveStorageType(

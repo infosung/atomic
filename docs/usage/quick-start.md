@@ -18,6 +18,7 @@ Dependency notation:
 Quick decision:
 - If you are still pre-production, validate behavior first with this document.
 - For production or multi-instance deployment, continue with [advanced-playbook](advanced-playbook.md).
+- If you are upgrading from `v0.0.1`, also review [Migration Guide: v0.0.1 -> next](../migration/v0.0.1-to-next.md).
 
 ---
 
@@ -92,8 +93,11 @@ atomic:
 
 Notes:
 - `allowed-redirect-uri-prefixes` is required when `atomic.app.oauth.redirect.enabled=true`.
+- `atomic.app.oauth.redirect.enabled=true` also requires both `OauthServiceProvider` and a store-backed `OauthStateManager`. The easiest path is `atomic-starter` plus `atomic-spring-oauth2` with both `atomic.oauth2.state.signing-secret` and `atomic.oauth2.state.in-memory-store.enabled=true`.
+- malformed `allowed-redirect-uri-prefixes` entries fail startup, not first request.
 - Default callback-binding uses hardened cookie constraints (`cookie-name` with `__Host-` prefix, `cookie-secure=true`, `cookie-path=/`), so local plain HTTP callbacks can fail with `OAuth callback binding cookie is missing.`
   - For local HTTP-only testing, use HTTPS tunneling or set `atomic.app.oauth.redirect.callback-binding.enabled=false` (dev-only).
+- a successful callback clears the callback-binding cookie, so the callback must complete with the cookie minted during redirect.
 - `spring.autoconfigure.exclude` is a temporary quick-start shortcut for non-DB environments. For production, configure DataSource/store policy explicitly (`entity/cache/custom`).
 - If Spring Security is enabled, explicitly configure `permitAll` for redirect/callback endpoints and CSRF policy for Apple `POST` callback path.
 

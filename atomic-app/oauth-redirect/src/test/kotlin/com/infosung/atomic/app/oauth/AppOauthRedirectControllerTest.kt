@@ -146,7 +146,7 @@ class AppOauthRedirectControllerTest {
 
     val callbackBindingToken = "binding-token"
     `when`(
-            stateManager.readState(
+            stateManager.verifyState(
                 "state-value",
                 OauthProviderName.GOOGLE,
                 null,
@@ -179,7 +179,10 @@ class AppOauthRedirectControllerTest {
     assertEquals("code-value", provider.lastExchangeRequest?.code)
     assertEquals("state-value", provider.lastExchangeRequest?.state)
 
-    assertNull(response.getHeader("Set-Cookie"))
+    val clearedCookie = response.getHeader("Set-Cookie")
+    assertNotNull(clearedCookie)
+    assertTrue(clearedCookie.contains("${properties.callbackBinding.cookieName}="))
+    assertTrue(clearedCookie.contains("Max-Age=0"))
   }
 
   @Test

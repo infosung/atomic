@@ -1,0 +1,156 @@
+package com.infosung.atomic.app.storage
+
+import com.infosung.atomic.app.storage.autoconfigure.AtomicAppImageProperties
+import com.infosung.atomic.contract.response.BaseResponse
+import jakarta.persistence.Entity
+import jakarta.persistence.Id
+import java.lang.reflect.Modifier
+import java.time.LocalDateTime
+import java.util.UUID
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
+import kotlin.reflect.full.memberProperties
+import kotlin.reflect.full.primaryConstructor
+import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.annotations.UuidGenerator
+import org.hibernate.type.SqlTypes
+import org.springframework.boot.autoconfigure.AutoConfigurations
+import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration
+import org.springframework.boot.test.context.runner.ApplicationContextRunner
+import org.springframework.web.multipart.MultipartFile
+import tools.jackson.databind.ObjectMapper
+
+class StorageApiPublicContractTest {
+  private val contextRunner =
+      ApplicationContextRunner()
+          .withConfiguration(AutoConfigurations.of(JacksonAutoConfiguration::class.java))
+
+  @Test
+  fun `image entity constructor contract should remain stable`() {
+    val parameterNames = ImageEntity::class.primaryConstructor!!.parameters.mapNotNull { it.name }
+
+    assertEquals(
+        listOf(
+            "id",
+            "bucket",
+            "serviceName",
+            "storageService",
+            "status",
+            "uploaderId",
+            "storageType",
+            "fileName",
+            "thumbnailFileName",
+            "url",
+            "thumbnailUrl",
+            "width",
+            "height",
+            "fileSize",
+            "thumbnailWidth",
+            "thumbnailHeight",
+            "thumbnailFileSize",
+            "createdAt",
+        ),
+        parameterNames,
+    )
+  }
+
+  @Test
+  fun `image entity schema annotations should remain stable`() {
+    val entity = ImageEntity::class.java.getAnnotation(Entity::class.java)
+    val idField = ImageEntity::class.java.getDeclaredField("id")
+    val jdbcTypeCode = idField.getAnnotation(JdbcTypeCode::class.java)
+
+    assertEquals("image", entity.name)
+    assertNotNull(idField.getAnnotation(Id::class.java))
+    assertNotNull(idField.getAnnotation(UuidGenerator::class.java))
+    assertEquals(SqlTypes.VARCHAR, jdbcTypeCode.value)
+  }
+
+  @Test
+  fun `atomic app image properties public keys should remain stable`() {
+    assertEquals(
+        listOf(
+                "defaultQuality",
+                "enabled",
+                "endpointPath",
+                "maxQuality",
+                "minQuality",
+                "uploaderParameterEnabled",
+                "uploaderParameterName",
+            )
+            .sorted(),
+        AtomicAppImageProperties::class.memberProperties.map { it.name }.sorted(),
+    )
+  }
+
+  @Test
+  fun `app image api service public methods should remain stable`() {
+    assertEquals(
+        listOf(
+            "deleteImage(String, String, String, String):void",
+            "uploadImage(String, String, MultipartFile, double, String):ImageEntity",
+        ),
+        publicSignatures(AppImageApiService::class.java),
+    )
+  }
+
+  @Test
+  fun `base response with image entity should serialize with stable boot json contract`() {
+    contextRunner.run { context ->
+      val objectMapper = context.getBean(ObjectMapper::class.java)
+      val imageId = UUID.fromString("11111111-1111-1111-1111-111111111111")
+      val response =
+          BaseResponse.ok(
+              ImageEntity(
+                  id = imageId,
+                  bucket = "image-bucket",
+                  serviceName = "gallery",
+                  storageService = "cdn",
+                  status = "ACTIVE",
+                  uploaderId = "member-1",
+                  storageType = "R2",
+                  fileName = "image-bucket/original.webp",
+                  thumbnailFileName = "image-bucket/thumb.webp",
+                  url = "https://cdn.example.com/original.webp",
+                  thumbnailUrl = "https://cdn.example.com/thumb.webp",
+                  width = 640,
+                  height = 480,
+                  fileSize = 12345,
+                  thumbnailWidth = 320,
+                  thumbnailHeight = 240,
+                  thumbnailFileSize = 4567,
+                  createdAt = LocalDateTime.of(2024, 1, 2, 3, 4, 5),
+              ),
+          )
+
+      val json = objectMapper.readTree(objectMapper.writeValueAsString(response))
+
+      assertEquals("OK", json["code"].stringValue())
+      assertEquals("Success", json["message"].stringValue())
+      assertEquals(imageId.toString(), json["data"]["id"].stringValue())
+      assertEquals("gallery", json["data"]["serviceName"].stringValue())
+      assertEquals("cdn", json["data"]["storageService"].stringValue())
+      assertEquals("member-1", json["data"]["uploaderId"].stringValue())
+      assertEquals("R2", json["data"]["storageType"].stringValue())
+      assertEquals("image-bucket/original.webp", json["data"]["fileName"].stringValue())
+      assertEquals("image-bucket/thumb.webp", json["data"]["thumbnailFileName"].stringValue())
+      assertEquals("2024-01-02T03:04:05", json["data"]["createdAt"].stringValue())
+      assertTrue(json["data"].has("thumbnailUrl"))
+      assertTrue(json["data"].has("thumbnailFileSize"))
+    }
+  }
+
+  private fun publicSignatures(type: Class<*>): List<String> {
+    return type.declaredMethods
+        .filter {
+          Modifier.isPublic(it.modifiers) && !it.isSynthetic && !it.name.contains("\$default")
+        }
+        .map { method ->
+          val parameters = method.parameterTypes.joinToString(", ") { it.simpleName }
+          "${method.name}($parameters):${method.returnType.simpleName}"
+        }
+        .sorted()
+  }
+}

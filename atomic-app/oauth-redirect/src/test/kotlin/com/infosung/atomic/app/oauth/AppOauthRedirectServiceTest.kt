@@ -15,6 +15,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import org.mockito.Mockito.mock
+import org.mockito.Mockito.never
+import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
 import org.springframework.security.oauth2.jwt.Jwt
 
@@ -311,7 +313,7 @@ class AppOauthRedirectServiceTest {
     `when`(oauthServiceProvider.getService("google")).thenReturn(oauthProvider)
     `when`(oauthProvider.providerName).thenReturn(OauthProviderName.GOOGLE)
     `when`(
-            stateManager.readState(
+            stateManager.verifyState(
                 "state-value",
                 OauthProviderName.GOOGLE,
                 null,
@@ -350,6 +352,8 @@ class AppOauthRedirectServiceTest {
     assertEquals(OauthProviderName.GOOGLE, payload.provider)
     assertEquals("access-token", payload.accessToken)
     assertEquals("id-token", payload.idToken)
+    verify(stateManager).verifyState("state-value", OauthProviderName.GOOGLE, null, null)
+    verify(stateManager, never()).readState("state-value", OauthProviderName.GOOGLE, null, null)
   }
 
   @Test
@@ -407,7 +411,7 @@ class AppOauthRedirectServiceTest {
     `when`(oauthServiceProvider.getService("google")).thenReturn(oauthProvider)
     `when`(oauthProvider.providerName).thenReturn(OauthProviderName.GOOGLE)
     `when`(
-            stateManager.readState(
+            stateManager.verifyState(
                 "state-value",
                 OauthProviderName.GOOGLE,
                 null,
@@ -506,7 +510,7 @@ class AppOauthRedirectServiceTest {
     `when`(oauthServiceProvider.getService("google")).thenReturn(oauthProvider)
     `when`(oauthProvider.providerName).thenReturn(OauthProviderName.GOOGLE)
     `when`(
-            stateManager.readState(
+            stateManager.verifyState(
                 "state-value",
                 OauthProviderName.GOOGLE,
                 null,
@@ -558,7 +562,7 @@ class AppOauthRedirectServiceTest {
     `when`(oauthServiceProvider.getService("google")).thenReturn(oauthProvider)
     `when`(oauthProvider.providerName).thenReturn(OauthProviderName.GOOGLE)
     `when`(
-            stateManager.readState(
+            stateManager.verifyState(
                 "state-value",
                 OauthProviderName.GOOGLE,
                 null,
@@ -616,7 +620,7 @@ class AppOauthRedirectServiceTest {
     `when`(oauthServiceProvider.getService("google")).thenReturn(oauthProvider)
     `when`(oauthProvider.providerName).thenReturn(OauthProviderName.GOOGLE)
     `when`(
-            stateManager.readState(
+            stateManager.verifyState(
                 "state-value",
                 OauthProviderName.GOOGLE,
                 null,

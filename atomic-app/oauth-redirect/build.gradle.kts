@@ -24,12 +24,13 @@ dependencies {
   implementation(libs.spring.boot.autoconfigure)
   implementation(libs.spring.security.oauth2.jose)
   implementation(libs.spring.boot.starter.webmvc)
-  implementation("org.springframework:spring-jdbc")
-  implementation("org.springframework:spring-tx")
+  implementation(libs.spring.jdbc)
+  implementation(libs.spring.tx)
 
   annotationProcessor(libs.spring.boot.configuration.processor)
 
   testImplementation(libs.spring.boot.starter.test)
+  testImplementation(libs.spring.boot.starter.webmvc.test)
   testImplementation(libs.kotlin.test.junit5)
   testImplementation(platform(libs.jupiter.bom))
   testRuntimeOnly(libs.jupiter.launcher)

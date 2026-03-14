@@ -15,6 +15,7 @@
 Recommended entry docs:
 - Start with minimal setup: [Atomic Quick Start](quick-start.md)
 - Move to production criteria: [Advanced Operations Playbook](advanced-playbook.md)
+- Track in-progress breaking changes: [Migration Guide: v0.0.1 -> next](../migration/v0.0.1-to-next.md)
 
 ## What Atomic Solves
 
@@ -146,6 +147,7 @@ dependencies {
 
 - Response shape mismatch: check `BaseResponse` usage consistency.
 - Storage upload `Unknown storageType`: check storage client/profile map keys and call-site `storageType` value.
+- Image delete `stored storageType is unavailable for image delete`: check whether configured storage client keys still match persisted `ImageEntity.storageType` values.
 - App image API setup may fail startup (not only API skip): check `atomic.app.image.enabled=true` with `ImageService`/`storageClients` bean availability.
 - App oauth redirect setup can fail in two ways: startup fail (for example default `store.type=entity` + missing required beans with `store.fail-fast=true`) or conditional endpoint skip/`404` (for example missing `OauthStateManager`/`OauthServiceProvider`); check selected store and OAuth bean prerequisites together.
 - OAuth callback errors: check state and redirect URI mapping, and callback-binding failure type (`state is missing`, `cookie is missing`, `token mismatch`, `cookie is ambiguous`).

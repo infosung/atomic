@@ -278,7 +278,7 @@ Provider registration note:
 | `atomic.app.oauth.redirect.callback-endpoint-path` | `/oauth/callback` | optional | Endpoint base path for callback APIs. |
 | `atomic.app.oauth.redirect.relay-code-query-parameter-name` | `relayCode` | optional | Query key appended to client redirect URL. |
 | `atomic.app.oauth.redirect.relay-code-ttl-seconds` | `300` | redirect API enabled | Relay code TTL seconds (`> 0`). |
-| `atomic.app.oauth.redirect.allowed-redirect-uri-prefixes` | empty | redirect API enabled | Allowed redirect URI prefix list for open-redirect protection (must be non-empty). |
+| `atomic.app.oauth.redirect.allowed-redirect-uri-prefixes` | empty | redirect API enabled | Allowed redirect URI prefix list for open-redirect protection (must be non-empty, absolute, and without user-info/query/fragment; invalid config fails startup). |
 | `atomic.app.oauth.redirect.callback-binding.enabled` | `true` | optional | Enables callback-binding validation with state attribute + cookie token. |
 | `atomic.app.oauth.redirect.callback-binding.state-attribute-key` | `atomicCallbackBinding` | callback binding enabled | State attribute key used to store callback-binding token. |
 | `atomic.app.oauth.redirect.callback-binding.cookie-name` | `__Host-atomic_oauth_callback_binding` | callback binding enabled | Cookie name for callback-binding token (must start with `__Host-`). |

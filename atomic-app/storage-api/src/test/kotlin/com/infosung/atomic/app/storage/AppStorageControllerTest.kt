@@ -15,6 +15,32 @@ import org.springframework.mock.web.MockMultipartFile
 
 class AppStorageControllerTest {
   @Test
+  fun `uploadImage should use default quality when request quality is omitted`() {
+    val service = mock(AppImageApiService::class.java)
+    val properties = AtomicAppImageProperties().apply { defaultQuality = 0.85 }
+    val controller = AppStorageController(service, properties)
+    val multipartFile = MockMultipartFile("file", "profile.png", "image/png", "img".toByteArray())
+    val request = mock(HttpServletRequest::class.java)
+
+    controller.uploadImage(
+        service = "svc",
+        storageService = "S3",
+        quality = null,
+        multipartFile = multipartFile,
+        request = request,
+    )
+
+    verify(service)
+        .uploadImage(
+            serviceName = "svc",
+            storageService = "S3",
+            multipartFile = multipartFile,
+            quality = 0.85,
+            uploaderId = null,
+        )
+  }
+
+  @Test
   fun `uploadImage should require uploader parameter when tracking is enabled`() {
     val service = mock(AppImageApiService::class.java)
     val properties =
@@ -98,6 +124,32 @@ class AppStorageControllerTest {
   }
 
   @Test
+  fun `uploadImage should ignore uploader parameter when tracking is disabled`() {
+    val service = mock(AppImageApiService::class.java)
+    val controller = AppStorageController(service, AtomicAppImageProperties())
+    val multipartFile = MockMultipartFile("file", "profile.png", "image/png", "img".toByteArray())
+    val request = mock(HttpServletRequest::class.java)
+    `when`(request.getParameter("memberId")).thenReturn("member-100")
+
+    controller.uploadImage(
+        service = "svc",
+        storageService = "S3",
+        quality = 0.9,
+        multipartFile = multipartFile,
+        request = request,
+    )
+
+    verify(service)
+        .uploadImage(
+            serviceName = "svc",
+            storageService = "S3",
+            multipartFile = multipartFile,
+            quality = 0.9,
+            uploaderId = null,
+        )
+  }
+
+  @Test
   fun `deleteImage should pass uploader parameter to service when tracking is enabled`() {
     val service = mock(AppImageApiService::class.java)
     val properties =
@@ -124,5 +176,31 @@ class AppStorageControllerTest {
             imageId = imageId,
             uploaderId = "member-100",
         )
+  }
+
+  @Test
+  fun `deleteImage should require uploader parameter when tracking is enabled`() {
+    val service = mock(AppImageApiService::class.java)
+    val properties =
+        AtomicAppImageProperties().apply {
+          uploaderParameterEnabled = true
+          uploaderParameterName = "memberId"
+        }
+    val controller = AppStorageController(service, properties)
+    val request = mock(HttpServletRequest::class.java)
+    `when`(request.getParameter("memberId")).thenReturn(null)
+
+    val exception =
+        assertFailsWith<HttpStatusException> {
+          controller.deleteImage(
+              service = "svc",
+              storageService = "S3",
+              imageId = UUID.randomUUID().toString(),
+              request = request,
+          )
+        }
+
+    assertEquals(400, exception.status)
+    verifyNoInteractions(service)
   }
 }

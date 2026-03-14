@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import java.security.SecureRandom
 import java.util.Base64
+import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseCookie
@@ -21,6 +22,7 @@ class AppOauthRedirectController(
     private val appOauthRedirectService: AppOauthRedirectService,
     private val properties: AtomicAppOauthRedirectProperties,
 ) {
+  private val log = LoggerFactory.getLogger(this::class.java)
   private val secureRandom = SecureRandom()
 
   /**
@@ -60,6 +62,12 @@ class AppOauthRedirectController(
     if (callbackBindingToken.shouldSetCookie) {
       setCallbackBindingTokenIfEnabled(response = response, token = callbackBindingToken.token)
     }
+    log.debug(
+        "OAuth redirect completed: provider={}, callbackBindingCookieIssued={}, additionalParameterKeys={}",
+        provider,
+        callbackBindingToken.shouldSetCookie,
+        additionalParameters.keys.sorted(),
+    )
     return "redirect:$authorizationUrl"
   }
 
@@ -90,6 +98,13 @@ class AppOauthRedirectController(
             additionalParameters = additionalParameters,
             callbackBindingToken = callbackBindingToken,
         )
+    clearCallbackBindingTokenIfEnabled(response)
+    log.debug(
+        "OAuth callback completed: provider={}, callbackBindingCookieCleared={}, additionalParameterKeys={}",
+        provider,
+        properties.callbackBinding.enabled,
+        additionalParameters.keys.sorted(),
+    )
     return "redirect:$frontendRedirectUrl"
   }
 
@@ -130,6 +145,12 @@ class AppOauthRedirectController(
             additionalParameters = additionalParameters,
             callbackBindingToken = callbackBindingToken,
         )
+    clearCallbackBindingTokenIfEnabled(response)
+    log.debug(
+        "Apple OAuth callback completed: callbackBindingCookieCleared={}, additionalParameterKeys={}",
+        properties.callbackBinding.enabled,
+        additionalParameters.keys.sorted(),
+    )
     return "redirect:$frontendRedirectUrl"
   }
 
@@ -146,8 +167,10 @@ class AppOauthRedirectController(
     }
     val existingToken = readCallbackBindingTokenIfEnabled(request)
     if (!existingToken.isNullOrBlank()) {
+      log.debug("Reusing existing OAuth callback binding cookie for redirect flow.")
       return CallbackBindingTokenResult(token = existingToken, shouldSetCookie = false)
     }
+    log.debug("Issuing new OAuth callback binding cookie for redirect flow.")
     return CallbackBindingTokenResult(
         token = newCallbackBindingToken(),
         shouldSetCookie = true,
@@ -170,6 +193,27 @@ class AppOauthRedirectController(
             maxAgeSeconds = properties.callbackBinding.cookieMaxAgeSeconds,
         )
     response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString())
+    log.debug(
+        "Set OAuth callback binding cookie: cookieName={}, maxAgeSeconds={}",
+        resolveCallbackBindingCookieName(),
+        properties.callbackBinding.cookieMaxAgeSeconds,
+    )
+  }
+
+  private fun clearCallbackBindingTokenIfEnabled(response: HttpServletResponse) {
+    if (!properties.callbackBinding.enabled) {
+      return
+    }
+    val cookie =
+        buildCallbackBindingCookie(
+            token = "",
+            maxAgeSeconds = 0,
+        )
+    response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString())
+    log.debug(
+        "Cleared OAuth callback binding cookie after successful callback: cookieName={}",
+        resolveCallbackBindingCookieName(),
+    )
   }
 
   private fun readCallbackBindingTokenIfEnabled(request: HttpServletRequest): String? {
@@ -179,6 +223,7 @@ class AppOauthRedirectController(
     val cookieName = resolveCallbackBindingCookieName()
     val matchedCookies = request.cookies?.filter { it.name == cookieName }.orEmpty()
     if (matchedCookies.size > 1) {
+      log.warn("Rejected OAuth callback due to ambiguous callback binding cookie: cookieName={}", cookieName)
       throw HttpStatusException(
           status = 400,
           message = "OAuth callback binding cookie is ambiguous.",

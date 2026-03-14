@@ -58,6 +58,7 @@ Note:
 - `atomic.app.image` requires storage beans (`ImageService`, `storageClients`) and JPA.
 - if `atomic.app.image.enabled=true` and required image/storage beans are missing, startup can fail (not only API skipped).
 - `atomic.app.oauth.redirect` requires `OauthServiceProvider` + `OauthStateManager` beans (typically from `atomic.starter` + `atomic.spring.oauth2`).
+- the `OauthStateManager` used by oauth redirect must be backed by an `OauthStateStore` to preserve one-time callback state semantics.
 - OAuth relay store default is `entity`, so default setup also needs `DataSource` + `PlatformTransactionManager` + `ObjectMapper`.
 - with default `store.type=entity` + `store.fail-fast=true`, missing dependencies fail startup.
 - when `store.type=in-memory` or `store.type=cache`, entity(db) dependency validation is skipped.
@@ -182,18 +183,21 @@ DELETE behavior:
 - validates `imageId` UUID format
 - validates that row matches `{service}` and `{storageService}`
 - when uploader tracking is enabled, validates request uploader parameter equals stored `ImageEntity.uploaderId`
-- deletes original/thumbnail objects from resolved storage client
+- resolves delete target from persisted `ImageEntity.storageType` only
+- rejects delete with `400` when persisted storage mapping is unavailable
+- deletes original/thumbnail objects from the persisted storage client mapping
 - deletes metadata row
 
 Storage client resolution:
 
-- tries keys in order: `service:storageService`, `service::storageService`, `storageService`
-- for each key, also tries exact/upper/lower variants
-- if no match, returns `400`
+- upload tries keys in order: `service:storageService`, `service::storageService`, `storageService`
+- upload resolution also tries exact/upper/lower variants
+- delete does not re-resolve from path parameters; it uses the persisted `storageType` value only
+- if persisted `storageType` no longer matches a configured storage client key, delete returns `400` without deleting storage objects or metadata
 
 Image API exception semantics:
 
-- `400` invalid quality / unknown storage key / invalid UUID / path mismatch
+- `400` invalid quality / unknown storage key / invalid UUID / path mismatch / unavailable persisted delete storage mapping
 - `400` uploader parameter missing when uploader tracking is enabled
 - `404` image row not found
 - `403` uploader mismatch when uploader tracking is enabled
@@ -217,7 +221,7 @@ Behavior:
 - login API consumes relay payload using `AppOauthRelayCodeService.consumeRelayCode(relayCode)`.
 - redirect endpoint input `redirectUri` must be an absolute URI and must not include user-info.
 - callback binding validates redirect/callback continuity using one-time state attribute + cookie token.
-- callback-binding cookie is reused until `cookie-max-age-seconds` expiration to reduce multi-tab flow clobber.
+- successful callback clears the callback-binding cookie; the cookie exists only for redirect -> callback continuity.
 - relay store default type is `entity`.
 - selected store dependencies are validated; unselected store dependencies are ignored.
 - global relay settings (for example `relay-code-ttl-seconds`) are validated regardless of store type.
@@ -249,6 +253,8 @@ OAuth redirect exception semantics:
 - `HttpStatusException` status is applied to HTTP response only when your app has exception mapping (for example `BaseExceptionHandler`).
 - without that mapping, default Spring MVC error handling can return `500` even when exception has `status=400`.
 - empty `allowed-redirect-uri-prefixes` fails startup (fail-fast).
+- malformed `allowed-redirect-uri-prefixes` entry also fails startup (absolute URI only; no user-info/query/fragment).
+- enabling oauth redirect without both `OauthServiceProvider` and store-backed `OauthStateManager` fails startup.
 
 Security notes:
 
@@ -257,10 +263,11 @@ Security notes:
 - `allowed-redirect-uri-prefixes` must be non-empty when redirect API is enabled.
   - match uses scheme/host/port/path-prefix boundary (not raw string startsWith).
   - each entry must be an absolute URI without query/fragment.
-  - invalid entry format is detected at redirect/callback request time and returned as `400`.
+  - invalid entry format fails startup.
   - `https://app.example.com/oauth` allows `https://app.example.com/oauth/callback` but rejects `https://app.example.com.evil.com/...`.
 - Keep callback binding enabled in production; change cookie policy only when your provider callback topology requires it.
 - Callback-binding uses hardened cookie constraints when enabled: `cookie-name` must start with `__Host-`, `cookie-secure=true`, and `cookie-path=/`.
+- a successful callback clears the callback-binding cookie, so each flow must complete with the cookie issued during redirect.
 - Local plain HTTP callback testing can fail unless you use HTTPS or disable callback binding in local-only environments.
 
 Relay store notes:
@@ -351,4 +358,5 @@ CREATE INDEX IF NOT EXISTS idx_atomic_oauth_relay_code_expires_at
 - if `store.type=entity`, schedule expired-row cleanup for unconsumed relay entries.
 - Configure `atomic.storage.backends.*` before enabling image API.
 - Keep `storageType` key naming consistent with your `{service}` and `{storageService}` path policy.
+- Do not rename or remove storage client keys that existing `ImageEntity.storageType` rows depend on unless you also migrate stored metadata.
 - Enforce multipart size/time limits at application layer.

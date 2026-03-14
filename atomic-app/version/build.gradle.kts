@@ -26,6 +26,7 @@ dependencies {
   annotationProcessor(libs.spring.boot.configuration.processor)
 
   testImplementation(libs.spring.boot.starter.test)
+  testImplementation(libs.spring.boot.starter.webmvc.test)
   testImplementation(libs.spring.boot.data.jpa.test)
   testImplementation(libs.spring.boot.jdbc.test)
   testImplementation(libs.spring.boot.testcontainers)

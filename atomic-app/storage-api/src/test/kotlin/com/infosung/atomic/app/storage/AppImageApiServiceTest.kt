@@ -22,6 +22,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.mock
+import org.mockito.Mockito.never
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
 import org.springframework.mock.web.MockMultipartFile
@@ -150,6 +151,47 @@ class AppImageApiServiceTest {
   }
 
   @Test
+  fun `uploadImage should return 400 when quality is outside configured range`() {
+    val storageClient = CapturingStorageClient()
+    val imageRepository = mock(ImageRepository::class.java)
+    val imageEntityTxService = AppImageEntityTxService(imageRepository)
+    val imageService = createImageService(storageClient = storageClient, storageType = "S3")
+    val properties =
+        AtomicAppImageProperties().apply {
+          minQuality = 0.4
+          maxQuality = 0.8
+        }
+    val apiService =
+        AppImageApiService(
+            imageEntityTxService = imageEntityTxService,
+            imageService = imageService,
+            storageClients = mapOf("S3" to storageClient),
+            properties = properties,
+        )
+    val multipartFile =
+        MockMultipartFile(
+            "file",
+            "profile.png",
+            "image/png",
+            "dummy-image".toByteArray(),
+        )
+
+    val exception =
+        assertFailsWith<HttpStatusException> {
+          apiService.uploadImage(
+              serviceName = "svc",
+              storageService = "S3",
+              multipartFile = multipartFile,
+              quality = 0.2,
+          )
+        }
+
+    assertEquals(400, exception.status)
+    assertEquals("quality must be in range 0.4..0.8", exception.message)
+    assertTrue(storageClient.putObjectKeys.isEmpty())
+  }
+
+  @Test
   fun `deleteImage should delete storage objects then metadata`() {
     val imageId = UUID.randomUUID()
     val storageClient = CapturingStorageClient()
@@ -192,7 +234,7 @@ class AppImageApiServiceTest {
   }
 
   @Test
-  fun `deleteImage should use fallback resolved storage type when entity storage type is missing`() {
+  fun `deleteImage should return 400 when persisted storage type is unavailable`() {
     val imageId = UUID.randomUUID()
     val storageClient = CapturingStorageClient()
     val imageRepository = mock(ImageRepository::class.java)
@@ -220,16 +262,22 @@ class AppImageApiServiceTest {
         )
     `when`(imageRepository.findById(imageId)).thenReturn(Optional.of(savedEntity))
 
-    apiService.deleteImage(
-        serviceName = "svc",
-        storageService = "S3",
-        imageId = imageId.toString(),
-    )
+    val exception =
+        assertFailsWith<HttpStatusException> {
+          apiService.deleteImage(
+              serviceName = "svc",
+              storageService = "S3",
+              imageId = imageId.toString(),
+          )
+        }
 
+    assertEquals(400, exception.status)
     assertEquals(
-        listOf("images/test/original.png", "images/test/original_thumb.webp"),
-        storageClient.deletedObjectKeys,
+        "stored storageType is unavailable for image delete: UNKNOWN",
+        exception.message,
     )
+    assertTrue(storageClient.deletedObjectKeys.isEmpty())
+    verify(imageRepository, never()).delete(any(ImageEntity::class.java))
   }
 
   @Test
@@ -306,6 +354,99 @@ class AppImageApiServiceTest {
 
     assertEquals(403, exception.status)
     assertTrue(storageClient.deletedObjectKeys.isEmpty())
+  }
+
+  @Test
+  fun `deleteImage should return 400 when uploader is missing and tracking is enabled`() {
+    val imageId = UUID.randomUUID()
+    val storageClient = CapturingStorageClient()
+    val imageRepository = mock(ImageRepository::class.java)
+    val imageEntityTxService = AppImageEntityTxService(imageRepository)
+    val imageService = createImageService(storageClient = storageClient, storageType = "S3")
+    val properties =
+        AtomicAppImageProperties().apply {
+          uploaderParameterEnabled = true
+          uploaderParameterName = "memberId"
+        }
+    val apiService =
+        AppImageApiService(
+            imageEntityTxService = imageEntityTxService,
+            imageService = imageService,
+            storageClients = mapOf("S3" to storageClient),
+            properties = properties,
+        )
+    val savedEntity =
+        ImageEntity(
+            id = imageId,
+            bucket = "bucket",
+            serviceName = "svc",
+            storageService = "S3",
+            uploaderId = "member-100",
+            storageType = "S3",
+            fileName = "images/test/original.png",
+            thumbnailFileName = "images/test/original_thumb.webp",
+            url = "https://cdn/images/test/original.png",
+            thumbnailUrl = "https://cdn/images/test/original_thumb.webp",
+            fileSize = 123,
+        )
+    `when`(imageRepository.findById(imageId)).thenReturn(Optional.of(savedEntity))
+
+    val exception =
+        assertFailsWith<HttpStatusException> {
+          apiService.deleteImage(
+              serviceName = "svc",
+              storageService = "S3",
+              imageId = imageId.toString(),
+              uploaderId = null,
+          )
+        }
+
+    assertEquals(400, exception.status)
+    assertEquals("memberId is required when uploader parameter tracking is enabled.", exception.message)
+    assertTrue(storageClient.deletedObjectKeys.isEmpty())
+  }
+
+  @Test
+  fun `uploadImage should reject blank uploader parameter name when tracking is enabled`() {
+    val storageClient = CapturingStorageClient()
+    val imageRepository = mock(ImageRepository::class.java)
+    val imageEntityTxService = AppImageEntityTxService(imageRepository)
+    val imageService = createImageService(storageClient = storageClient, storageType = "S3")
+    val properties =
+        AtomicAppImageProperties().apply {
+          uploaderParameterEnabled = true
+          uploaderParameterName = " "
+        }
+    val apiService =
+        AppImageApiService(
+            imageEntityTxService = imageEntityTxService,
+            imageService = imageService,
+            storageClients = mapOf("S3" to storageClient),
+            properties = properties,
+        )
+    val multipartFile =
+        MockMultipartFile(
+            "file",
+            "profile.png",
+            "image/png",
+            "dummy-image".toByteArray(),
+        )
+
+    val exception =
+        assertFailsWith<IllegalStateException> {
+          apiService.uploadImage(
+              serviceName = "svc",
+              storageService = "S3",
+              multipartFile = multipartFile,
+              quality = 1.0,
+              uploaderId = "member-100",
+          )
+        }
+
+    assertEquals(
+        "atomic.app.image.uploader-parameter-name must not be blank when uploader parameter tracking is enabled.",
+        exception.message,
+    )
   }
 
   private fun createImageService(
