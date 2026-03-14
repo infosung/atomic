@@ -7,6 +7,7 @@ import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.verifyNoInteractions
@@ -21,6 +22,8 @@ class AppStorageControllerTest {
     val controller = AppStorageController(service, properties)
     val multipartFile = MockMultipartFile("file", "profile.png", "image/png", "img".toByteArray())
     val request = mock(HttpServletRequest::class.java)
+    `when`(service.uploadImage("svc", "S3", multipartFile, 0.85, null, true))
+        .thenReturn(sampleImageEntity())
 
     controller.uploadImage(
         service = "svc",
@@ -130,12 +133,63 @@ class AppStorageControllerTest {
   }
 
   @Test
+  fun `uploadImage should map persisted image entity to image response dto`() {
+    val service = mock(AppImageApiService::class.java)
+    val controller = AppStorageController(service, AtomicAppImageProperties())
+    val multipartFile = MockMultipartFile("file", "profile.png", "image/png", "img".toByteArray())
+    val request = mock(HttpServletRequest::class.java)
+    val imageEntity =
+        ImageEntity(
+            id = UUID.randomUUID(),
+            bucket = "bucket",
+            serviceName = "svc",
+            storageService = "S3",
+            status = "ACTIVE",
+            uploaderId = "member-100",
+            storageType = "svc:S3",
+            fileName = "images/test/original.png",
+            thumbnailFileName = "images/test/original_thumb.webp",
+            url = "https://cdn/images/test/original.png",
+            thumbnailUrl = "https://cdn/images/test/original_thumb.webp",
+            fileSize = 10,
+        )
+    `when`(
+            service.uploadImage(
+                serviceName = "svc",
+                storageService = "S3",
+                multipartFile = multipartFile,
+                quality = 1.0,
+                uploaderId = null,
+                thumbnailEnabled = true,
+            ),
+        )
+        .thenReturn(imageEntity)
+
+    val response =
+        controller.uploadImage(
+            service = "svc",
+            storageService = "S3",
+            quality = null,
+            thumbnailEnabled = null,
+            multipartFile = multipartFile,
+            request = request,
+        )
+
+    val data = assertIs<ImageResponse>(response.data)
+
+    assertEquals(imageEntity.id, data.id)
+    assertEquals(imageEntity.storageType, data.storageType)
+  }
+
+  @Test
   fun `uploadImage should ignore uploader parameter when tracking is disabled`() {
     val service = mock(AppImageApiService::class.java)
     val controller = AppStorageController(service, AtomicAppImageProperties())
     val multipartFile = MockMultipartFile("file", "profile.png", "image/png", "img".toByteArray())
     val request = mock(HttpServletRequest::class.java)
     `when`(request.getParameter("memberId")).thenReturn("member-100")
+    `when`(service.uploadImage("svc", "S3", multipartFile, 0.9, null, true))
+        .thenReturn(sampleImageEntity())
 
     controller.uploadImage(
         service = "svc",
@@ -163,6 +217,8 @@ class AppStorageControllerTest {
     val controller = AppStorageController(service, AtomicAppImageProperties())
     val multipartFile = MockMultipartFile("file", "profile.png", "image/png", "img".toByteArray())
     val request = mock(HttpServletRequest::class.java)
+    `when`(service.uploadImage("svc", "S3", multipartFile, 0.9, null, false))
+        .thenReturn(sampleImageEntity())
 
     controller.uploadImage(
         service = "svc",
@@ -237,5 +293,22 @@ class AppStorageControllerTest {
 
     assertEquals(400, exception.status)
     verifyNoInteractions(service)
+  }
+
+  private fun sampleImageEntity(): ImageEntity {
+    return ImageEntity(
+        id = UUID.randomUUID(),
+        bucket = "bucket",
+        serviceName = "svc",
+        storageService = "S3",
+        status = "ACTIVE",
+        uploaderId = "member-100",
+        storageType = "svc:S3",
+        fileName = "images/test/original.png",
+        thumbnailFileName = "images/test/original_thumb.webp",
+        url = "https://cdn/images/test/original.png",
+        thumbnailUrl = "https://cdn/images/test/original_thumb.webp",
+        fileSize = 10,
+    )
   }
 }

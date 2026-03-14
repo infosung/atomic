@@ -7,7 +7,7 @@ pretending delete fully succeeded. The missing piece is an operator-friendly rec
 not require replaying the original HTTP delete request.
 
 This phase adds the smallest recovery tool that fits the current module shape: a bean-level recovery
-service that host apps can call from admin jobs or schedulers.
+service that host apps can call from their own admin jobs or schedulers.
 
 ## Scope
 
@@ -18,7 +18,7 @@ service that host apps can call from admin jobs or schedulers.
 - purge metadata only after storage cleanup succeeds
 - keep going when one recovery item fails, with detailed logs and result counts
 - auto-configure the recovery service alongside the existing image API when image prerequisites are present
-- document how host apps should use the recovery service from admin jobs or schedulers
+- document how host apps should use the recovery service from their own admin jobs or schedulers
 
 ### Out Of Scope
 
@@ -40,7 +40,7 @@ service that host apps can call from admin jobs or schedulers.
 - recovery reads oldest `DELETE_PENDING` rows first, bounded by a caller-specified limit
 - successful storage cleanup purges metadata in the same recovery run
 - failed recovery items remain `DELETE_PENDING` and are reported in the result summary
-- docs explain that scheduling policy still belongs to the host app
+- docs explain that scheduling policy intentionally belongs to the host app
 
 ## TDD Sequence
 

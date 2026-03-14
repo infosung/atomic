@@ -17,6 +17,7 @@ This directory tracks contract-first architecture improvement work for `atomic`.
 - [Phase 5: Self-Contained HTTP Contract And OAuth Readiness](phase-5-self-contained-http-contract-and-oauth-readiness.md)
 - [Phase 6: OAuth Relay Cache Atomic Consume](phase-6-oauth-relay-cache-atomic-consume.md)
 - [Phase 7: DELETE_PENDING Recovery Service](phase-7-delete-pending-recovery-service.md)
+- [Phase 8: Image Response DTO Separation](phase-8-image-response-dto-separation.md)
 
 ## Scope Rules
 

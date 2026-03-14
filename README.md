@@ -441,7 +441,7 @@ Image uploader identity option (without security coupling):
 - upload stores that value in `ImageEntity.uploaderId`.
 - delete requires same parameter value and rejects mismatch (`403`).
 - delete reserves metadata as `DELETE_PENDING`, deletes storage, and purges metadata only after storage cleanup succeeds.
-- host apps can recover lingering `DELETE_PENDING` rows by calling `AppImageDeleteRecoveryService.recoverDeletePendingImages(limit)` from an admin job or scheduler.
+- host apps can recover lingering `DELETE_PENDING` rows by calling `AppImageDeleteRecoveryService.recoverDeletePendingImages(limit)` from their own admin job or scheduler. The library does not ship a built-in reaper.
 - when enabled in production, align `image` table with nullable `uploader_id` column.
 
 OAuth relay option (without token in callback query):

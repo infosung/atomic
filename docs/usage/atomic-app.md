@@ -206,7 +206,7 @@ POST parameters:
 
 POST response:
 
-- persisted `ImageEntity` metadata (id, bucket, file names, urls, dimensions, sizes, status)
+- persisted image metadata response (`ImageResponse`) with the same JSON fields as before (id, bucket, file names, urls, dimensions, sizes, status)
 
 DELETE behavior:
 
@@ -219,7 +219,7 @@ DELETE behavior:
 - deletes original/thumbnail objects from the persisted storage client mapping
 - purges metadata row only after storage delete succeeds
 - keeps metadata in `DELETE_PENDING` when storage delete fails so a later delete can retry cleanup safely
-- host apps can also recover lingering `DELETE_PENDING` rows by calling `AppImageDeleteRecoveryService.recoverDeletePendingImages(limit)` from an admin job or scheduler
+- host apps can also recover lingering `DELETE_PENDING` rows by calling `AppImageDeleteRecoveryService.recoverDeletePendingImages(limit)` from their own admin job or scheduler; this library does not ship a built-in reaper
 
 Storage client resolution:
 
@@ -397,7 +397,7 @@ CREATE INDEX IF NOT EXISTS idx_atomic_oauth_relay_code_expires_at
 - if uploader tracking is enabled, add nullable `uploader_id` column to `image` table (or rely on JPA schema generation in non-production environments).
 - use `atomic.app.image.thumbnail-enabled=false` only when you intentionally want original-only uploads by default.
 - when image delete fails after reservation, treat remaining `DELETE_PENDING` rows as retryable cleanup work.
-- if you want proactive cleanup, call `AppImageDeleteRecoveryService.recoverDeletePendingImages(limit)` from your own scheduler or admin command path.
+- if you want proactive cleanup, call `AppImageDeleteRecoveryService.recoverDeletePendingImages(limit)` from your own scheduler or admin command path; a built-in scheduler is intentionally out of scope.
 - choose uploader parameter name per service (for example `memberId`, `userKey`, `ownerId`) and configure `atomic.app.image.uploader-parameter-name`.
 - for OAuth relay, set `atomic.app.oauth.redirect.allowed-redirect-uri-prefixes` in every environment where `atomic.app.oauth.redirect.enabled=true`.
 - if `store.type=entity` (default), create relay table (`atomic_oauth_relay_code` or configured table-name) before rollout.

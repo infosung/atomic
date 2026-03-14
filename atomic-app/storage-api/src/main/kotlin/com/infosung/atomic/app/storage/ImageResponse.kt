@@ -1,0 +1,51 @@
+package com.infosung.atomic.app.storage
+
+import java.time.LocalDateTime
+import java.util.UUID
+
+/** External image metadata response model for the image API boundary. */
+data class ImageResponse(
+    val id: UUID? = null,
+    val bucket: String,
+    val serviceName: String,
+    val storageService: String,
+    val status: String = ImageEntity.STATUS_ACTIVE,
+    val uploaderId: String? = null,
+    val storageType: String,
+    val fileName: String? = null,
+    val thumbnailFileName: String? = null,
+    val url: String,
+    val thumbnailUrl: String? = null,
+    val width: Int? = null,
+    val height: Int? = null,
+    val fileSize: Long,
+    val thumbnailWidth: Int? = null,
+    val thumbnailHeight: Int? = null,
+    val thumbnailFileSize: Long? = null,
+    val createdAt: LocalDateTime = LocalDateTime.now(),
+) {
+  companion object {
+    fun from(imageEntity: ImageEntity): ImageResponse {
+      return ImageResponse(
+          id = imageEntity.id,
+          bucket = imageEntity.bucket,
+          serviceName = imageEntity.serviceName,
+          storageService = imageEntity.storageService,
+          status = imageEntity.status,
+          uploaderId = imageEntity.uploaderId,
+          storageType = imageEntity.storageType,
+          fileName = imageEntity.fileName,
+          thumbnailFileName = imageEntity.thumbnailFileName,
+          url = imageEntity.url,
+          thumbnailUrl = imageEntity.thumbnailUrl,
+          width = imageEntity.width,
+          height = imageEntity.height,
+          fileSize = imageEntity.fileSize,
+          thumbnailWidth = imageEntity.thumbnailWidth,
+          thumbnailHeight = imageEntity.thumbnailHeight,
+          thumbnailFileSize = imageEntity.thumbnailFileSize,
+          createdAt = imageEntity.createdAt,
+      )
+    }
+  }
+}

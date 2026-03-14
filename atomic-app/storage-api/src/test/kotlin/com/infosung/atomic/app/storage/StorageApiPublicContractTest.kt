@@ -13,6 +13,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlin.reflect.full.declaredFunctions
 import kotlin.reflect.full.memberProperties
 import kotlin.reflect.full.primaryConstructor
 import org.hibernate.annotations.JdbcTypeCode
@@ -32,6 +33,35 @@ class StorageApiPublicContractTest {
   @Test
   fun `image entity constructor contract should remain stable`() {
     val parameterNames = ImageEntity::class.primaryConstructor!!.parameters.mapNotNull { it.name }
+
+    assertEquals(
+        listOf(
+            "id",
+            "bucket",
+            "serviceName",
+            "storageService",
+            "status",
+            "uploaderId",
+            "storageType",
+            "fileName",
+            "thumbnailFileName",
+            "url",
+            "thumbnailUrl",
+            "width",
+            "height",
+            "fileSize",
+            "thumbnailWidth",
+            "thumbnailHeight",
+            "thumbnailFileSize",
+            "createdAt",
+        ),
+        parameterNames,
+    )
+  }
+
+  @Test
+  fun `image response constructor contract should remain stable`() {
+    val parameterNames = ImageResponse::class.primaryConstructor!!.parameters.mapNotNull { it.name }
 
     assertEquals(
         listOf(
@@ -122,13 +152,23 @@ class StorageApiPublicContractTest {
   }
 
   @Test
-  fun `base response with image entity should serialize with stable boot json contract`() {
+  fun `app storage controller upload response type should use image response dto`() {
+    val uploadImageMethod =
+        AppStorageController::class.declaredFunctions.first { it.name == "uploadImage" }
+    val responseType = uploadImageMethod.returnType
+
+    assertEquals(BaseResponse::class, responseType.classifier)
+    assertEquals(ImageResponse::class, responseType.arguments.single().type?.classifier)
+  }
+
+  @Test
+  fun `base response with image response should serialize with stable boot json contract`() {
     contextRunner.run { context ->
       val objectMapper = context.getBean(ObjectMapper::class.java)
       val imageId = UUID.fromString("11111111-1111-1111-1111-111111111111")
       val response =
           BaseResponse.ok(
-              ImageEntity(
+              ImageResponse(
                   id = imageId,
                   bucket = "image-bucket",
                   serviceName = "gallery",
