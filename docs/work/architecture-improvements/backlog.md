@@ -5,7 +5,6 @@ These items came out of the review but are intentionally not part of Phase 1.
 ## High Priority
 
 - decide whether oauth relay fallback to process-local memory should remain available in multi-instance deployments
-- make cache relay consume semantics truly one-time or constrain supported cache providers to those with atomic get-and-remove
 - decide whether `DELETE_PENDING` rows need a background reaper/admin recovery tool beyond request-time retry
 
 ## Medium Priority

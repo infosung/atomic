@@ -4,6 +4,7 @@ import com.infosung.atomic.app.oauth.AppOauthRedirectController
 import com.infosung.atomic.app.oauth.AppOauthRedirectHttpExceptionHandler
 import com.infosung.atomic.app.oauth.AppOauthRedirectService
 import com.infosung.atomic.app.oauth.AppOauthRelayCodeService
+import com.infosung.atomic.app.oauth.CacheOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.InMemoryOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.OauthRelayCodeStore
 import com.infosung.atomic.oauth.api.OauthAuthorizationRequest
@@ -19,6 +20,7 @@ import com.infosung.atomic.oauth.api.OauthTokenResult
 import com.infosung.atomic.oauth.api.OauthTokenRevokeRequest
 import com.infosung.atomic.oauth.state.InMemoryOauthStateStore
 import com.infosung.atomic.oauth.state.OauthStateManager
+import java.util.concurrent.Callable
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
@@ -26,8 +28,11 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import org.mockito.Mockito.doReturn
 import org.mockito.Mockito.mock
+import org.springframework.cache.Cache
+import org.springframework.cache.CacheManager
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
+import tools.jackson.module.kotlin.jacksonObjectMapper
 
 class AtomicAppOauthRedirectAutoConfigurationContextTest {
   private val contextRunner =
@@ -337,6 +342,112 @@ class AtomicAppOauthRedirectAutoConfigurationContextTest {
   }
 
   @Test
+  fun `cache store with atomic cache backend should register cache relay store`() {
+    contextRunner
+        .withPropertyValues(
+            "atomic.app.oauth.redirect.enabled=true",
+            "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes=https://app.example.com/oauth",
+            "atomic.app.oauth.redirect.store.type=cache",
+            "atomic.app.oauth.redirect.store.cache.cache-name=atomicOauthRelayCode",
+        )
+        .withBean(
+            OauthServiceProvider::class.java,
+            { OauthServiceProvider(listOf(TestOauthProvider())) },
+        )
+        .withBean(
+            OauthStateManager::class.java,
+            {
+              OauthStateManager(
+                  signingSecret = "0123456789abcdef0123456789abcdef",
+                  store = InMemoryOauthStateStore(),
+              )
+            },
+        )
+        .withBean(
+            CacheManager::class.java,
+            { SingleCacheManager(AtomicConcurrentMapCache("atomicOauthRelayCode")) },
+        )
+        .withBean(tools.jackson.databind.ObjectMapper::class.java, { jacksonObjectMapper() })
+        .run { context ->
+          assertTrue(context.startupFailure == null)
+          assertIs<CacheOauthRelayCodeStore>(context.getBean(OauthRelayCodeStore::class.java))
+        }
+  }
+
+  @Test
+  fun `cache store with unsupported cache backend and fail fast disabled should fallback to in memory store`() {
+    contextRunner
+        .withPropertyValues(
+            "atomic.app.oauth.redirect.enabled=true",
+            "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes=https://app.example.com/oauth",
+            "atomic.app.oauth.redirect.store.type=cache",
+            "atomic.app.oauth.redirect.store.fail-fast=false",
+            "atomic.app.oauth.redirect.store.cache.cache-name=atomicOauthRelayCode",
+        )
+        .withBean(
+            OauthServiceProvider::class.java,
+            { OauthServiceProvider(listOf(TestOauthProvider())) },
+        )
+        .withBean(
+            OauthStateManager::class.java,
+            {
+              OauthStateManager(
+                  signingSecret = "0123456789abcdef0123456789abcdef",
+                  store = InMemoryOauthStateStore(),
+              )
+            },
+        )
+        .withBean(
+            CacheManager::class.java,
+            { SingleCacheManager(UnsupportedAtomicCache("atomicOauthRelayCode")) },
+        )
+        .withBean(tools.jackson.databind.ObjectMapper::class.java, { jacksonObjectMapper() })
+        .run { context ->
+          assertTrue(context.startupFailure == null)
+          assertIs<InMemoryOauthRelayCodeStore>(context.getBean(OauthRelayCodeStore::class.java))
+        }
+  }
+
+  @Test
+  fun `cache store with unsupported cache backend and fail fast enabled should fail startup`() {
+    contextRunner
+        .withPropertyValues(
+            "atomic.app.oauth.redirect.enabled=true",
+            "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes=https://app.example.com/oauth",
+            "atomic.app.oauth.redirect.store.type=cache",
+            "atomic.app.oauth.redirect.store.fail-fast=true",
+            "atomic.app.oauth.redirect.store.cache.cache-name=atomicOauthRelayCode",
+        )
+        .withBean(
+            OauthServiceProvider::class.java,
+            { OauthServiceProvider(listOf(TestOauthProvider())) },
+        )
+        .withBean(
+            OauthStateManager::class.java,
+            {
+              OauthStateManager(
+                  signingSecret = "0123456789abcdef0123456789abcdef",
+                  store = InMemoryOauthStateStore(),
+              )
+            },
+        )
+        .withBean(
+            CacheManager::class.java,
+            { SingleCacheManager(UnsupportedAtomicCache("atomicOauthRelayCode")) },
+        )
+        .withBean(tools.jackson.databind.ObjectMapper::class.java, { jacksonObjectMapper() })
+        .run { context ->
+          val failure = context.startupFailure
+          assertNotNull(failure)
+          assertTrue(
+              failure.message?.contains(
+                  "Configured cache 'atomicOauthRelayCode' does not support atomic relay consume.",
+              ) == true,
+          )
+        }
+  }
+
+  @Test
   fun `cache store with fail fast enabled should fail startup when dependencies are missing`() {
     contextRunner
         .withPropertyValues(
@@ -420,5 +531,120 @@ class AtomicAppOauthRedirectAutoConfigurationContextTest {
     override fun resolveIdentity(request: OauthIdentityRequest): OauthIdentityResult {
       return OauthIdentityResult(provider = providerName, userId = "user-1")
     }
+  }
+
+  private class SingleCacheManager(
+      private val cache: Cache,
+  ) : CacheManager {
+    override fun getCache(name: String): Cache? = if (cache.name == name) cache else null
+
+    override fun getCacheNames(): MutableCollection<String> = mutableListOf(cache.name)
+  }
+
+  private class AtomicConcurrentMapCache(
+      private val cacheName: String,
+  ) : Cache {
+    private val store = java.util.concurrent.ConcurrentHashMap<Any, Any>()
+
+    override fun getName(): String = cacheName
+
+    override fun getNativeCache(): Any = store
+
+    override fun get(key: Any): Cache.ValueWrapper? {
+      throw UnsupportedOperationException("get should not be used for atomic relay consume.")
+    }
+
+    override fun <T : Any> get(key: Any, type: Class<T>?): T? {
+      throw UnsupportedOperationException("typed get should not be used for atomic relay consume.")
+    }
+
+    override fun <T : Any> get(key: Any, valueLoader: Callable<T>): T {
+      throw UnsupportedOperationException("loading get is not supported in this test cache.")
+    }
+
+    override fun put(key: Any, value: Any?) {
+      if (value != null) {
+        store[key] = value
+      } else {
+        store.remove(key)
+      }
+    }
+
+    override fun putIfAbsent(key: Any, value: Any?): Cache.ValueWrapper? {
+      val existing = if (value != null) store.putIfAbsent(key, value) else store.putIfAbsent(key, NullValue)
+      return existing?.let { SimpleValueWrapper(it) }
+    }
+
+    override fun evict(key: Any) {
+      throw UnsupportedOperationException("evict should not be used for atomic relay consume.")
+    }
+
+    override fun evictIfPresent(key: Any): Boolean = store.remove(key) != null
+
+    override fun clear() {
+      store.clear()
+    }
+
+    override fun invalidate(): Boolean = store.isNotEmpty().also { store.clear() }
+  }
+
+  private class UnsupportedAtomicCache(
+      private val cacheName: String,
+  ) : Cache {
+    private val store = mutableMapOf<Any, Any>()
+
+    override fun getName(): String = cacheName
+
+    override fun getNativeCache(): Any = Any()
+
+    override fun get(key: Any): Cache.ValueWrapper? = store[key]?.let { SimpleValueWrapper(it) }
+
+    override fun <T : Any> get(key: Any, type: Class<T>?): T? = type?.cast(store[key])
+
+    override fun <T : Any> get(key: Any, valueLoader: Callable<T>): T {
+      val existing = store[key]
+      if (existing != null) {
+        @Suppress("UNCHECKED_CAST")
+        return existing as T
+      }
+      val loaded = valueLoader.call()
+      if (loaded != null) {
+        store[key] = loaded as Any
+      }
+      return loaded
+    }
+
+    override fun put(key: Any, value: Any?) {
+      if (value != null) {
+        store[key] = value
+      } else {
+        store.remove(key)
+      }
+    }
+
+    override fun putIfAbsent(key: Any, value: Any?): Cache.ValueWrapper? {
+      val existing = store.putIfAbsent(key, value ?: NullValue)
+      return existing?.let { SimpleValueWrapper(it) }
+    }
+
+    override fun evict(key: Any) {
+      store.remove(key)
+    }
+
+    override fun evictIfPresent(key: Any): Boolean = store.remove(key) != null
+
+    override fun clear() {
+      store.clear()
+    }
+
+    override fun invalidate(): Boolean = store.isNotEmpty().also { store.clear() }
+  }
+
+  private object NullValue
+
+  private class SimpleValueWrapper(
+      private val value: Any,
+  ) : Cache.ValueWrapper {
+    override fun get(): Any = value
   }
 }

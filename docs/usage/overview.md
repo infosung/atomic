@@ -160,9 +160,9 @@ dependencies {
 - App image API setup may fail startup (not only API skip): check `atomic.app.image.enabled=true` with `ImageService`/`storageClients` bean availability.
 - Image upload returned no thumbnail fields: check `atomic.app.image.thumbnail-enabled` and the request-level `thumbnailEnabled` override.
 - Image delete rows remain with `DELETE_PENDING`: a previous storage delete failed; keep the stored `storageType` mapping available and retry delete after storage/backend recovery.
-- App oauth redirect setup can fail in two ways: startup fail (for example default `store.type=entity` + missing required beans with `store.fail-fast=true`) or conditional endpoint skip/`404` (for example missing `OauthStateManager`/`OauthServiceProvider`); check selected store and OAuth bean prerequisites together.
+- App oauth redirect setup now fails fast when enabled but required prerequisites are missing; check selected relay store dependencies, `OauthServiceProvider`, and replay-protected `OauthStateManager` together.
 - OAuth callback errors: check state and redirect URI mapping, and callback-binding failure type (`state is missing`, `cookie is missing`, `token mismatch`, `cookie is ambiguous`).
-- OAuth relay cache store startup failure: check `atomic.app.oauth.redirect.store.cache.cache-name` exists in `CacheManager` (with default `store.fail-fast=true`).
+- OAuth relay cache store startup failure: check `atomic.app.oauth.redirect.store.cache.cache-name` exists in `CacheManager` and that the selected backend supports atomic remove-and-return consume (with default `store.fail-fast=true`).
 - OAuth redirect prefix configuration issue: empty `allowed-redirect-uri-prefixes` fails startup; invalid prefix format returns `400` at redirect/callback request time.
 - JWT unauthorized unexpectedly: check channel resolver and token source.
 - API logs missing: check `ServiceLogger.send()` scheduling.

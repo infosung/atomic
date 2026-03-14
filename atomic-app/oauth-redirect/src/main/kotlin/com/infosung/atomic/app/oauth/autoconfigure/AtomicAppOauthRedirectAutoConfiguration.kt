@@ -117,14 +117,30 @@ class AtomicAppOauthRedirectAutoConfiguration {
               reason = "Configured cache '$cacheName' is not available from CacheManager.",
           )
         } else {
-          CacheOauthRelayCodeStore(
-              cacheManager = cacheManager,
-              cacheName = cacheName,
-              keyPrefix = properties.store.cache.keyPrefix,
-              ttlSeconds = cacheTtlSeconds,
-              objectMapper = objectMapper,
-              timeProvider = timeProvider,
-          )
+          val cache = cacheManager.getCache(cacheName)!!
+          if (!CacheOauthRelayCodeStore.supportsAtomicConsume(cache)) {
+            fallbackOrThrow(
+                properties = properties,
+                timeProvider = timeProvider,
+                reason = CacheOauthRelayCodeStore.unsupportedAtomicConsume(cacheName).message!!,
+            )
+          } else {
+            log.info(
+                "Using cache-backed oauth relay store: cacheName={}, ttlSeconds={}, failFast={}, nativeCacheType={}",
+                cacheName,
+                cacheTtlSeconds,
+                properties.store.failFast,
+                cache.getNativeCache()::class.java.name,
+            )
+            CacheOauthRelayCodeStore(
+                cacheManager = cacheManager,
+                cacheName = cacheName,
+                keyPrefix = properties.store.cache.keyPrefix,
+                ttlSeconds = cacheTtlSeconds,
+                objectMapper = objectMapper,
+                timeProvider = timeProvider,
+            )
+          }
         }
       }
 

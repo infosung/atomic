@@ -307,9 +307,11 @@ Relay store notes:
 - `store.type=in-memory`: no datasource/cache validation.
 - `store.type=cache`: validates cache dependencies only (`CacheManager`, `ObjectMapper`).
   - configured `cache-name` must exist in `CacheManager` at startup.
+  - the selected cache backend must expose an atomic remove-and-return path (`ConcurrentMap.remove`, native `getAndRemove`, or `asMap().remove`) to preserve one-time relay consume semantics.
+  - unsupported cache backends now fail startup by default, or fall back to the in-memory relay store when `store.fail-fast=false`.
 - `store.type=entity` (default): validates db dependencies only (`DataSource`, `PlatformTransactionManager`, `ObjectMapper`).
   - `table-name` allows only letters, numbers, and underscores.
-- when `store.fail-fast=false`, selected store errors (missing deps, invalid cache-name/ttl, unavailable cache) do not fail startup and fall back to in-memory store.
+- when `store.fail-fast=false`, selected store errors (missing deps, invalid cache-name/ttl, unavailable cache, unsupported atomic cache backend) do not fail startup and fall back to in-memory store.
 - in-memory fallback is process-local per instance and can break one-time relay semantics in multi-instance deployments.
 - oauth redirect readiness now checks explicit `OauthStateManager.isReplayProtectionEnabled()` capability instead of reflecting internal fields.
 - entity store expects table columns:

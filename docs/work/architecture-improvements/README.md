@@ -15,6 +15,7 @@ This directory tracks contract-first architecture improvement work for `atomic`.
 - [Phase 3: PostgreSQL Migration Assets](phase-3-postgresql-migration-assets.md)
 - [Phase 4: Onboarding, Image Workflow, And Schema Freeze](phase-4-onboarding-image-workflow-and-schema-freeze.md)
 - [Phase 5: Self-Contained HTTP Contract And OAuth Readiness](phase-5-self-contained-http-contract-and-oauth-readiness.md)
+- [Phase 6: OAuth Relay Cache Atomic Consume](phase-6-oauth-relay-cache-atomic-consume.md)
 
 ## Scope Rules
 

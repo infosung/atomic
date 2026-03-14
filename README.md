@@ -472,6 +472,7 @@ OAuth relay option (without token in callback query):
 - `cache` uses Spring `CacheManager` (for example Redis cache), `entity` uses datasource/transaction manager.
 - `relay-code-ttl-seconds` must be greater than zero (validated at startup).
 - `store.type=cache` requires configured `cache-name` to exist in `CacheManager` at startup.
+- `store.type=cache` also requires a cache backend that supports atomic remove-and-return consume for relay payloads.
 - `store.type=entity` table name allows only letters, numbers, and underscores.
 - cache/entity stores validate expiration on consume (`pop`) and remove consumed relay data.
 - for cache backends, configure backend TTL/eviction to avoid stale expired keys accumulating.
@@ -479,7 +480,7 @@ OAuth relay option (without token in callback query):
 - callback/state validation errors are wrapped as `HttpStatusException(400)` in app oauth redirect service.
 - upstream provider I/O errors can propagate as `HttpStatusException(500)` from oauth module.
 - app module controllers map `HttpStatusException` to the documented HTTP status and `BaseResponse.error(...)` envelope by default.
-- with `store.fail-fast=false`, selected store errors (missing deps, invalid cache-name/ttl, unavailable cache) do not fail startup and fall back to in-memory store.
+- with `store.fail-fast=false`, selected store errors (missing deps, invalid cache-name/ttl, unavailable cache, unsupported atomic cache backend) do not fail startup and fall back to in-memory store.
 - in-memory fallback is process-local per instance and can break relay one-time guarantees in multi-instance deployments.
 
 **Important (Spring Security):**
