@@ -92,6 +92,15 @@ class AtomicAppOauthRedirectProperties {
     /** Enables callback binding verification using state attributes + cookie token match. */
     var enabled: Boolean = true
 
+    /**
+     * Optional callback-binding policy mode.
+     *
+     * When null, legacy `enabled` semantics apply:
+     * - `enabled=true` -> `STRICT`
+     * - `enabled=false` -> `DISABLED`
+     */
+    var mode: CallbackBindingMode? = null
+
     /** State attribute key used to store callback binding token. */
     var stateAttributeKey: String = "atomicCallbackBinding"
 
@@ -109,6 +118,24 @@ class AtomicAppOauthRedirectProperties {
 
     /** Max age in seconds for callback binding cookie. */
     var cookieMaxAgeSeconds: Long = 600
+
+    fun resolvedMode(): CallbackBindingMode {
+      return mode ?: if (enabled) CallbackBindingMode.STRICT else CallbackBindingMode.DISABLED
+    }
+
+    fun isCookieValidationEnabled(): Boolean {
+      return resolvedMode() != CallbackBindingMode.DISABLED
+    }
+
+    fun shouldClearCookieOnSuccess(): Boolean {
+      return resolvedMode() == CallbackBindingMode.STRICT
+    }
+  }
+
+  enum class CallbackBindingMode {
+    STRICT,
+    RELAXED,
+    DISABLED,
   }
 
   enum class StoreType {

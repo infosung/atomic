@@ -161,7 +161,7 @@ dependencies {
 - Image upload returned no thumbnail fields: check `atomic.app.image.thumbnail-enabled` and the request-level `thumbnailEnabled` override.
 - Image delete rows remain with `DELETE_PENDING`: a previous storage delete failed; keep the stored `storageType` mapping available and retry delete after storage/backend recovery, or invoke `AppImageDeleteRecoveryService.recoverDeletePendingImages(limit)` from an admin job.
 - App oauth redirect setup now fails fast when enabled but required prerequisites are missing; check selected relay store dependencies, `OauthServiceProvider`, and replay-protected `OauthStateManager` together.
-- OAuth callback errors: check state and redirect URI mapping, and callback-binding failure type (`state is missing`, `cookie is missing`, `token mismatch`, `cookie is ambiguous`).
+- OAuth callback errors: check state and redirect URI mapping, effective callback-binding mode (`strict`, `relaxed`, `disabled`), and callback-binding failure type (`state is missing`, `cookie is missing`, `token mismatch`, `cookie is ambiguous`).
 - OAuth relay cache store startup failure: check `atomic.app.oauth.redirect.store.cache.cache-name` exists in `CacheManager` and that the selected backend supports atomic remove-and-return consume (with default `store.fail-fast=true`).
 - OAuth redirect prefix configuration issue: empty `allowed-redirect-uri-prefixes` fails startup; invalid prefix format returns `400` at redirect/callback request time.
 - JWT unauthorized unexpectedly: check channel resolver and token source.

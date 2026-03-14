@@ -114,6 +114,7 @@ atomic:
         relay-code-ttl-seconds: 300 # must be > 0
         callback-binding:
           enabled: true
+          mode: strict # optional: strict, relaxed, disabled. When omitted, legacy enabled flag decides effective mode
           state-attribute-key: atomicCallbackBinding
           cookie-name: __Host-atomic_oauth_callback_binding
           cookie-same-site: None
@@ -254,7 +255,11 @@ Behavior:
 - login API consumes relay payload using `AppOauthRelayCodeService.consumeRelayCode(relayCode)`.
 - redirect endpoint input `redirectUri` must be an absolute URI and must not include user-info.
 - callback binding validates redirect/callback continuity using one-time state attribute + cookie token.
-- successful callback clears the callback-binding cookie; the cookie exists only for redirect -> callback continuity.
+- callback-binding mode can be selected with `atomic.app.oauth.redirect.callback-binding.mode`:
+  - `strict` keeps validation enabled and clears the cookie after successful callback
+  - `relaxed` keeps validation enabled and preserves the cookie after successful callback
+  - `disabled` turns callback binding off
+- when `callback-binding.mode` is omitted, legacy `callback-binding.enabled=true|false` still decides the effective mode.
 - relay store default type is `entity`.
 - selected store dependencies are validated; unselected store dependencies are ignored.
 - global relay settings (for example `relay-code-ttl-seconds`) are validated regardless of store type.
@@ -300,7 +305,8 @@ Security notes:
   - `https://app.example.com/oauth` allows `https://app.example.com/oauth/callback` but rejects `https://app.example.com.evil.com/...`.
 - Keep callback binding enabled in production; change cookie policy only when your provider callback topology requires it.
 - Callback-binding uses hardened cookie constraints when enabled: `cookie-name` must start with `__Host-`, `cookie-secure=true`, and `cookie-path=/`.
-- a successful callback clears the callback-binding cookie, so each flow must complete with the cookie issued during redirect.
+- default `strict` mode clears the callback-binding cookie after success, so each flow must complete with the cookie issued during redirect.
+- use `relaxed` mode when you intentionally prefer multi-tab/back-navigation tolerance over immediate cookie clearing.
 - Local plain HTTP callback testing can fail unless you use HTTPS or disable callback binding in local-only environments.
 
 Relay store notes:

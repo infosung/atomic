@@ -19,6 +19,7 @@ This directory tracks contract-first architecture improvement work for `atomic`.
 - [Phase 7: DELETE_PENDING Recovery Service](phase-7-delete-pending-recovery-service.md)
 - [Phase 8: Image Response DTO Separation](phase-8-image-response-dto-separation.md)
 - [Phase 9: App-Version Policy Resolution Optimization](phase-9-app-version-policy-resolution-optimization.md)
+- [Phase 10: Callback-Binding Policy Mode](phase-10-callback-binding-policy-mode.md)
 
 ## Scope Rules
 

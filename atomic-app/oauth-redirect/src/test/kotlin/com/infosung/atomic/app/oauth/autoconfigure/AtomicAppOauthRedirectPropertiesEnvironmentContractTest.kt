@@ -3,6 +3,7 @@ package com.infosung.atomic.app.oauth.autoconfigure
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
@@ -24,6 +25,11 @@ class AtomicAppOauthRedirectPropertiesEnvironmentContractTest {
       assertEquals("relayCode", properties.relayCodeQueryParameterName)
       assertEquals(300, properties.relayCodeTtlSeconds)
       assertTrue(properties.callbackBinding.enabled)
+      assertNull(properties.callbackBinding.mode)
+      assertEquals(
+          AtomicAppOauthRedirectProperties.CallbackBindingMode.STRICT,
+          properties.callbackBinding.resolvedMode(),
+      )
       assertEquals("atomicCallbackBinding", properties.callbackBinding.stateAttributeKey)
       assertEquals("__Host-atomic_oauth_callback_binding", properties.callbackBinding.cookieName)
       assertEquals("None", properties.callbackBinding.cookieSameSite)
@@ -67,7 +73,7 @@ class AtomicAppOauthRedirectPropertiesEnvironmentContractTest {
   fun `canonical property keys should bind callback binding and store properties`() {
     contextRunner
         .withPropertyValues(
-            "atomic.app.oauth.redirect.callback-binding.enabled=false",
+            "atomic.app.oauth.redirect.callback-binding.mode=relaxed",
             "atomic.app.oauth.redirect.callback-binding.cookie-name=__Host-env_oauth_binding",
             "atomic.app.oauth.redirect.store.type=cache",
             "atomic.app.oauth.redirect.store.fail-fast=false",
@@ -78,13 +84,44 @@ class AtomicAppOauthRedirectPropertiesEnvironmentContractTest {
         .run { context ->
           val properties = context.getBean(AtomicAppOauthRedirectProperties::class.java)
 
-          assertFalse(properties.callbackBinding.enabled)
+          assertTrue(properties.callbackBinding.enabled)
+          assertEquals(
+              AtomicAppOauthRedirectProperties.CallbackBindingMode.RELAXED,
+              properties.callbackBinding.mode,
+          )
+          assertEquals(
+              AtomicAppOauthRedirectProperties.CallbackBindingMode.RELAXED,
+              properties.callbackBinding.resolvedMode(),
+          )
           assertEquals("__Host-env_oauth_binding", properties.callbackBinding.cookieName)
           assertEquals(AtomicAppOauthRedirectProperties.StoreType.CACHE, properties.store.type)
           assertFalse(properties.store.failFast)
           assertEquals("envOauthRelayCode", properties.store.cache.cacheName)
           assertEquals("env:oauth:relay:", properties.store.cache.keyPrefix)
           assertEquals(120, properties.store.cache.ttlSeconds)
+        }
+  }
+
+  @Test
+  fun `callback binding mode should override legacy enabled flag when explicitly configured`() {
+    contextRunner
+        .withPropertyValues(
+            "atomic.app.oauth.redirect.callback-binding.enabled=false",
+            "atomic.app.oauth.redirect.callback-binding.mode=relaxed",
+        )
+        .run { context ->
+          val properties = context.getBean(AtomicAppOauthRedirectProperties::class.java)
+
+          assertFalse(properties.callbackBinding.enabled)
+          assertEquals(
+              AtomicAppOauthRedirectProperties.CallbackBindingMode.RELAXED,
+              properties.callbackBinding.mode,
+          )
+          assertEquals(
+              AtomicAppOauthRedirectProperties.CallbackBindingMode.RELAXED,
+              properties.callbackBinding.resolvedMode(),
+          )
+          assertTrue(properties.callbackBinding.isCookieValidationEnabled())
         }
   }
 

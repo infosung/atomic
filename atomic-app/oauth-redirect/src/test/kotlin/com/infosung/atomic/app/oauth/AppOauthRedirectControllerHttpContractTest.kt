@@ -245,6 +245,53 @@ class AppOauthRedirectControllerHttpContractTest {
   }
 
   @Test
+  fun `callback should preserve callback-binding cookie after success in relaxed mode`() {
+    val properties =
+        configuredProperties().apply {
+          callbackBinding.mode = AtomicAppOauthRedirectProperties.CallbackBindingMode.RELAXED
+        }
+    val provider = ContractOauthProvider(providerName = OauthProviderName.GOOGLE)
+    val stateManager = stateManager()
+    val controller =
+        newController(
+            properties = properties,
+            providers = listOf(provider),
+            stateManager = stateManager,
+        )
+    val mockMvc = newMockMvc(controller = controller, properties = properties)
+    val state =
+        stateManager.issueState(
+            provider = OauthProviderName.GOOGLE,
+            redirectUri = "https://app.example.com/oauth/callback",
+            attributes =
+                mapOf(
+                    properties.callbackBinding.stateAttributeKey to
+                        "callback-binding-token-relaxed",
+                ),
+        )
+
+    val response =
+        mockMvc
+            .perform(
+                get("/oauth/callback/google")
+                    .param("code", "code-123")
+                    .param("state", state)
+                    .cookie(
+                        jakarta.servlet.http.Cookie(
+                            properties.callbackBinding.cookieName,
+                            "callback-binding-token-relaxed",
+                        ),
+                    ),
+            )
+            .andExpect(status().isFound)
+            .andExpect(redirectedUrlPattern("https://app.example.com/oauth/callback?relayCode=*"))
+            .andReturn()
+            .response
+
+    assertTrue(response.getHeader(HttpHeaders.SET_COOKIE) == null)
+  }
+
+  @Test
   fun `apple get callback should return documented 400 error envelope`() {
     val properties = configuredProperties()
     val controller = newController(properties = properties, providers = listOf())
@@ -379,6 +426,53 @@ class AppOauthRedirectControllerHttpContractTest {
     assertTrue(clearedCookie.contains("${properties.callbackBinding.cookieName}="))
     assertTrue(clearedCookie.contains("Max-Age=0"))
     assertTrue(clearedCookie.contains("Path=${properties.callbackBinding.cookiePath}"))
+  }
+
+  @Test
+  fun `apple post callback should preserve callback-binding cookie after success in relaxed mode`() {
+    val properties =
+        configuredProperties().apply {
+          callbackBinding.mode = AtomicAppOauthRedirectProperties.CallbackBindingMode.RELAXED
+        }
+    val stateManager = stateManager()
+    val controller =
+        newController(
+            properties = properties,
+            providers = listOf(ContractOauthProvider(providerName = OauthProviderName.APPLE)),
+            stateManager = stateManager,
+        )
+    val mockMvc = newMockMvc(controller = controller, properties = properties)
+    val state =
+        stateManager.issueState(
+            provider = OauthProviderName.APPLE,
+            redirectUri = "https://app.example.com/oauth/callback",
+            attributes =
+                mapOf(
+                    properties.callbackBinding.stateAttributeKey to
+                        "callback-binding-token-apple-relaxed",
+                ),
+        )
+
+    val response =
+        mockMvc
+            .perform(
+                post("/oauth/callback/apple")
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .param("state", state)
+                    .param("id_token", "id-token")
+                    .cookie(
+                        jakarta.servlet.http.Cookie(
+                            properties.callbackBinding.cookieName,
+                            "callback-binding-token-apple-relaxed",
+                        ),
+                    ),
+            )
+            .andExpect(status().isFound)
+            .andExpect(redirectedUrlPattern("https://app.example.com/oauth/callback?relayCode=*"))
+            .andReturn()
+            .response
+
+    assertTrue(response.getHeader(HttpHeaders.SET_COOKIE) == null)
   }
 
   private fun configuredProperties(): AtomicAppOauthRedirectProperties {

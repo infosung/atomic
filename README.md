@@ -458,8 +458,9 @@ OAuth relay option (without token in callback query):
 - empty `allowed-redirect-uri-prefixes` fails startup (fail-fast).
 - callback binding is enabled by default and validates redirect/callback flow using state-attribute + cookie token match.
   - hardened defaults require `cookie-name` with `__Host-` prefix, `cookie-secure=true`, and `cookie-path=/`.
-  - local plain HTTP callbacks can fail unless you use HTTPS or disable callback binding for local-only testing.
-  - successful callback clears the callback-binding cookie immediately.
+  - local plain HTTP callbacks can fail unless you use HTTPS or set `atomic.app.oauth.redirect.callback-binding.mode=disabled` for local-only testing (legacy `callback-binding.enabled=false` still works).
+  - default `strict` mode clears the callback-binding cookie immediately.
+  - `relaxed` mode preserves the cookie after success for multi-tab/back-navigation-friendly UX.
 - relay store type default is `entity` (`atomic.app.oauth.redirect.store.type=entity`).
 - selected relay store dependencies are validated (`in-memory`/`cache`/`entity`); unselected store dependencies are not validated.
 - global relay settings (for example `relay-code-ttl-seconds`) are validated regardless of store type.

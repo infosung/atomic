@@ -64,7 +64,17 @@ class OauthRedirectPublicContractTest {
         AtomicAppOauthRedirectProperties::class.memberProperties.map { it.name }.sorted(),
     )
     assertEquals(
-        listOf("enabled", "stateAttributeKey", "cookieName", "cookieSameSite", "cookiePath", "cookieSecure", "cookieMaxAgeSeconds").sorted(),
+        listOf(
+                "enabled",
+                "mode",
+                "stateAttributeKey",
+                "cookieName",
+                "cookieSameSite",
+                "cookiePath",
+                "cookieSecure",
+                "cookieMaxAgeSeconds",
+            )
+            .sorted(),
         AtomicAppOauthRedirectProperties.CallbackBinding::class.memberProperties.map { it.name }
             .sorted(),
     )

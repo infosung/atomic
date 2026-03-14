@@ -61,9 +61,9 @@ class AtomicAppOauthRedirectAutoConfiguration {
         oauthStateManagerProvider = oauthStateManagerProvider,
     )
     log.debug(
-        "Validated oauth redirect auto-configuration prerequisites: storeType={}, callbackBindingEnabled={}",
+        "Validated oauth redirect auto-configuration prerequisites: storeType={}, callbackBindingMode={}",
         properties.store.type,
-        properties.callbackBinding.enabled,
+        properties.callbackBinding.resolvedMode(),
     )
     return Any()
   }
@@ -255,7 +255,7 @@ class AtomicAppOauthRedirectAutoConfiguration {
   private fun validateSecurityProperties(properties: AtomicAppOauthRedirectProperties) {
     AllowedRedirectUriPolicy.validateConfiguredPrefixes(properties.allowedRedirectUriPrefixes)
 
-    if (!properties.callbackBinding.enabled) {
+    if (!properties.callbackBinding.isCookieValidationEnabled()) {
       return
     }
     require(properties.callbackBinding.stateAttributeKey.isNotBlank()) {

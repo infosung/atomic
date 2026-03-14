@@ -186,6 +186,66 @@ class AppOauthRedirectControllerTest {
   }
 
   @Test
+  fun `callback should preserve callback-binding cookie in relaxed mode`() {
+    val properties =
+        configuredProperties().apply {
+          callbackBinding.mode = AtomicAppOauthRedirectProperties.CallbackBindingMode.RELAXED
+        }
+    val provider = CapturingOauthProvider()
+    val stateManager = mock(OauthStateManager::class.java)
+    val relayCodeService =
+        AppOauthRelayCodeService(
+            relayCodeStore = InMemoryOauthRelayCodeStore(),
+            properties = properties,
+        )
+    val service =
+        AppOauthRedirectService(
+            oauthServiceProvider = OauthServiceProvider(listOf(provider)),
+            oauthStateManager = stateManager,
+            relayCodeService = relayCodeService,
+            properties = properties,
+        )
+    val controller =
+        AppOauthRedirectController(
+            appOauthRedirectService = service,
+            properties = properties,
+        )
+
+    val callbackBindingToken = "binding-token"
+    `when`(
+            stateManager.verifyState(
+                "state-value",
+                OauthProviderName.GOOGLE,
+                null,
+                null,
+            ),
+        )
+        .thenReturn(
+            stateJwt(
+                provider = "GOOGLE",
+                redirectUri = "https://client.example.com/oauth/callback",
+                callbackBindingKey = properties.callbackBinding.stateAttributeKey,
+                callbackBindingToken = callbackBindingToken,
+            ),
+        )
+
+    val request = MockHttpServletRequest("GET", "/oauth/callback/google")
+    request.setCookies(Cookie(properties.callbackBinding.cookieName, callbackBindingToken))
+    val response = MockHttpServletResponse()
+    val result =
+        controller.callback(
+            provider = "google",
+            code = "code-value",
+            state = "state-value",
+            request = request,
+            response = response,
+        )
+
+    assertTrue(result.startsWith("redirect:https://client.example.com/oauth/callback?relayCode="))
+    assertNull(response.getHeader("Set-Cookie"))
+  }
+
+  @Test
   fun `redirect should reuse existing callback-binding cookie token`() {
     val properties = configuredProperties()
     val provider = CapturingOauthProvider()
@@ -283,6 +343,51 @@ class AppOauthRedirectControllerTest {
   @Test
   fun `redirect should not set cookie when callback binding is disabled`() {
     val properties = configuredProperties().apply { callbackBinding.enabled = false }
+    val provider = CapturingOauthProvider()
+    val stateManager = mock(OauthStateManager::class.java)
+    val relayCodeService =
+        AppOauthRelayCodeService(
+            relayCodeStore = InMemoryOauthRelayCodeStore(),
+            properties = properties,
+        )
+    val service =
+        AppOauthRedirectService(
+            oauthServiceProvider = OauthServiceProvider(listOf(provider)),
+            oauthStateManager = stateManager,
+            relayCodeService = relayCodeService,
+            properties = properties,
+        )
+    val controller =
+        AppOauthRedirectController(
+            appOauthRedirectService = service,
+            properties = properties,
+        )
+
+    val request = MockHttpServletRequest("GET", "/oauth/redirect/google")
+    val response = MockHttpServletResponse()
+    val result =
+        controller.redirect(
+            provider = "google",
+            redirectUri = "https://client.example.com/oauth/callback",
+            nonce = null,
+            prompt = null,
+            loginHint = null,
+            responseMode = null,
+            request = request,
+            response = response,
+        )
+
+    assertEquals("redirect:https://provider.example.com/auth", result)
+    assertTrue(provider.lastAuthorizationRequest?.stateAttributes.isNullOrEmpty())
+    assertNull(response.getHeader("Set-Cookie"))
+  }
+
+  @Test
+  fun `redirect should not set cookie when callback binding mode is disabled`() {
+    val properties =
+        configuredProperties().apply {
+          callbackBinding.mode = AtomicAppOauthRedirectProperties.CallbackBindingMode.DISABLED
+        }
     val provider = CapturingOauthProvider()
     val stateManager = mock(OauthStateManager::class.java)
     val relayCodeService =

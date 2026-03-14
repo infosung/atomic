@@ -42,6 +42,7 @@ class AppOauthRedirectController(
       request: HttpServletRequest,
       response: HttpServletResponse,
   ): String {
+    val callbackBindingMode = properties.callbackBinding.resolvedMode()
     val callbackBindingToken = resolveCallbackBindingTokenForRedirect(request)
     val additionalParameters =
         readAdditionalParameters(
@@ -63,8 +64,9 @@ class AppOauthRedirectController(
       setCallbackBindingTokenIfEnabled(response = response, token = callbackBindingToken.token)
     }
     log.debug(
-        "OAuth redirect completed: provider={}, callbackBindingCookieIssued={}, additionalParameterKeys={}",
+        "OAuth redirect completed: provider={}, callbackBindingMode={}, callbackBindingCookieIssued={}, additionalParameterKeys={}",
         provider,
+        callbackBindingMode,
         callbackBindingToken.shouldSetCookie,
         additionalParameters.keys.sorted(),
     )
@@ -84,6 +86,7 @@ class AppOauthRedirectController(
       request: HttpServletRequest,
       response: HttpServletResponse,
   ): String {
+    val callbackBindingMode = properties.callbackBinding.resolvedMode()
     val callbackBindingToken = readCallbackBindingTokenIfEnabled(request)
     val additionalParameters =
         readAdditionalParameters(
@@ -100,9 +103,10 @@ class AppOauthRedirectController(
         )
     clearCallbackBindingTokenIfEnabled(response)
     log.debug(
-        "OAuth callback completed: provider={}, callbackBindingCookieCleared={}, additionalParameterKeys={}",
+        "OAuth callback completed: provider={}, callbackBindingMode={}, callbackBindingCookieCleared={}, additionalParameterKeys={}",
         provider,
-        properties.callbackBinding.enabled,
+        callbackBindingMode,
+        properties.callbackBinding.shouldClearCookieOnSuccess(),
         additionalParameters.keys.sorted(),
     )
     return "redirect:$frontendRedirectUrl"
@@ -130,6 +134,7 @@ class AppOauthRedirectController(
       request: HttpServletRequest,
       response: HttpServletResponse,
   ): String {
+    val callbackBindingMode = properties.callbackBinding.resolvedMode()
     val callbackBindingToken = readCallbackBindingTokenIfEnabled(request)
     val additionalParameters =
         readAdditionalParameters(
@@ -147,8 +152,9 @@ class AppOauthRedirectController(
         )
     clearCallbackBindingTokenIfEnabled(response)
     log.debug(
-        "Apple OAuth callback completed: callbackBindingCookieCleared={}, additionalParameterKeys={}",
-        properties.callbackBinding.enabled,
+        "Apple OAuth callback completed: callbackBindingMode={}, callbackBindingCookieCleared={}, additionalParameterKeys={}",
+        callbackBindingMode,
+        properties.callbackBinding.shouldClearCookieOnSuccess(),
         additionalParameters.keys.sorted(),
     )
     return "redirect:$frontendRedirectUrl"
@@ -162,15 +168,25 @@ class AppOauthRedirectController(
   private fun resolveCallbackBindingTokenForRedirect(
       request: HttpServletRequest,
   ): CallbackBindingTokenResult {
-    if (!properties.callbackBinding.enabled) {
+    if (!properties.callbackBinding.isCookieValidationEnabled()) {
+      log.debug(
+          "OAuth redirect callback binding is disabled for this flow: callbackBindingMode={}",
+          properties.callbackBinding.resolvedMode(),
+      )
       return CallbackBindingTokenResult(token = null, shouldSetCookie = false)
     }
     val existingToken = readCallbackBindingTokenIfEnabled(request)
     if (!existingToken.isNullOrBlank()) {
-      log.debug("Reusing existing OAuth callback binding cookie for redirect flow.")
+      log.debug(
+          "Reusing existing OAuth callback binding cookie for redirect flow: callbackBindingMode={}",
+          properties.callbackBinding.resolvedMode(),
+      )
       return CallbackBindingTokenResult(token = existingToken, shouldSetCookie = false)
     }
-    log.debug("Issuing new OAuth callback binding cookie for redirect flow.")
+    log.debug(
+        "Issuing new OAuth callback binding cookie for redirect flow: callbackBindingMode={}",
+        properties.callbackBinding.resolvedMode(),
+    )
     return CallbackBindingTokenResult(
         token = newCallbackBindingToken(),
         shouldSetCookie = true,
@@ -181,7 +197,7 @@ class AppOauthRedirectController(
       response: HttpServletResponse,
       token: String?,
   ) {
-    if (!properties.callbackBinding.enabled) {
+    if (!properties.callbackBinding.isCookieValidationEnabled()) {
       return
     }
     val callbackToken =
@@ -194,14 +210,23 @@ class AppOauthRedirectController(
         )
     response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString())
     log.debug(
-        "Set OAuth callback binding cookie: cookieName={}, maxAgeSeconds={}",
+        "Set OAuth callback binding cookie: cookieName={}, maxAgeSeconds={}, callbackBindingMode={}",
         resolveCallbackBindingCookieName(),
         properties.callbackBinding.cookieMaxAgeSeconds,
+        properties.callbackBinding.resolvedMode(),
     )
   }
 
   private fun clearCallbackBindingTokenIfEnabled(response: HttpServletResponse) {
-    if (!properties.callbackBinding.enabled) {
+    if (!properties.callbackBinding.isCookieValidationEnabled()) {
+      return
+    }
+    if (!properties.callbackBinding.shouldClearCookieOnSuccess()) {
+      log.debug(
+          "Preserving OAuth callback binding cookie after successful callback: callbackBindingMode={}, cookieName={}",
+          properties.callbackBinding.resolvedMode(),
+          resolveCallbackBindingCookieName(),
+      )
       return
     }
     val cookie =
@@ -211,13 +236,14 @@ class AppOauthRedirectController(
         )
     response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString())
     log.debug(
-        "Cleared OAuth callback binding cookie after successful callback: cookieName={}",
+        "Cleared OAuth callback binding cookie after successful callback: callbackBindingMode={}, cookieName={}",
+        properties.callbackBinding.resolvedMode(),
         resolveCallbackBindingCookieName(),
     )
   }
 
   private fun readCallbackBindingTokenIfEnabled(request: HttpServletRequest): String? {
-    if (!properties.callbackBinding.enabled) {
+    if (!properties.callbackBinding.isCookieValidationEnabled()) {
       return null
     }
     val cookieName = resolveCallbackBindingCookieName()

@@ -212,6 +212,40 @@ class AtomicAppOauthRedirectAutoConfigurationContextTest {
   }
 
   @Test
+  fun `disabled callback binding mode should make cookie settings optional`() {
+    contextRunner
+        .withPropertyValues(
+            "atomic.app.oauth.redirect.enabled=true",
+            "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes=https://app.example.com/oauth",
+            "atomic.app.oauth.redirect.store.type=in-memory",
+            "atomic.app.oauth.redirect.callback-binding.mode=disabled",
+            "atomic.app.oauth.redirect.callback-binding.state-attribute-key= ",
+            "atomic.app.oauth.redirect.callback-binding.cookie-name= ",
+            "atomic.app.oauth.redirect.callback-binding.cookie-same-site= ",
+            "atomic.app.oauth.redirect.callback-binding.cookie-path=/oauth/callback",
+            "atomic.app.oauth.redirect.callback-binding.cookie-secure=false",
+            "atomic.app.oauth.redirect.callback-binding.cookie-max-age-seconds=0",
+        )
+        .withBean(
+            OauthServiceProvider::class.java,
+            { OauthServiceProvider(listOf(TestOauthProvider())) },
+        )
+        .withBean(
+            OauthStateManager::class.java,
+            {
+              OauthStateManager(
+                  signingSecret = "0123456789abcdef0123456789abcdef",
+                  store = InMemoryOauthStateStore(),
+              )
+            },
+        )
+        .run { context ->
+          assertTrue(context.startupFailure == null)
+          assertNotNull(context.getBean("appOauthRedirectPropertiesValidator"))
+        }
+  }
+
+  @Test
   fun `default entity store should fail startup when required dependencies are missing`() {
     contextRunner
         .withPropertyValues(
@@ -300,6 +334,27 @@ class AtomicAppOauthRedirectAutoConfigurationContextTest {
             "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes=https://app.example.com/oauth",
             "atomic.app.oauth.redirect.store.type=in-memory",
             "atomic.app.oauth.redirect.callback-binding.enabled=true",
+            "atomic.app.oauth.redirect.callback-binding.cookie-path=/oauth/callback",
+        )
+        .run { context ->
+          val failure = context.startupFailure
+          assertNotNull(failure)
+          assertTrue(
+              failure.message?.contains(
+                  "atomic.app.oauth.redirect.callback-binding.cookie-path must be '/' when callback binding is enabled.",
+              ) == true,
+          )
+        }
+  }
+
+  @Test
+  fun `relaxed callback binding mode should still fail startup for invalid cookie path`() {
+    contextRunner
+        .withPropertyValues(
+            "atomic.app.oauth.redirect.enabled=true",
+            "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes=https://app.example.com/oauth",
+            "atomic.app.oauth.redirect.store.type=in-memory",
+            "atomic.app.oauth.redirect.callback-binding.mode=relaxed",
             "atomic.app.oauth.redirect.callback-binding.cookie-path=/oauth/callback",
         )
         .run { context ->

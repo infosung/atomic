@@ -239,7 +239,7 @@ class AppOauthRedirectService(
   }
 
   private fun buildStateAttributes(callbackBindingToken: String?): Map<String, String> {
-    if (!properties.callbackBinding.enabled) {
+    if (!properties.callbackBinding.isCookieValidationEnabled()) {
       return emptyMap()
     }
     val stateAttributeKey = resolveCallbackBindingStateAttributeKey()
@@ -249,7 +249,10 @@ class AppOauthRedirectService(
                 status = 400,
                 message = "OAuth callback binding token is required.",
             )
-    log.trace("Using callback binding token for oauth redirect request.")
+    log.trace(
+        "Using callback binding token for oauth redirect request: callbackBindingMode={}",
+        properties.callbackBinding.resolvedMode(),
+    )
     return mapOf(stateAttributeKey to bindingToken)
   }
 
@@ -257,7 +260,7 @@ class AppOauthRedirectService(
       stateJwt: Jwt,
       callbackBindingToken: String?,
   ) {
-    if (!properties.callbackBinding.enabled) {
+    if (!properties.callbackBinding.isCookieValidationEnabled()) {
       return
     }
     val stateAttributeKey = resolveCallbackBindingStateAttributeKey()
@@ -275,7 +278,10 @@ class AppOauthRedirectService(
                 message = "OAuth callback binding cookie is missing.",
             )
     if (actualToken != expectedToken) {
-      log.warn("OAuth callback binding token mismatch detected.")
+      log.warn(
+          "OAuth callback binding token mismatch detected: callbackBindingMode={}",
+          properties.callbackBinding.resolvedMode(),
+      )
       throw HttpStatusException(
           status = 400,
           message = "OAuth callback binding token mismatch.",
