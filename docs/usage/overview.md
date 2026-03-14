@@ -159,7 +159,7 @@ dependencies {
 - Image delete `stored storageType is unavailable for image delete`: check whether configured storage client keys still match persisted `ImageEntity.storageType` values.
 - App image API setup may fail startup (not only API skip): check `atomic.app.image.enabled=true` with `ImageService`/`storageClients` bean availability.
 - Image upload returned no thumbnail fields: check `atomic.app.image.thumbnail-enabled` and the request-level `thumbnailEnabled` override.
-- Image delete rows remain with `DELETE_PENDING`: a previous storage delete failed; keep the stored `storageType` mapping available and retry delete after storage/backend recovery.
+- Image delete rows remain with `DELETE_PENDING`: a previous storage delete failed; keep the stored `storageType` mapping available and retry delete after storage/backend recovery, or invoke `AppImageDeleteRecoveryService.recoverDeletePendingImages(limit)` from an admin job.
 - App oauth redirect setup now fails fast when enabled but required prerequisites are missing; check selected relay store dependencies, `OauthServiceProvider`, and replay-protected `OauthStateManager` together.
 - OAuth callback errors: check state and redirect URI mapping, and callback-binding failure type (`state is missing`, `cookie is missing`, `token mismatch`, `cookie is ambiguous`).
 - OAuth relay cache store startup failure: check `atomic.app.oauth.redirect.store.cache.cache-name` exists in `CacheManager` and that the selected backend supports atomic remove-and-return consume (with default `store.fail-fast=true`).

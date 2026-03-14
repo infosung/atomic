@@ -2,6 +2,7 @@ package com.infosung.atomic.app.storage
 
 import java.util.UUID
 import org.slf4j.LoggerFactory
+import org.springframework.data.domain.PageRequest
 import org.springframework.transaction.annotation.Transactional
 
 /** Transaction boundary service for image metadata persistence. */
@@ -20,6 +21,16 @@ open class AppImageEntityTxService(
     return imageRepository.findById(imageId).orElseThrow {
       IllegalArgumentException("image not found: $rawImageId")
     }
+  }
+
+  /** Reads oldest delete-pending metadata rows for recovery. */
+  @Transactional(readOnly = true)
+  open fun findDeletePending(limit: Int): List<ImageEntity> {
+    log.debug("Loading delete-pending image metadata batch: limit={}", limit)
+    return imageRepository.findAllByStatusOrderByCreatedAtAsc(
+        status = ImageEntity.STATUS_DELETE_PENDING,
+        pageable = PageRequest.of(0, limit),
+    )
   }
 
   /** Persists uploaded image metadata row. */

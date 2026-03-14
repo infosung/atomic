@@ -112,6 +112,16 @@ class StorageApiPublicContractTest {
   }
 
   @Test
+  fun `app image delete recovery service public methods should remain stable`() {
+    assertEquals(
+        listOf(
+            "recoverDeletePendingImages(int):ImageDeleteRecoveryResult",
+        ),
+        publicSignatures(AppImageDeleteRecoveryService::class.java),
+    )
+  }
+
+  @Test
   fun `base response with image entity should serialize with stable boot json contract`() {
     contextRunner.run { context ->
       val objectMapper = context.getBean(ObjectMapper::class.java)

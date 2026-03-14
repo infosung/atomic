@@ -5,7 +5,7 @@ These items came out of the review but are intentionally not part of Phase 1.
 ## High Priority
 
 - decide whether oauth relay fallback to process-local memory should remain available in multi-instance deployments
-- decide whether `DELETE_PENDING` rows need a background reaper/admin recovery tool beyond request-time retry
+- decide whether `DELETE_PENDING` needs a built-in scheduler/reaper beyond the new bean-level admin recovery service
 
 ## Medium Priority
 
