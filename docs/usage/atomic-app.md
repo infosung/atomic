@@ -291,7 +291,13 @@ Relay store notes:
 
 ## DDL Examples (PostgreSQL)
 
-Use these as a starting point for production migrations. Adjust naming/index policy to your standard.
+The authoritative PostgreSQL starting-point assets now ship in module resources:
+
+- `atomic-app/version`: `META-INF/atomic/sql/postgresql/service_version.sql`
+- `atomic-app/storage-api`: `META-INF/atomic/sql/postgresql/image.sql`
+- `atomic-app/oauth-redirect`: `META-INF/atomic/sql/postgresql/atomic_oauth_relay_code.sql`
+
+For `service_version` and `image`, these assets assume Spring Boot's default physical naming strategy for the current JPA mappings. The SQL below mirrors the shipped assets.
 
 ```sql
 CREATE TABLE IF NOT EXISTS service_version (
@@ -300,10 +306,10 @@ CREATE TABLE IF NOT EXISTS service_version (
   minor_version INTEGER NOT NULL,
   patch_number INTEGER NOT NULL,
   require_update BOOLEAN NOT NULL DEFAULT FALSE,
-  platform VARCHAR(32) NOT NULL,
-  service VARCHAR(64) NOT NULL,
-  store_url TEXT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  platform VARCHAR(255) NOT NULL,
+  service VARCHAR(255) NOT NULL,
+  store_url VARCHAR(255) NULL,
+  created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_service_version_service_platform_version
@@ -312,24 +318,24 @@ CREATE INDEX IF NOT EXISTS idx_service_version_service_platform_version
 
 ```sql
 CREATE TABLE IF NOT EXISTS image (
-  id VARCHAR(64) PRIMARY KEY,
+  id VARCHAR(255) PRIMARY KEY,
   bucket VARCHAR(255) NOT NULL,
-  service_name VARCHAR(64) NOT NULL,
-  storage_service VARCHAR(64) NOT NULL,
-  status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
-  uploader_id VARCHAR(128) NULL,
-  storage_type VARCHAR(128) NOT NULL,
-  file_name TEXT NULL,
-  thumbnail_file_name TEXT NULL,
-  url TEXT NOT NULL,
-  thumbnail_url TEXT NULL,
+  service_name VARCHAR(255) NOT NULL,
+  storage_service VARCHAR(255) NOT NULL,
+  status VARCHAR(255) NOT NULL DEFAULT 'ACTIVE',
+  uploader_id VARCHAR(255) NULL,
+  storage_type VARCHAR(255) NOT NULL,
+  file_name VARCHAR(255) NULL,
+  thumbnail_file_name VARCHAR(255) NULL,
+  url VARCHAR(255) NOT NULL,
+  thumbnail_url VARCHAR(255) NULL,
   width INTEGER NULL,
   height INTEGER NULL,
   file_size BIGINT NOT NULL,
   thumbnail_width INTEGER NULL,
   thumbnail_height INTEGER NULL,
   thumbnail_file_size BIGINT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_image_service_storage
@@ -340,8 +346,8 @@ CREATE INDEX IF NOT EXISTS idx_image_service_storage
 CREATE TABLE IF NOT EXISTS atomic_oauth_relay_code (
   relay_code VARCHAR(255) PRIMARY KEY,
   payload_json TEXT NOT NULL,
-  expires_at TIMESTAMP NOT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  expires_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+  created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_atomic_oauth_relay_code_expires_at
@@ -351,6 +357,7 @@ CREATE INDEX IF NOT EXISTS idx_atomic_oauth_relay_code_expires_at
 ## Operational Checklist
 
 - Prepare database schema for `service_version` and `image` tables before enabling APIs.
+- Prefer the shipped module SQL assets as your initial migration baseline instead of copying stale inline snippets.
 - if uploader tracking is enabled, add nullable `uploader_id` column to `image` table (or rely on JPA schema generation in non-production environments).
 - choose uploader parameter name per service (for example `memberId`, `userKey`, `ownerId`) and configure `atomic.app.image.uploader-parameter-name`.
 - for OAuth relay, set `atomic.app.oauth.redirect.allowed-redirect-uri-prefixes` in every environment where `atomic.app.oauth.redirect.enabled=true`.

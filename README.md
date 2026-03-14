@@ -401,6 +401,10 @@ Prerequisites:
 - if your service uses only in-memory/cache relay and has no datasource, disable JDBC auto-config or provide datasource config.
   - example: `spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration`
 - if `store.type=entity` (default), prepare relay table (`atomic_oauth_relay_code` or configured table-name) before rollout.
+- official PostgreSQL starting-point SQL assets ship in module resources:
+  - `atomic-app/version`: `META-INF/atomic/sql/postgresql/service_version.sql`
+  - `atomic-app/storage-api`: `META-INF/atomic/sql/postgresql/image.sql`
+  - `atomic-app/oauth-redirect`: `META-INF/atomic/sql/postgresql/atomic_oauth_relay_code.sql`
 - Login API should consume relay payload using `AppOauthRelayCodeService.consumeRelayCode(relayCode)`.
 
 ### 6) Heartbeat module (`atomic.heartbeat`)
