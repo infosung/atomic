@@ -2,8 +2,10 @@ package com.infosung.atomic.app.storage
 
 import com.infosung.atomic.app.storage.autoconfigure.AtomicAppImageProperties
 import com.infosung.atomic.contract.response.BaseResponse
+import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Id
+import jakarta.persistence.Table
 import java.lang.reflect.Modifier
 import java.time.LocalDateTime
 import java.util.UUID
@@ -59,13 +61,24 @@ class StorageApiPublicContractTest {
   @Test
   fun `image entity schema annotations should remain stable`() {
     val entity = ImageEntity::class.java.getAnnotation(Entity::class.java)
+    val table = ImageEntity::class.java.getAnnotation(Table::class.java)
     val idField = ImageEntity::class.java.getDeclaredField("id")
     val jdbcTypeCode = idField.getAnnotation(JdbcTypeCode::class.java)
+    val serviceNameField = ImageEntity::class.java.getDeclaredField("serviceName")
+    val storageServiceField = ImageEntity::class.java.getDeclaredField("storageService")
+    val storageTypeField = ImageEntity::class.java.getDeclaredField("storageType")
+    val thumbnailUrlField = ImageEntity::class.java.getDeclaredField("thumbnailUrl")
 
     assertEquals("image", entity.name)
+    assertEquals("image", table.name)
     assertNotNull(idField.getAnnotation(Id::class.java))
     assertNotNull(idField.getAnnotation(UuidGenerator::class.java))
     assertEquals(SqlTypes.VARCHAR, jdbcTypeCode.value)
+    assertEquals("id", idField.getAnnotation(Column::class.java).name)
+    assertEquals("service_name", serviceNameField.getAnnotation(Column::class.java).name)
+    assertEquals("storage_service", storageServiceField.getAnnotation(Column::class.java).name)
+    assertEquals("storage_type", storageTypeField.getAnnotation(Column::class.java).name)
+    assertEquals("thumbnail_url", thumbnailUrlField.getAnnotation(Column::class.java).name)
   }
 
   @Test
@@ -77,6 +90,7 @@ class StorageApiPublicContractTest {
                 "endpointPath",
                 "maxQuality",
                 "minQuality",
+                "thumbnailEnabled",
                 "uploaderParameterEnabled",
                 "uploaderParameterName",
             )
@@ -91,6 +105,7 @@ class StorageApiPublicContractTest {
         listOf(
             "deleteImage(String, String, String, String):void",
             "uploadImage(String, String, MultipartFile, double, String):ImageEntity",
+            "uploadImage(String, String, MultipartFile, double, String, boolean):ImageEntity",
         ),
         publicSignatures(AppImageApiService::class.java),
     )

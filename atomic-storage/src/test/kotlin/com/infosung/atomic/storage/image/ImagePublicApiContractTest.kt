@@ -44,7 +44,9 @@ class ImagePublicApiContractTest {
         listOf(
             "deleteImage(String, String, String):void",
             "uploadImage(File, String, String, double):ImageUploadResult",
+            "uploadImage(File, String, String, double, boolean):ImageUploadResult",
             "uploadImage(InputStream, String, String, double):ImageUploadResult",
+            "uploadImage(InputStream, String, String, double, boolean):ImageUploadResult",
         ),
         ImageService::class.java.declaredMethods
             .filter {

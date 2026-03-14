@@ -33,7 +33,7 @@ class AppStorageControllerHttpContractTest {
     val multipartFile = MockMultipartFile("file", "profile.png", "image/png", "img".toByteArray())
     val imageEntity = sampleImageEntity()
 
-    `when`(service.uploadImage("svc", "S3", multipartFile, 0.75, null)).thenReturn(imageEntity)
+    `when`(service.uploadImage("svc", "S3", multipartFile, 0.75, null, true)).thenReturn(imageEntity)
 
     mockMvc
         .perform(
@@ -65,7 +65,7 @@ class AppStorageControllerHttpContractTest {
         .andExpect(jsonPath("$.data.thumbnailHeight").value(90))
         .andExpect(jsonPath("$.data.thumbnailFileSize").value(256))
 
-    verify(service).uploadImage("svc", "S3", multipartFile, 0.75, null)
+    verify(service).uploadImage("svc", "S3", multipartFile, 0.75, null, true)
   }
 
   @Test
@@ -82,7 +82,7 @@ class AppStorageControllerHttpContractTest {
     val multipartFile = MockMultipartFile("file", "profile.png", "image/png", "img".toByteArray())
     val imageEntity = sampleImageEntity()
 
-    `when`(service.uploadImage("svc", "S3", multipartFile, 1.0, "member-100"))
+    `when`(service.uploadImage("svc", "S3", multipartFile, 1.0, "member-100", true))
         .thenReturn(imageEntity)
 
     mockMvc
@@ -104,7 +104,7 @@ class AppStorageControllerHttpContractTest {
         )
         .andExpect(status().isNotFound)
 
-    verify(service).uploadImage("svc", "S3", multipartFile, 1.0, "member-100")
+    verify(service).uploadImage("svc", "S3", multipartFile, 1.0, "member-100", true)
   }
 
   @Test
@@ -115,14 +115,14 @@ class AppStorageControllerHttpContractTest {
     val mockMvc = newMockMvc(controller = controller, endpointPath = properties.endpointPath)
     val multipartFile = MockMultipartFile("file", "profile.png", "image/png", "img".toByteArray())
 
-    `when`(service.uploadImage("svc", "S3", multipartFile, 0.85, null)).thenReturn(sampleImageEntity())
+    `when`(service.uploadImage("svc", "S3", multipartFile, 0.85, null, true)).thenReturn(sampleImageEntity())
 
     mockMvc
         .perform(multipart("/api/v1/storage/image/svc/S3").file(multipartFile))
         .andExpect(status().isOk)
         .andExpect(jsonPath("$.code").value("OK"))
 
-    verify(service).uploadImage("svc", "S3", multipartFile, 0.85, null)
+    verify(service).uploadImage("svc", "S3", multipartFile, 0.85, null, true)
   }
 
   @Test
@@ -158,7 +158,7 @@ class AppStorageControllerHttpContractTest {
     val mockMvc = newMockMvc(controller = controller, endpointPath = properties.endpointPath)
     val multipartFile = MockMultipartFile("file", "profile.png", "image/png", "img".toByteArray())
 
-    `when`(service.uploadImage("svc", "S3", multipartFile, 0.05, null))
+    `when`(service.uploadImage("svc", "S3", multipartFile, 0.05, null, true))
         .thenThrow(HttpStatusException(status = 400, message = "quality must be in range 0.1..1.0"))
 
     mockMvc
@@ -189,6 +189,56 @@ class AppStorageControllerHttpContractTest {
         .andExpect(jsonPath("$.message").value("Success"))
 
     verify(service).deleteImage("svc", "S3", imageId, null)
+  }
+
+  @Test
+  fun `upload endpoint should honor thumbnailEnabled override and keep response envelope stable`() {
+    val service = mock(AppImageApiService::class.java)
+    val properties = AtomicAppImageProperties()
+    val controller = AppStorageController(service, properties)
+    val mockMvc = newMockMvc(controller = controller, endpointPath = properties.endpointPath)
+    val multipartFile = MockMultipartFile("file", "profile.png", "image/png", "img".toByteArray())
+    val imageEntity =
+        sampleImageEntity().let {
+          ImageEntity(
+              id = it.id,
+              bucket = it.bucket,
+              serviceName = it.serviceName,
+              storageService = it.storageService,
+              status = it.status,
+              uploaderId = it.uploaderId,
+              storageType = it.storageType,
+              fileName = it.fileName,
+              thumbnailFileName = null,
+              url = it.url,
+              thumbnailUrl = null,
+              width = it.width,
+              height = it.height,
+              fileSize = it.fileSize,
+              thumbnailWidth = null,
+              thumbnailHeight = null,
+              thumbnailFileSize = null,
+              createdAt = it.createdAt,
+          )
+        }
+
+    `when`(service.uploadImage("svc", "S3", multipartFile, 1.0, null, false)).thenReturn(imageEntity)
+
+    mockMvc
+        .perform(
+            multipart("/api/v1/storage/image/svc/S3")
+                .file(multipartFile)
+                .param("thumbnailEnabled", "false"),
+        )
+        .andExpect(status().isOk)
+        .andExpect(jsonPath("$.code").value("OK"))
+        .andExpect(jsonPath("$.data.thumbnailFileName").isEmpty())
+        .andExpect(jsonPath("$.data.thumbnailUrl").isEmpty())
+        .andExpect(jsonPath("$.data.thumbnailWidth").isEmpty())
+        .andExpect(jsonPath("$.data.thumbnailHeight").isEmpty())
+        .andExpect(jsonPath("$.data.thumbnailFileSize").isEmpty())
+
+    verify(service).uploadImage("svc", "S3", multipartFile, 1.0, null, false)
   }
 
   @Test

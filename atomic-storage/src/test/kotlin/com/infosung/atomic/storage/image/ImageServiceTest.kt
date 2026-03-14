@@ -106,6 +106,38 @@ class ImageServiceTest {
   }
 
   @Test
+  fun `uploadImage should skip thumbnail generation when disabled`() {
+    val storageClient = CapturingStorageClient()
+    val service = createImageService(storageClient = storageClient)
+    val sourceFile = tempFile()
+
+    try {
+      val result =
+          service.uploadImage(
+              file = sourceFile,
+              originFilename = "hello.png",
+              storageType = "S3",
+              quality = 1.0,
+              generateThumbnail = false,
+          )
+
+      assertEquals(
+          listOf("images/test/original.png"),
+          storageClient.putRequests.map { it.objectKey },
+      )
+      assertFalse(result.thumbnailUploadFailed)
+      assertEquals(null, result.thumbnailFileName)
+      assertEquals(null, result.thumbnailUrl)
+      assertEquals(null, result.storageThumbnailObjectKey)
+      assertEquals(null, result.thumbnailWidth)
+      assertEquals(null, result.thumbnailHeight)
+      assertEquals(null, result.thumbnailFileSize)
+    } finally {
+      sourceFile.delete()
+    }
+  }
+
+  @Test
   fun `uploadImage should include bucket prefix in returned names when configured`() {
     val storageClient = CapturingStorageClient()
     val service =

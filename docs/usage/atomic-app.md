@@ -4,6 +4,14 @@
 
 Use `atomic.app` when you want prebuilt application APIs instead of composing every controller/service manually.
 
+For new adoption, prefer the narrowest published module first:
+
+- `atomic.app.version`
+- `atomic.app.storage.api`
+- `atomic.app.oauth.redirect`
+
+Use `atomic.app` when you intentionally want the convenience bundle that re-exports all three app APIs.
+
 Current bundled APIs:
 
 - app version check API
@@ -21,8 +29,9 @@ Internally, `atomic.app` is a bundle of:
 `atomic.app` and `atomic.starter` are independent modules.
 
 - `atomic.starter` does not include `atomic.app`.
-- `atomic.app` does not require `atomic.starter` for version API.
-- `atomic.app` image API requires storage beans, so starter-based setups usually add both.
+- `atomic.app.version` does not require `atomic.starter` for version API.
+- `atomic.app.storage.api` requires storage beans, so starter-based setups usually add both.
+- `atomic.app.oauth.redirect` usually pairs with `atomic.starter` + `atomic.spring.oauth2`.
 
 Current public publish workflow scope (Maven Central):
 
@@ -49,6 +58,16 @@ dependencies {
   implementation(project(":atomic-starter"))
   implementation(project(":atomic-contract"))
   implementation(project(":atomic-app"))
+}
+```
+
+Recommended narrow-module setup:
+
+```kotlin
+dependencies {
+  implementation(project(":atomic-app:app-version"))
+  implementation(project(":atomic-app:storage-api"))
+  implementation(project(":atomic-app:oauth-redirect"))
 }
 ```
 
@@ -83,6 +102,7 @@ atomic:
       default-quality: 1.0
       min-quality: 0.1
       max-quality: 1.0
+      thumbnail-enabled: true
       uploader-parameter-enabled: false
       uploader-parameter-name: uploaderId
     oauth:
@@ -141,7 +161,16 @@ Expected version policy table:
 
 - table name: `service_version`
 - entity fields used: `mainVersion`, `minorVersion`, `patchNumber`, `requireUpdate`, `platform`, `service`, `storeUrl`
-- physical column names follow your JPA naming strategy (for Spring default, typically `main_version`, `minor_version`, `patch_number`, `require_update`, `store_url`)
+- physical column names are fixed in code and SQL assets:
+  - `id`
+  - `main_version`
+  - `minor_version`
+  - `patch_number`
+  - `require_update`
+  - `platform`
+  - `service`
+  - `store_url`
+  - `created_at`
 
 Version API exception semantics:
 
@@ -169,6 +198,7 @@ POST parameters:
 
 - `file` (required multipart part)
 - `quality` (optional query; default `default-quality`; allowed range `min-quality..max-quality`)
+- `thumbnailEnabled` (optional query; default `atomic.app.image.thumbnail-enabled`)
 - uploader identity parameter (optional by default):
   - enabled when `atomic.app.image.uploader-parameter-enabled=true`
   - parameter name comes from `atomic.app.image.uploader-parameter-name`
@@ -185,8 +215,10 @@ DELETE behavior:
 - when uploader tracking is enabled, validates request uploader parameter equals stored `ImageEntity.uploaderId`
 - resolves delete target from persisted `ImageEntity.storageType` only
 - rejects delete with `400` when persisted storage mapping is unavailable
+- reserves metadata as `DELETE_PENDING` before storage deletion
 - deletes original/thumbnail objects from the persisted storage client mapping
-- deletes metadata row
+- purges metadata row only after storage delete succeeds
+- keeps metadata in `DELETE_PENDING` when storage delete fails so a later delete can retry cleanup safely
 
 Storage client resolution:
 
@@ -297,7 +329,7 @@ The authoritative PostgreSQL starting-point assets now ship in module resources:
 - `atomic-app/storage-api`: `META-INF/atomic/sql/postgresql/image.sql`
 - `atomic-app/oauth-redirect`: `META-INF/atomic/sql/postgresql/atomic_oauth_relay_code.sql`
 
-For `service_version` and `image`, these assets assume Spring Boot's default physical naming strategy for the current JPA mappings. The SQL below mirrors the shipped assets.
+For `service_version` and `image`, these assets now match explicit JPA table/column mappings in code. The SQL below mirrors the shipped assets.
 
 ```sql
 CREATE TABLE IF NOT EXISTS service_version (
@@ -359,6 +391,8 @@ CREATE INDEX IF NOT EXISTS idx_atomic_oauth_relay_code_expires_at
 - Prepare database schema for `service_version` and `image` tables before enabling APIs.
 - Prefer the shipped module SQL assets as your initial migration baseline instead of copying stale inline snippets.
 - if uploader tracking is enabled, add nullable `uploader_id` column to `image` table (or rely on JPA schema generation in non-production environments).
+- use `atomic.app.image.thumbnail-enabled=false` only when you intentionally want original-only uploads by default.
+- when image delete fails after reservation, treat remaining `DELETE_PENDING` rows as retryable cleanup work.
 - choose uploader parameter name per service (for example `memberId`, `userKey`, `ownerId`) and configure `atomic.app.image.uploader-parameter-name`.
 - for OAuth relay, set `atomic.app.oauth.redirect.allowed-redirect-uri-prefixes` in every environment where `atomic.app.oauth.redirect.enabled=true`.
 - if `store.type=entity` (default), create relay table (`atomic_oauth_relay_code` or configured table-name) before rollout.

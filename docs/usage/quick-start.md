@@ -8,7 +8,7 @@ This guide focuses only on getting a working flow quickly.
 |---|---|
 | App type | Spring Boot Web application |
 | Tested baseline | Java `25`, Kotlin `2.3.10`, Spring Boot `4.0.3` |
-| Database | Required for `version` and `image` tracks. The `oauth redirect` track may also require **DataSource setup** or **JDBC auto-config exclusion** because `atomic.app` includes JPA-based modules. |
+| Database | Required for `version` and `image` tracks. The `oauth redirect` track needs DB only when you keep the default entity relay store. |
 | Module dependencies | Use the track table below as-is. |
 
 Dependency notation:
@@ -26,9 +26,15 @@ Quick decision:
 
 | Track | When to choose | Minimum dependencies (Gradle) | App prerequisites | Minimum properties |
 |---|---|---|---|---|
-| `A. version-only` | You only need a version check API quickly | `implementation(project(":atomic-app"))` | DataSource/JPA + `service_version` table | `atomic.app.version.enabled=true` |
-| `B. image API` | You want common image upload/delete API first | `implementation(project(":atomic-starter"))`<br>`implementation(project(":atomic-app"))`<br>`implementation(project(":atomic-storage"))` | DataSource/JPA + `image` table | `atomic.app.image.enabled=true` + minimum `atomic.storage.backends.*` |
-| `C. oauth redirect relay API` | You want to return `relayCode` instead of exposing OAuth callback tokens directly to frontend | `implementation(project(":atomic-starter"))`<br>`implementation(project(":atomic-app"))`<br>`implementation(project(":atomic-spring-oauth2"))` | Login API that consumes `relayCode` + DataSource/JPA or JDBC auto-config exclusion | `atomic.app.oauth.redirect.enabled=true` + `atomic.app.oauth.redirect.allowed-redirect-uri-prefixes` + `atomic.oauth2.state.signing-secret` + provider minimum values |
+| `A. version-only` | You only need a version check API quickly | `implementation(project(":atomic-app:app-version"))` | DataSource/JPA + `service_version` table | `atomic.app.version.enabled=true` |
+| `B. image API` | You want common image upload/delete API first | `implementation(project(":atomic-starter"))`<br>`implementation(project(":atomic-app:storage-api"))`<br>`implementation(project(":atomic-storage"))` | DataSource/JPA + `image` table | `atomic.app.image.enabled=true` + minimum `atomic.storage.backends.*` |
+| `C. oauth redirect relay API` | You want to return `relayCode` instead of exposing OAuth callback tokens directly to frontend | `implementation(project(":atomic-starter"))`<br>`implementation(project(":atomic-app:oauth-redirect"))`<br>`implementation(project(":atomic-spring-oauth2"))` | Login API that consumes `relayCode` + either relay store prerequisites or explicit in-memory/cache choice | `atomic.app.oauth.redirect.enabled=true` + `atomic.app.oauth.redirect.allowed-redirect-uri-prefixes` + `atomic.oauth2.state.signing-secret` + provider minimum values |
+
+If you need more than one app API at once, you can replace the narrow app modules above with the convenience bundle:
+
+```kotlin
+implementation(project(":atomic-app"))
+```
 
 ---
 
@@ -50,6 +56,7 @@ atomic:
   app:
     image:
       enabled: true
+      thumbnail-enabled: true
   storage:
     backends:
       S3:
@@ -58,6 +65,10 @@ atomic:
         bucket: your-bucket
         cdn: https://cdn.example.com
 ```
+
+Notes:
+- `thumbnail-enabled=false` disables thumbnail generation by default for this API.
+- callers can still override per request with `thumbnailEnabled=true|false`.
 
 ### C. oauth redirect relay API (Google single-client minimal example)
 
@@ -108,7 +119,7 @@ Notes:
 | Track | What to verify immediately |
 |---|---|
 | `A. version-only` | On `GET /api/v1/version/check`, confirm headers (`X-Service-Name`, `X-Platform`, `X-App-Version`) are present and `service_version` table/rows are ready |
-| `B. image API` | Confirm `POST /api/v1/storage/image/{service}/{storageService}` is not `404`, and storage backend key (`S3`, etc.) matches request path values |
+| `B. image API` | Confirm `POST /api/v1/storage/image/{service}/{storageService}` is not `404`, storage backend key (`S3`, etc.) matches request path values, and thumbnail behavior matches `atomic.app.image.thumbnail-enabled` / request `thumbnailEnabled` |
 | `C. oauth redirect relay API` | Confirm `GET /oauth/redirect/google?redirectUri=...` returns redirect, and provider console redirect URI exactly matches `https://{host}/oauth/callback/google` |
 
 Common failure causes:

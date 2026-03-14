@@ -264,6 +264,7 @@ Provider registration note:
 | `atomic.app.image.default-quality` | `1.0` | image API enabled | Default quality when request omits quality value. |
 | `atomic.app.image.min-quality` | `0.1` | image API enabled | Minimum allowed quality. |
 | `atomic.app.image.max-quality` | `1.0` | image API enabled | Maximum allowed quality. |
+| `atomic.app.image.thumbnail-enabled` | `true` | optional | Default thumbnail generation toggle for image uploads. Request-level `thumbnailEnabled` can override it per call. |
 | `atomic.app.image.uploader-parameter-enabled` | `false` | optional | Enables uploader identity parameter validation/storage. |
 | `atomic.app.image.uploader-parameter-name` | `uploaderId` | uploader parameter enabled | Request parameter key for uploader identity. |
 

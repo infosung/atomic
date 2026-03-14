@@ -26,6 +26,7 @@ class AppStorageControllerTest {
         service = "svc",
         storageService = "S3",
         quality = null,
+        thumbnailEnabled = null,
         multipartFile = multipartFile,
         request = request,
     )
@@ -37,6 +38,7 @@ class AppStorageControllerTest {
             multipartFile = multipartFile,
             quality = 0.85,
             uploaderId = null,
+            thumbnailEnabled = true,
         )
   }
 
@@ -59,6 +61,7 @@ class AppStorageControllerTest {
               service = "svc",
               storageService = "S3",
               quality = null,
+              thumbnailEnabled = null,
               multipartFile = multipartFile,
               request = request,
           )
@@ -87,6 +90,7 @@ class AppStorageControllerTest {
                 multipartFile = multipartFile,
                 quality = 1.0,
                 uploaderId = "member-100",
+                thumbnailEnabled = true,
             ),
         )
         .thenReturn(
@@ -109,6 +113,7 @@ class AppStorageControllerTest {
         service = "svc",
         storageService = "S3",
         quality = null,
+        thumbnailEnabled = null,
         multipartFile = multipartFile,
         request = request,
     )
@@ -120,6 +125,7 @@ class AppStorageControllerTest {
             multipartFile = multipartFile,
             quality = 1.0,
             uploaderId = "member-100",
+            thumbnailEnabled = true,
         )
   }
 
@@ -135,6 +141,7 @@ class AppStorageControllerTest {
         service = "svc",
         storageService = "S3",
         quality = 0.9,
+        thumbnailEnabled = null,
         multipartFile = multipartFile,
         request = request,
     )
@@ -146,6 +153,34 @@ class AppStorageControllerTest {
             multipartFile = multipartFile,
             quality = 0.9,
             uploaderId = null,
+            thumbnailEnabled = true,
+        )
+  }
+
+  @Test
+  fun `uploadImage should pass thumbnailEnabled override to service`() {
+    val service = mock(AppImageApiService::class.java)
+    val controller = AppStorageController(service, AtomicAppImageProperties())
+    val multipartFile = MockMultipartFile("file", "profile.png", "image/png", "img".toByteArray())
+    val request = mock(HttpServletRequest::class.java)
+
+    controller.uploadImage(
+        service = "svc",
+        storageService = "S3",
+        quality = 0.9,
+        thumbnailEnabled = false,
+        multipartFile = multipartFile,
+        request = request,
+    )
+
+    verify(service)
+        .uploadImage(
+            serviceName = "svc",
+            storageService = "S3",
+            multipartFile = multipartFile,
+            quality = 0.9,
+            uploaderId = null,
+            thumbnailEnabled = false,
         )
   }
 

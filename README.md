@@ -18,31 +18,41 @@ Atomic is a Kotlin/Spring library suite for backend services.
 2. Production transition: [Advanced Operations Playbook](docs/usage/advanced-playbook.md)
 3. Module-level details: see `Detailed Guides` below
 
-## Starter-First Policy
+## Feature-First Onboarding
 
 `atomic-starter` is the entrypoint for auto-configuration, but it does **not** pull feature modules transitively.
 
-`atomic.app` is also a separate feature module.
-It is **not included** in `atomic-starter`, and adding `atomic-starter` alone does not activate app APIs.
+For new adoption, prefer the narrowest feature module that matches your use case:
+
+1. `atomic.app.version`
+2. `atomic.app.storage.api`
+3. `atomic.app.oauth.redirect`
+
+Use `atomic.app` only when you intentionally want the convenience bundle that combines all three app APIs.
+
+`atomic.app` is **not included** in `atomic-starter`, and adding `atomic-starter` alone does not activate app APIs.
 
 For starter-based path, add:
 
 1. `atomic-starter`
 2. `atomic.contract` (required when your app directly uses `BaseResponse` / `HttpStatusException`)
-3. only the feature modules you want (`storage`, `spring.web`, `spring.idempotency`, `spring.security`, `spring.oauth2`, `heartbeat`, `app`)
+3. only the feature modules you want (`storage`, `spring.web`, `spring.idempotency`, `spring.security`, `spring.oauth2`, `heartbeat`, `app.version`, `app.storage.api`, `app.oauth.redirect`, or the convenience bundle `app`)
 
 Exception:
-- `atomic.app` version-only path can start without `atomic-starter` (see [Atomic Quick Start](docs/usage/quick-start.md)).
+- `atomic.app.version` can start without `atomic-starter` (see [Atomic Quick Start](docs/usage/quick-start.md)).
 
 If a feature module is not on classpath, its auto-configuration is skipped.
 
 Relationship summary:
 
 - `atomic.starter`: common infra auto-config entrypoint
-- `atomic.app`: app-level API bundle module (independent from starter)
-- You can use `atomic.app` without starter for version API (JPA required).
-- Image API in `atomic.app` needs storage beans, so typical setup is `atomic.app` + `atomic.starter` + `atomic.storage`.
-- OAuth redirect API in `atomic.app` needs OAuth beans (`OauthServiceProvider`, `OauthStateManager`), typically from `atomic.starter` + `atomic.spring.oauth2`.
+- `atomic.app.version`: narrow app-level version API module
+- `atomic.app.storage.api`: narrow app-level image API module
+- `atomic.app.oauth.redirect`: narrow app-level OAuth redirect/callback relay module
+- `atomic.app`: app-level convenience bundle module (independent from starter)
+- `atomic.app.version` can be used without starter when JPA/datasource are ready.
+- `atomic.app.storage.api` needs storage beans, so typical setup is `atomic.app.storage.api` + `atomic.starter` + `atomic.storage`.
+- `atomic.app.oauth.redirect` needs OAuth beans (`OauthServiceProvider`, `OauthStateManager`), typically from `atomic.starter` + `atomic.spring.oauth2`.
 
 ## Dependency Setup
 
@@ -58,6 +68,9 @@ dependencies {
   implementation("com.infosung:atomic.spring.oauth2:0.0.1")
   implementation("com.infosung:atomic.heartbeat:0.0.1")
   implementation("com.infosung:atomic.starter:0.0.1")
+  implementation("com.infosung:atomic.app.version:0.0.1")
+  implementation("com.infosung:atomic.app.storage.api:0.0.1")
+  implementation("com.infosung:atomic.app.oauth.redirect:0.0.1")
   implementation("com.infosung:atomic.app:0.0.1")
 }
 ```
@@ -101,9 +114,9 @@ dependencies {
 |---|---|---|---|
 | Contract utilities (`TimeProvider`, `TraceIdGenerator`) | `atomic.contract` (starter optional) | none | In starter-based flow these are auto-configured; for direct usage, `atomic.contract` alone is enough |
 | Storage (`storageClients`, `storageProfiles`, `ImageService`) | `atomic.starter` + `atomic.storage` | `atomic.storage.enabled=true` (default); configure at least one enabled `atomic.storage.backends.*` entry before storage API traffic | none |
-| Common version check API (`GET /api/v1/version/check`) | `atomic.app` (+ datasource/JPA) | `atomic.app.version.enabled=true` | `service_version` table schema and version policy data |
-| Common image upload/delete API (`POST/DELETE /api/v1/storage/image/{service}/{storageService}`) | `atomic.app` + `atomic.starter` + `atomic.storage` + storage backend config | `atomic.app.image.enabled=true`, `atomic.storage.enabled=true` (+ optional uploader tracking config) | `image` table schema |
-| Common OAuth redirect/callback relay API (`/oauth/redirect/{provider}`, `/oauth/callback/{provider}`, `POST /oauth/callback/apple`) | `atomic.app` + `atomic.starter` + `atomic.spring.oauth2` | `atomic.app.oauth.redirect.enabled=true`, oauth state/provider properties | login API that consumes relayCode |
+| Common version check API (`GET /api/v1/version/check`) | `atomic.app.version` (+ datasource/JPA) or convenience bundle `atomic.app` | `atomic.app.version.enabled=true` | `service_version` table schema and version policy data |
+| Common image upload/delete API (`POST/DELETE /api/v1/storage/image/{service}/{storageService}`) | `atomic.app.storage.api` + `atomic.starter` + `atomic.storage` + storage backend config, or convenience bundle `atomic.app` | `atomic.app.image.enabled=true`, `atomic.storage.enabled=true` (+ optional uploader tracking config) | `image` table schema |
+| Common OAuth redirect/callback relay API (`/oauth/redirect/{provider}`, `/oauth/callback/{provider}`, `POST /oauth/callback/apple`) | `atomic.app.oauth.redirect` + `atomic.starter` + `atomic.spring.oauth2`, or convenience bundle `atomic.app` | `atomic.app.oauth.redirect.enabled=true`, oauth state/provider properties | login API that consumes relayCode |
 | Web logging/json/rate-limit helpers | `atomic.starter` + `atomic.spring.web` | `atomic.web.enabled=true` (default), `atomic.web.logging.enabled=true` (default), `atomic.web.rate-limit.enabled=false` (default) | for logging/exception mapping: `LogSaver` + `ApiLogAspect` + `BaseExceptionHandler`; for rate-limit only: no mandatory app bean |
 | HTTP idempotency filter | `atomic.starter` + `atomic.spring.idempotency` | `atomic.idempotency.enabled=true` | optional custom `IdempotencyStore`, optional custom `IdempotencyFingerprintResolver` |
 | Security JWT helpers | `atomic.starter` + `atomic.spring.security` | `atomic.security.enabled=true` (default), `atomic.security.jwt.enabled=true` (default), JWT keys | your `SecurityFilterChain` that applies `JwtSecurityConfigurerAdapter` |
@@ -128,6 +141,7 @@ atomic:
       default-quality: 1.0
       min-quality: 0.1
       max-quality: 1.0
+      thumbnail-enabled: true
       uploader-parameter-enabled: false
       uploader-parameter-name: uploaderId
     oauth:
@@ -389,6 +403,8 @@ If you use `atomic.app.oauth.redirect.enabled=true`, `AppOauthRedirectController
 - image upload/delete (`AppStorageController`)
 - oauth redirect/callback relay (`AppOauthRedirectController`)
 
+For new adoption, prefer the narrow modules `atomic.app.version`, `atomic.app.storage.api`, and `atomic.app.oauth.redirect`. Use `atomic.app` when you want the convenience bundle on purpose.
+
 Prerequisites:
 
 - Version API needs JPA datasource and `service_version` table.
@@ -402,9 +418,11 @@ Prerequisites:
   - example: `spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration`
 - if `store.type=entity` (default), prepare relay table (`atomic_oauth_relay_code` or configured table-name) before rollout.
 - official PostgreSQL starting-point SQL assets ship in module resources:
+- official PostgreSQL starting-point SQL assets ship in module resources:
   - `atomic-app/version`: `META-INF/atomic/sql/postgresql/service_version.sql`
   - `atomic-app/storage-api`: `META-INF/atomic/sql/postgresql/image.sql`
   - `atomic-app/oauth-redirect`: `META-INF/atomic/sql/postgresql/atomic_oauth_relay_code.sql`
+- `service_version` and `image` physical table/column names are now fixed in code to match those shipped SQL assets.
 - Login API should consume relay payload using `AppOauthRelayCodeService.consumeRelayCode(relayCode)`.
 
 ### 6) Heartbeat module (`atomic.heartbeat`)
@@ -417,8 +435,10 @@ Image uploader identity option (without security coupling):
 
 - `atomic.app.image.uploader-parameter-enabled=true` enables uploader parameter enforcement.
 - `atomic.app.image.uploader-parameter-name` defines which request parameter to use (for example `memberId`).
+- `atomic.app.image.thumbnail-enabled=true` enables thumbnail generation by default; upload requests can override with `thumbnailEnabled=true|false`.
 - upload stores that value in `ImageEntity.uploaderId`.
 - delete requires same parameter value and rejects mismatch (`403`).
+- delete reserves metadata as `DELETE_PENDING`, deletes storage, and purges metadata only after storage cleanup succeeds.
 - when enabled in production, align `image` table with nullable `uploader_id` column.
 
 OAuth relay option (without token in callback query):

@@ -2,10 +2,12 @@ package com.infosung.atomic.app.version
 
 import com.infosung.atomic.app.version.autoconfigure.AtomicAppVersionProperties
 import com.infosung.atomic.contract.response.BaseResponse
+import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
+import jakarta.persistence.Table
 import java.lang.reflect.Modifier
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -46,12 +48,23 @@ class AppVersionPublicContractTest {
   @Test
   fun `service version entity schema annotations should remain stable`() {
     val entity = ServiceVersionEntity::class.java.getAnnotation(Entity::class.java)
+    val table = ServiceVersionEntity::class.java.getAnnotation(Table::class.java)
     val idField = ServiceVersionEntity::class.java.getDeclaredField("id")
     val generatedValue = idField.getAnnotation(GeneratedValue::class.java)
+    val mainVersionField = ServiceVersionEntity::class.java.getDeclaredField("mainVersion")
+    val patchNumberField = ServiceVersionEntity::class.java.getDeclaredField("patchNumber")
+    val requireUpdateField = ServiceVersionEntity::class.java.getDeclaredField("requireUpdate")
+    val storeUrlField = ServiceVersionEntity::class.java.getDeclaredField("storeUrl")
 
     assertEquals("service_version", entity.name)
+    assertEquals("service_version", table.name)
     assertNotNull(idField.getAnnotation(Id::class.java))
     assertEquals(GenerationType.IDENTITY, generatedValue.strategy)
+    assertEquals("id", idField.getAnnotation(Column::class.java).name)
+    assertEquals("main_version", mainVersionField.getAnnotation(Column::class.java).name)
+    assertEquals("patch_number", patchNumberField.getAnnotation(Column::class.java).name)
+    assertEquals("require_update", requireUpdateField.getAnnotation(Column::class.java).name)
+    assertEquals("store_url", storeUrlField.getAnnotation(Column::class.java).name)
   }
 
   @Test

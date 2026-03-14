@@ -45,6 +45,22 @@ class ImageService(
       storageType: String,
       quality: Double = 1.0,
   ): ImageUploadResult {
+    return uploadImage(
+        file = file,
+        originFilename = originFilename,
+        storageType = storageType,
+        quality = quality,
+        generateThumbnail = true,
+    )
+  }
+
+  fun uploadImage(
+      file: File,
+      originFilename: String,
+      storageType: String,
+      quality: Double = 1.0,
+      generateThumbnail: Boolean,
+  ): ImageUploadResult {
     require(file.exists() && file.isFile) { "file must exist and be a file." }
     require(quality in 0.1..1.0) { "quality must be in range 0.1..1.0" }
 
@@ -53,6 +69,14 @@ class ImageService(
     val validatedImage = imageInputValidator.validate(file, originFilename)
     val objectKey = objectKeyGenerator.generate(originFilename)
     val originalMetadata = metadataReader.read(file)
+    logger.debug(
+        "Uploading image object: storageType={}, originFilename={}, objectKey={}, generateThumbnail={}, quality={}",
+        storageType,
+        originFilename,
+        objectKey,
+        generateThumbnail,
+        quality,
+    )
 
     client.putObject(
         PutObjectRequest(
@@ -72,47 +96,68 @@ class ImageService(
     var thumbnailInfo = ImageFileInfo()
     var thumbnailFailed = false
     var thumbnailFailureReason: String? = null
-    try {
-      val generated =
-          thumbnailGenerator.generate(
-              sourceFile = file,
-              sourceFilename = "source.${validatedImage.extension}",
-              sourceObjectKey = objectKey,
-              quality = quality,
-          )
+    if (generateThumbnail) {
       try {
-        client.putObject(
-            PutObjectRequest(
-                objectKey = generated.objectKey,
-                file = generated.file,
-                contentType = "image/webp",
-                metadata =
-                    mapOf(
-                        "width" to generated.metadata.width.toString(),
-                        "height" to generated.metadata.height.toString(),
-                        "size" to generated.metadata.size.toString(),
-                    ),
-                contentLength = generated.metadata.size,
-            ),
-        )
-        thumbnailInfo =
-            ImageFileInfo(
-                fileName = generated.objectKey,
-                width = generated.metadata.width,
-                height = generated.metadata.height,
-                size = generated.metadata.size,
+        val generated =
+            thumbnailGenerator.generate(
+                sourceFile = file,
+                sourceFilename = "source.${validatedImage.extension}",
+                sourceObjectKey = objectKey,
+                quality = quality,
             )
-      } finally {
-        deleteTempFile(generated.file, "generated thumbnail")
+        try {
+          client.putObject(
+              PutObjectRequest(
+                  objectKey = generated.objectKey,
+                  file = generated.file,
+                  contentType = "image/webp",
+                  metadata =
+                      mapOf(
+                          "width" to generated.metadata.width.toString(),
+                          "height" to generated.metadata.height.toString(),
+                          "size" to generated.metadata.size.toString(),
+                      ),
+                  contentLength = generated.metadata.size,
+              ),
+          )
+          thumbnailInfo =
+              ImageFileInfo(
+                  fileName = generated.objectKey,
+                  width = generated.metadata.width,
+                  height = generated.metadata.height,
+                  size = generated.metadata.size,
+              )
+          logger.debug(
+              "Thumbnail upload completed: storageType={}, objectKey={}, thumbnailObjectKey={}",
+              storageType,
+              objectKey,
+              generated.objectKey,
+          )
+        } finally {
+          deleteTempFile(generated.file, "generated thumbnail")
+        }
+      } catch (e: Exception) {
+        if (isInterruptedException(e)) {
+          Thread.currentThread().interrupt()
+          throw e
+        }
+        thumbnailFailed = true
+        thumbnailFailureReason =
+            "${e::class.simpleName}: ${e.message ?: "thumbnail generation failed"}"
+        logger.warn(
+            "Thumbnail upload failed but original image upload remains successful: storageType={}, objectKey={}, reason={}",
+            storageType,
+            objectKey,
+            thumbnailFailureReason,
+        )
       }
-    } catch (e: Exception) {
-      if (isInterruptedException(e)) {
-        Thread.currentThread().interrupt()
-        throw e
-      }
-      thumbnailFailed = true
-      thumbnailFailureReason =
-          "${e::class.simpleName}: ${e.message ?: "thumbnail generation failed"}"
+    } else {
+      logger.info(
+          "Thumbnail generation skipped by configuration/request: storageType={}, objectKey={}, originFilename={}",
+          storageType,
+          objectKey,
+          originFilename,
+      )
     }
 
     val bucketPrefix = if (profile.prependBucketOnObjectKey) "${profile.bucket}/" else ""
@@ -161,6 +206,22 @@ class ImageService(
       storageType: String,
       quality: Double = 1.0,
   ): ImageUploadResult {
+    return uploadImage(
+        inputStream = inputStream,
+        originFilename = originFilename,
+        storageType = storageType,
+        quality = quality,
+        generateThumbnail = true,
+    )
+  }
+
+  fun uploadImage(
+      inputStream: InputStream,
+      originFilename: String,
+      storageType: String,
+      quality: Double = 1.0,
+      generateThumbnail: Boolean,
+  ): ImageUploadResult {
     val extension = originFilename.substringAfterLast('.', "").ifBlank { "tmp" }
     val tempFile = File.createTempFile("atomic-storage-upload-", ".$extension")
     try {
@@ -171,6 +232,7 @@ class ImageService(
           originFilename = originFilename,
           storageType = storageType,
           quality = quality,
+          generateThumbnail = generateThumbnail,
       )
     } finally {
       deleteTempFile(tempFile, "image upload input stream")

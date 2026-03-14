@@ -35,7 +35,10 @@ Use only the modules you need.
 - `atomic.contract`: shared response/header/exception/util model used by all layers
 - `atomic.starter`: conditional Spring Boot auto-configuration entrypoint
 - `atomic.storage`: storage module (S3-compatible backends such as S3/R2/MinIO, plus media helpers)
-- `atomic.app`: common app-level API bundle module (`version` + `storage-api` + `oauth-redirect`)
+- `atomic.app.version`: narrow app-level version API module
+- `atomic.app.storage.api`: narrow app-level image API module
+- `atomic.app.oauth.redirect`: narrow app-level OAuth redirect/callback relay module
+- `atomic.app`: convenience bundle module (`version` + `storage-api` + `oauth-redirect`)
 - `atomic.spring.web`: API error handling, request/response logging, RestTemplate interceptor/error handler
 - `atomic.spring.idempotency`: HTTP idempotency filter for one-time POST processing
 - `atomic.spring.security`: JWT issue/verify + Spring Security filter integration
@@ -95,19 +98,22 @@ dependencies {
 
 ## 3. Quick Start (First Day)
 
-1. Add `atomic.starter` first. Add `atomic.contract` only when your app directly uses `BaseResponse` / `HttpStatusException` (exception: `atomic.app` version-only single-track starts are possible via [Atomic Quick Start](quick-start.md)).
-2. Add one feature module only (`app`, `storage`, `web`, `idempotency`, `security`, `oauth2`, or `heartbeat`); for `app` image/oauth redirect features, also add their prerequisite modules/beans from the module matrix below.
-3. Register only minimum required beans from that guide.
-4. Run one smoke endpoint.
-5. Add optional features after baseline works.
+1. Add the narrowest module first. For app APIs, prefer `atomic.app.version`, `atomic.app.storage.api`, or `atomic.app.oauth.redirect`; use `atomic.app` only when you want the bundle on purpose.
+2. Add `atomic.starter` when you need auto-configured infra. Add `atomic.contract` only when your app directly uses `BaseResponse` / `HttpStatusException`.
+3. Add one feature module only (`app.version`, `app.storage.api`, `app.oauth.redirect`, `storage`, `web`, `idempotency`, `security`, `oauth2`, or `heartbeat`); for image/oauth redirect features, also add their prerequisite modules/beans from the module matrix below.
+4. Register only minimum required beans from that guide.
+5. Run one smoke endpoint.
+6. Add optional features after baseline works.
 
 ## 4. Module Combination Matrix
 
 | Goal | Modules | First Setup |
 |---|---|---|
 | Standard API response + shared contracts | `starter` + `contract` | Use `BaseResponse`, `HttpStatusException` |
-| App-ready version/image APIs | `app` + (`starter` + `storage` for image API) | enable `atomic.app.version.enabled` and/or `atomic.app.image.enabled` |
-| App-ready OAuth redirect/callback relay | `app` + `starter` + `spring.oauth2` | enable `atomic.app.oauth.redirect.enabled`, consume `relayCode` in login API, configure store prerequisites (default `store.type=entity`), and set non-empty `allowed-redirect-uri-prefixes` |
+| App-ready version API | `app.version` | enable `atomic.app.version.enabled`, provision `service_version` schema, and seed version rows |
+| App-ready image upload/delete API | `app.storage.api` + `starter` + `storage` | enable `atomic.app.image.enabled`, provision `image` schema, and configure storage backends |
+| App-ready OAuth redirect/callback relay | `app.oauth.redirect` + `starter` + `spring.oauth2` | enable `atomic.app.oauth.redirect.enabled`, consume `relayCode` in login API, configure store prerequisites (default `store.type=entity`), and set non-empty `allowed-redirect-uri-prefixes` |
+| Convenience bundle for multiple app APIs | `app` + any prerequisites still required by enabled features | enable only the specific `atomic.app.*.enabled` tracks you need |
 | Object storage and media processing | `starter` + `storage` | set `atomic.storage.backends.*` and use `ImageService` |
 | Exception response standardization | `starter` + `spring.web` (+ `contract` when app directly uses `BaseResponse` / `HttpStatusException`) | `BaseExceptionHandler` subclass |
 | API request/response audit logs | `starter` + `spring.web` | add `LogSaver` + `ApiLogAspect` implementation |
@@ -149,6 +155,8 @@ dependencies {
 - Storage upload `Unknown storageType`: check storage client/profile map keys and call-site `storageType` value.
 - Image delete `stored storageType is unavailable for image delete`: check whether configured storage client keys still match persisted `ImageEntity.storageType` values.
 - App image API setup may fail startup (not only API skip): check `atomic.app.image.enabled=true` with `ImageService`/`storageClients` bean availability.
+- Image upload returned no thumbnail fields: check `atomic.app.image.thumbnail-enabled` and the request-level `thumbnailEnabled` override.
+- Image delete rows remain with `DELETE_PENDING`: a previous storage delete failed; keep the stored `storageType` mapping available and retry delete after storage/backend recovery.
 - App oauth redirect setup can fail in two ways: startup fail (for example default `store.type=entity` + missing required beans with `store.fail-fast=true`) or conditional endpoint skip/`404` (for example missing `OauthStateManager`/`OauthServiceProvider`); check selected store and OAuth bean prerequisites together.
 - OAuth callback errors: check state and redirect URI mapping, and callback-binding failure type (`state is missing`, `cookie is missing`, `token mismatch`, `cookie is ambiguous`).
 - OAuth relay cache store startup failure: check `atomic.app.oauth.redirect.store.cache.cache-name` exists in `CacheManager` (with default `store.fail-fast=true`).

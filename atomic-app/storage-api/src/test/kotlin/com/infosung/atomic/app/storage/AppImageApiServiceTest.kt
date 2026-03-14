@@ -111,6 +111,48 @@ class AppImageApiServiceTest {
   }
 
   @Test
+  fun `uploadImage should leave thumbnail fields empty when thumbnail generation is disabled`() {
+    val storageClient = CapturingStorageClient()
+    val imageRepository = mock(ImageRepository::class.java)
+    val imageEntityTxService = AppImageEntityTxService(imageRepository)
+    val imageService = createImageService(storageClient = storageClient, storageType = "S3")
+    val properties =
+        AtomicAppImageProperties().apply {
+          thumbnailEnabled = false
+        }
+    val apiService =
+        AppImageApiService(
+            imageEntityTxService = imageEntityTxService,
+            imageService = imageService,
+            storageClients = mapOf("S3" to storageClient),
+            properties = properties,
+        )
+    val multipartFile =
+        MockMultipartFile(
+            "file",
+            "profile.png",
+            "image/png",
+            "dummy-image".toByteArray(),
+        )
+    `when`(imageRepository.save(any(ImageEntity::class.java))).thenAnswer { it.arguments[0] }
+
+    val saved =
+        apiService.uploadImage(
+            serviceName = "svc",
+            storageService = "S3",
+            multipartFile = multipartFile,
+            quality = 1.0,
+        )
+
+    assertEquals(listOf("images/test/original.png"), storageClient.putObjectKeys)
+    assertEquals(null, saved.thumbnailFileName)
+    assertEquals(null, saved.thumbnailUrl)
+    assertEquals(null, saved.thumbnailWidth)
+    assertEquals(null, saved.thumbnailHeight)
+    assertEquals(null, saved.thumbnailFileSize)
+  }
+
+  @Test
   fun `uploadImage should return 400 when uploader parameter is missing and tracking is enabled`() {
     val storageClient = CapturingStorageClient()
     val imageRepository = mock(ImageRepository::class.java)
@@ -219,6 +261,7 @@ class AppImageApiServiceTest {
             fileSize = 123,
         )
     `when`(imageRepository.findById(imageId)).thenReturn(Optional.of(savedEntity))
+    `when`(imageRepository.save(any(ImageEntity::class.java))).thenAnswer { it.arguments[0] }
 
     apiService.deleteImage(
         serviceName = "svc",
@@ -230,7 +273,97 @@ class AppImageApiServiceTest {
         listOf("images/test/original.png", "images/test/original_thumb.webp"),
         storageClient.deletedObjectKeys,
     )
-    verify(imageRepository).delete(savedEntity)
+    verify(imageRepository).save(any(ImageEntity::class.java))
+    verify(imageRepository).delete(any(ImageEntity::class.java))
+  }
+
+  @Test
+  fun `deleteImage should reserve delete pending before deleting storage and purge metadata after success`() {
+    val imageId = UUID.randomUUID()
+    val storageClient = CapturingStorageClient()
+    val imageEntity = newImageEntity(imageId = imageId, status = "ACTIVE")
+    val imageEntityTxService = FakeImageEntityTxService(imageEntity)
+    val imageService = createImageService(storageClient = storageClient, storageType = "S3")
+    val apiService =
+        AppImageApiService(
+            imageEntityTxService = imageEntityTxService,
+            imageService = imageService,
+            storageClients = mapOf("S3" to storageClient),
+            properties = AtomicAppImageProperties(),
+        )
+
+    apiService.deleteImage(
+        serviceName = "svc",
+        storageService = "S3",
+        imageId = imageId.toString(),
+    )
+
+    assertEquals(listOf("DELETE_PENDING"), imageEntityTxService.savedStatuses)
+    assertEquals(listOf(imageId), imageEntityTxService.deletedPendingIds)
+    assertEquals(
+        listOf("images/test/original.png", "images/test/original_thumb.webp"),
+        storageClient.deletedObjectKeys,
+    )
+  }
+
+  @Test
+  fun `deleteImage should keep metadata in delete pending when storage delete fails`() {
+    val imageId = UUID.randomUUID()
+    val storageClient =
+        CapturingStorageClient(
+            failDeleteObject = { key -> key == "images/test/original.png" },
+        )
+    val imageEntity = newImageEntity(imageId = imageId, status = "ACTIVE")
+    val imageEntityTxService = FakeImageEntityTxService(imageEntity)
+    val imageService = createImageService(storageClient = storageClient, storageType = "S3")
+    val apiService =
+        AppImageApiService(
+            imageEntityTxService = imageEntityTxService,
+            imageService = imageService,
+            storageClients = mapOf("S3" to storageClient),
+            properties = AtomicAppImageProperties(),
+        )
+
+    assertFailsWith<IllegalStateException> {
+      apiService.deleteImage(
+          serviceName = "svc",
+          storageService = "S3",
+          imageId = imageId.toString(),
+      )
+    }
+
+    assertEquals(listOf("DELETE_PENDING"), imageEntityTxService.savedStatuses)
+    assertTrue(imageEntityTxService.deletedPendingIds.isEmpty())
+    assertEquals("DELETE_PENDING", imageEntityTxService.currentEntity.status)
+  }
+
+  @Test
+  fun `deleteImage should retry storage cleanup when metadata is already delete pending`() {
+    val imageId = UUID.randomUUID()
+    val storageClient = CapturingStorageClient()
+    val imageEntity = newImageEntity(imageId = imageId, status = "DELETE_PENDING")
+    val imageEntityTxService = FakeImageEntityTxService(imageEntity)
+    val imageService = createImageService(storageClient = storageClient, storageType = "S3")
+    val apiService =
+        AppImageApiService(
+            imageEntityTxService = imageEntityTxService,
+            imageService = imageService,
+            storageClients = mapOf("S3" to storageClient),
+            properties = AtomicAppImageProperties(),
+        )
+
+    apiService.deleteImage(
+        serviceName = "svc",
+        storageService = "S3",
+        imageId = imageId.toString(),
+    )
+
+    assertTrue(imageEntityTxService.savedStatuses.isEmpty())
+    assertEquals(listOf(imageId), imageEntityTxService.deletedPendingIds)
+    assertEquals(
+        listOf("images/test/original.png", "images/test/original_thumb.webp"),
+        storageClient.deletedObjectKeys,
+    )
   }
 
   @Test
@@ -488,15 +621,69 @@ class AppImageApiServiceTest {
   }
 
   private class CapturingStorageClient : StorageClient {
+    constructor() : this(failDeleteObject = { false })
+
+    constructor(failDeleteObject: (String) -> Boolean) {
+      this.failDeleteObject = failDeleteObject
+    }
+
     val putObjectKeys: MutableList<String> = mutableListOf()
     val deletedObjectKeys: MutableList<String> = mutableListOf()
+    private var failDeleteObject: (String) -> Boolean = { false }
 
     override fun putObject(request: PutObjectRequest) {
       putObjectKeys += request.objectKey
     }
 
     override fun deleteObject(objectKey: String) {
+      if (failDeleteObject(objectKey)) {
+        throw IllegalStateException("delete failed for $objectKey")
+      }
       deletedObjectKeys += objectKey
+    }
+  }
+
+  private fun newImageEntity(
+      imageId: UUID,
+      status: String,
+  ): ImageEntity {
+    return ImageEntity(
+        id = imageId,
+        bucket = "bucket",
+        serviceName = "svc",
+        storageService = "S3",
+        status = status,
+        storageType = "S3",
+        fileName = "images/test/original.png",
+        thumbnailFileName = "images/test/original_thumb.webp",
+        url = "https://cdn/images/test/original.png",
+        thumbnailUrl = "https://cdn/images/test/original_thumb.webp",
+        fileSize = 123,
+    )
+  }
+
+  private class FakeImageEntityTxService(
+      initialEntity: ImageEntity,
+  ) : AppImageEntityTxService(mock(ImageRepository::class.java)) {
+    var currentEntity: ImageEntity = initialEntity
+    val savedStatuses: MutableList<String> = mutableListOf()
+    val deletedPendingIds: MutableList<UUID> = mutableListOf()
+
+    override fun findByIdOrThrow(
+        imageId: UUID,
+        rawImageId: String,
+    ): ImageEntity {
+      return currentEntity
+    }
+
+    override fun save(imageEntity: ImageEntity): ImageEntity {
+      currentEntity = imageEntity
+      savedStatuses += imageEntity.status
+      return imageEntity
+    }
+
+    override fun delete(imageEntity: ImageEntity) {
+      deletedPendingIds += requireNotNull(imageEntity.id)
     }
   }
 }

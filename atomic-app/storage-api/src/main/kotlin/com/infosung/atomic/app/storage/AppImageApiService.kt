@@ -30,6 +30,24 @@ class AppImageApiService(
       quality: Double,
       uploaderId: String? = null,
   ): ImageEntity {
+    return uploadImage(
+        serviceName = serviceName,
+        storageService = storageService,
+        multipartFile = multipartFile,
+        quality = quality,
+        uploaderId = uploaderId,
+        thumbnailEnabled = properties.thumbnailEnabled,
+    )
+  }
+
+  fun uploadImage(
+      serviceName: String,
+      storageService: String,
+      multipartFile: MultipartFile,
+      quality: Double,
+      uploaderId: String? = null,
+      thumbnailEnabled: Boolean,
+  ): ImageEntity {
     if (quality !in properties.minQuality..properties.maxQuality) {
       throw HttpStatusException(
           status = 400,
@@ -46,12 +64,13 @@ class AppImageApiService(
         resolveStorageType(serviceName = serviceName, storageService = storageService)
     val resolvedUploaderId = resolveUploaderIdForUpload(uploaderId)
     log.debug(
-        "Uploading image: serviceName={}, storageService={}, resolvedStorageType={}, originalFilename={}, uploaderTracked={}",
+        "Uploading image: serviceName={}, storageService={}, resolvedStorageType={}, originalFilename={}, uploaderTracked={}, thumbnailEnabled={}",
         serviceName,
         storageService,
         resolvedStorageType,
         originalFilename,
         resolvedUploaderId != null,
+        thumbnailEnabled,
     )
 
     val extension = originalFilename.substringAfterLast('.', "tmp")
@@ -64,20 +83,22 @@ class AppImageApiService(
               originFilename = originalFilename,
               storageType = resolvedStorageType,
               quality = quality,
+              generateThumbnail = thumbnailEnabled,
           )
       log.debug(
-          "Storage upload completed: serviceName={}, storageService={}, objectKey={}, thumbnailKey={}",
+          "Storage upload completed: serviceName={}, storageService={}, objectKey={}, thumbnailKey={}, thumbnailEnabled={}",
           serviceName,
           storageService,
           uploaded.fileName,
           uploaded.thumbnailFileName,
+          thumbnailEnabled,
       )
       val entity =
           ImageEntity(
               bucket = uploaded.bucket,
               serviceName = serviceName,
               storageService = storageService,
-              status = "ACTIVE",
+              status = ImageEntity.STATUS_ACTIVE,
               uploaderId = resolvedUploaderId,
               storageType = resolvedStorageType,
               fileName = uploaded.fileName,
@@ -195,27 +216,41 @@ class AppImageApiService(
             serviceName = serviceName,
             storageService = storageService,
         )
+    val deleteReservedEntity = imageEntityTxService.markDeletePending(imageEntity)
 
-    imageService.deleteImage(
-        storageType = resolvedStorageType,
-        fileName = imageEntity.fileName,
-        thumbnailFileName = imageEntity.thumbnailFileName,
-    )
-    log.debug(
-        "Storage objects deleted: imageId={}, storageType={}, fileName={}, thumbnailFileName={}",
-        imageId,
-        resolvedStorageType,
-        imageEntity.fileName,
-        imageEntity.thumbnailFileName,
-    )
     try {
-      imageEntityTxService.delete(imageEntity)
-    } catch (e: Exception) {
-      log.error(
-          "Image metadata delete failed after storage delete: imageId={}, storageType={}, fileName={}",
+      imageService.deleteImage(
+          storageType = resolvedStorageType,
+          fileName = deleteReservedEntity.fileName,
+          thumbnailFileName = deleteReservedEntity.thumbnailFileName,
+      )
+      log.info(
+          "Storage objects deleted for image delete workflow: imageId={}, storageType={}, fileName={}, thumbnailFileName={}",
           imageId,
           resolvedStorageType,
-          imageEntity.fileName,
+          deleteReservedEntity.fileName,
+          deleteReservedEntity.thumbnailFileName,
+      )
+    } catch (e: Exception) {
+      log.error(
+          "Storage delete failed while metadata remains delete-pending: imageId={}, storageType={}, fileName={}, thumbnailFileName={}",
+          imageId,
+          resolvedStorageType,
+          deleteReservedEntity.fileName,
+          deleteReservedEntity.thumbnailFileName,
+          e,
+      )
+      throw e
+    }
+    try {
+      imageEntityTxService.purgeDeletePending(deleteReservedEntity)
+    } catch (e: Exception) {
+      log.error(
+          "Image metadata purge failed after storage delete: imageId={}, storageType={}, fileName={}, status={}",
+          imageId,
+          resolvedStorageType,
+          deleteReservedEntity.fileName,
+          deleteReservedEntity.status,
           e,
       )
       throw e
@@ -225,7 +260,7 @@ class AppImageApiService(
         imageId,
         serviceName,
         storageService,
-        imageEntity.uploaderId != null,
+        deleteReservedEntity.uploaderId != null,
     )
   }
 

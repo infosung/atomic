@@ -29,6 +29,8 @@ class AppStorageController(
    *
    * Request parameters:
    * - `quality`: optional thumbnail quality. Defaults to `atomic.app.image.default-quality`.
+   * - `thumbnailEnabled`: optional thumbnail generation override. Defaults to
+   *   `atomic.app.image.thumbnail-enabled`.
    * - `file`: multipart image file.
    * - optional uploader identity parameter controlled by:
    *     - `atomic.app.image.uploader-parameter-enabled`
@@ -42,10 +44,12 @@ class AppStorageController(
       @PathVariable("service") service: String,
       @PathVariable("storageService") storageService: String,
       @RequestParam(name = "quality", required = false) quality: Double?,
+      @RequestParam(name = "thumbnailEnabled", required = false) thumbnailEnabled: Boolean?,
       @RequestParam("file") multipartFile: MultipartFile,
       request: HttpServletRequest,
   ): BaseResponse<ImageEntity> {
     val resolvedQuality = quality ?: properties.defaultQuality
+    val resolvedThumbnailEnabled = thumbnailEnabled ?: properties.thumbnailEnabled
     val uploaderId = resolveUploaderId(request)
     return BaseResponse.ok(
         appImageApiService.uploadImage(
@@ -54,6 +58,7 @@ class AppStorageController(
             multipartFile = multipartFile,
             quality = resolvedQuality,
             uploaderId = uploaderId,
+            thumbnailEnabled = resolvedThumbnailEnabled,
         ),
     )
   }

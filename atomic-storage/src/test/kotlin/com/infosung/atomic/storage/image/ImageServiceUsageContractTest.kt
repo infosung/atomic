@@ -96,6 +96,42 @@ class ImageServiceUsageContractTest {
   }
 
   @Test
+  fun `uploadImage should support disabling thumbnail generation`() {
+    val storageClient = RecordingStorageClient()
+    val service = createService(storageClient = storageClient, storageType = "S3")
+    val sourceFile = tempImageFile()
+
+    try {
+      val result =
+          service.uploadImage(
+              file = sourceFile,
+              originFilename = "hello.png",
+              storageType = "S3",
+              quality = 1.0,
+              generateThumbnail = false,
+          )
+
+      assertEquals("S3", result.storageType)
+      assertEquals("images/test/original.png", result.storageObjectKey)
+      assertEquals(null, result.storageThumbnailObjectKey)
+      assertEquals("images/test/original.png", result.fileName)
+      assertEquals(null, result.thumbnailFileName)
+      assertEquals("https://cdn.example.com/images/test/original.png", result.url)
+      assertEquals(null, result.thumbnailUrl)
+      assertEquals(null, result.thumbnailWidth)
+      assertEquals(null, result.thumbnailHeight)
+      assertEquals(null, result.thumbnailFileSize)
+      assertEquals(false, result.thumbnailUploadFailed)
+      assertEquals(
+          listOf("images/test/original.png"),
+          storageClient.putRequests.map { it.objectKey },
+      )
+    } finally {
+      sourceFile.delete()
+    }
+  }
+
+  @Test
   fun `uploadImage should reject qualities outside documented range`() {
     val storageClient = RecordingStorageClient()
     val service = createService(storageClient = storageClient, storageType = "S3")

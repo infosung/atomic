@@ -6,7 +6,7 @@ Use `atomic.storage` when your service needs:
 
 - S3-compatible object storage upload/delete
 - image upload pipeline with format validation
-- automatic thumbnail generation (WebP)
+- optional thumbnail generation (WebP)
 - upload result payload including URL, object key, and metadata
 
 This module does not provide Spring Boot auto-configuration.
@@ -16,7 +16,7 @@ Register only the beans you use.
 
 For most services, start with `ImageService`.
 
-- `ImageService.uploadImage(...)`: upload original image + thumbnail attempt
+- `ImageService.uploadImage(...)`: upload original image and, by default, attempt thumbnail generation
 - `ImageService.deleteImage(...)`: delete original and thumbnail by key
 
 Low-level `StorageClient.putObject(...)` request models have internal constructors and are intended for module-internal use.
@@ -138,6 +138,7 @@ fun uploadExample(imageService: ImageService, file: File) {
           originFilename = "profile.jpg",
           storageType = "S3",
           quality = 0.8,
+          generateThumbnail = true,
       )
 
   println(result.url)
@@ -160,10 +161,17 @@ fun uploadStreamExample(imageService: ImageService, inputStream: InputStream) {
           originFilename = "banner.png",
           storageType = "S3",
           quality = 1.0,
+          generateThumbnail = false,
       )
   println(result.url)
 }
 ```
+
+When `generateThumbnail=false`:
+
+- original upload still succeeds normally
+- `thumbnailUrl` / `thumbnailFileName` / thumbnail size fields are `null`
+- `thumbnailUploadFailed` remains `false`
 
 Runtime rule:
 
@@ -207,7 +215,7 @@ The list below is not exhaustive. It summarizes common integration-time failure 
   - original upload failures are propagated as thrown by the underlying storage client
 - thumbnail step failures
   - original upload success means request succeeds overall
-  - thumbnail generation/upload is always attempted after original upload
+  - thumbnail generation/upload is attempted only when `generateThumbnail=true`
   - failure is reported via `thumbnailUploadFailed=true` and `thumbnailFailureReason`
 
 ## Returned Key and URL Behavior
@@ -223,7 +231,8 @@ The list below is not exhaustive. It summarizes common integration-time failure 
 
 - This module stores original width/height/size metadata on upload.
 - Thumbnail output format is WebP (`*_thumb.webp`).
-- Thumbnail generation is always attempted; failure does not roll back original upload.
+- Thumbnail generation is enabled by default; callers can skip it with `generateThumbnail=false`.
+- Thumbnail failure does not roll back original upload.
 - Upload path uses temp files (`source copy`, `raster`, `thumbnail`) in `java.io.tmpdir`.
 - Ensure temp directory is writable and sized for peak concurrent uploads.
 - Apply upload size/time/concurrency policies in your application layer (for example Spring multipart settings).

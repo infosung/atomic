@@ -20,6 +20,7 @@ class AtomicAppImagePropertiesEnvironmentContractTest {
     assertEquals(1.0, properties.defaultQuality)
     assertEquals(0.1, properties.minQuality)
     assertEquals(1.0, properties.maxQuality)
+    assertTrue(properties.thumbnailEnabled)
     assertFalse(properties.uploaderParameterEnabled)
     assertEquals("uploaderId", properties.uploaderParameterName)
   }
@@ -34,6 +35,7 @@ class AtomicAppImagePropertiesEnvironmentContractTest {
                 "ATOMIC_APP_IMAGE_DEFAULT_QUALITY" to "0.85",
                 "ATOMIC_APP_IMAGE_MIN_QUALITY" to "0.25",
                 "ATOMIC_APP_IMAGE_MAX_QUALITY" to "0.95",
+                "ATOMIC_APP_IMAGE_THUMBNAIL_ENABLED" to "false",
                 "ATOMIC_APP_IMAGE_UPLOADER_PARAMETER_ENABLED" to "true",
                 "ATOMIC_APP_IMAGE_UPLOADER_PARAMETER_NAME" to "memberId",
             ),
@@ -44,6 +46,7 @@ class AtomicAppImagePropertiesEnvironmentContractTest {
     assertEquals(0.85, properties.defaultQuality)
     assertEquals(0.25, properties.minQuality)
     assertEquals(0.95, properties.maxQuality)
+    assertFalse(properties.thumbnailEnabled)
     assertTrue(properties.uploaderParameterEnabled)
     assertEquals("memberId", properties.uploaderParameterName)
   }
