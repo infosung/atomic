@@ -148,7 +148,7 @@ internal object AllowedRedirectUriPolicy {
       if (candidateHost != host) {
         return false
       }
-      if (effectiveCandidatePort(candidateUri) != port) {
+      if (effectivePort(candidateUri) != port) {
         return false
       }
       val candidatePath = normalizeCandidatePath(candidateUri.path)
@@ -156,17 +156,6 @@ internal object AllowedRedirectUriPolicy {
         return true
       }
       return candidatePath == pathPrefix || candidatePath.startsWith("$pathPrefix/")
-    }
-
-    private fun effectiveCandidatePort(uri: URI): Int {
-      if (uri.port >= 0) {
-        return uri.port
-      }
-      return when (uri.scheme.lowercase(Locale.ROOT)) {
-        "http" -> 80
-        "https" -> 443
-        else -> -1
-      }
     }
 
     private fun normalizeCandidatePath(path: String?): String {
