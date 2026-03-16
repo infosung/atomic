@@ -58,6 +58,8 @@ Notes:
 - if you register review builds or phased-rollout target versions before they are broadly downloadable,
   keep those rows as `store_available=false` so the version API does not advertise them as current
   store targets too early.
+- keep one row per `(service, platform, main_version, minor_version, patch_number)` semantic version;
+  duplicate version-policy rows are not a valid `v0.0.2` schema state.
 
 ### B. image API
 

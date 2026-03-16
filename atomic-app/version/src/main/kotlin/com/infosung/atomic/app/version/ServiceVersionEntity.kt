@@ -6,11 +6,22 @@ import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import jakarta.persistence.UniqueConstraint
 import java.time.LocalDateTime
 
 /** Version policy row per service/platform/app version. */
 @Entity(name = "service_version")
-@Table(name = "service_version")
+@Table(
+    name = "service_version",
+    uniqueConstraints =
+        [
+            UniqueConstraint(
+                name = "uq_service_version_service_platform_semver",
+                columnNames =
+                    ["service", "platform", "main_version", "minor_version", "patch_number"],
+            ),
+        ],
+)
 open class ServiceVersionEntity(
     @Id
     @Column(name = "id")

@@ -37,6 +37,7 @@ References:
 - [ ] Enable only the APIs you actually use (`version`, `image`, `oauth redirect`)
 - [ ] Version API: prepare `service_version` table and policy rows
 - [ ] Version API: keep review/pre-rollout rows with `store_available=false` until they are safe force-update targets
+- [ ] Version API: deduplicate semantic-version rows before applying the official uniqueness guard
 - [ ] Image API: prepare `image` table, `storageClients`/`ImageService`, and endpoint security rules
 - [ ] OAuth redirect API: set non-empty `allowed-redirect-uri-prefixes` in every enabled environment, and pin production prefixes to real domains only
 - [ ] OAuth redirect + Spring Security: define `permitAll` for redirect/callback and explicit CSRF policy for Apple `POST` callback

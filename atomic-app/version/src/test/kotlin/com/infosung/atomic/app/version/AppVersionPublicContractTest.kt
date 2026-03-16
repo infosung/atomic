@@ -59,6 +59,15 @@ class AppVersionPublicContractTest {
 
     assertEquals("service_version", entity.name)
     assertEquals("service_version", table.name)
+    assertEquals(1, table.uniqueConstraints.size)
+    assertEquals(
+        "uq_service_version_service_platform_semver",
+        table.uniqueConstraints.single().name,
+    )
+    assertEquals(
+        listOf("service", "platform", "main_version", "minor_version", "patch_number"),
+        table.uniqueConstraints.single().columnNames.toList(),
+    )
     assertNotNull(idField.getAnnotation(Id::class.java))
     assertEquals(GenerationType.IDENTITY, generatedValue.strategy)
     assertEquals("id", idField.getAnnotation(Column::class.java).name)

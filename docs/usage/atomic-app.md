@@ -164,6 +164,8 @@ Expected version policy table:
 - entity fields used: `mainVersion`, `minorVersion`, `patchNumber`, `requireUpdate`, `platform`, `service`, `storeUrl`
 - rollout-safe field:
   - `storeAvailable`: whether this row is safe to expose as the current store target and safe to use for forced updates
+- semantic-version uniqueness:
+  - keep exactly one row per `(service, platform, mainVersion, minorVersion, patchNumber)`
 - physical column names are fixed in code and SQL assets:
   - `id`
   - `main_version`
@@ -366,6 +368,9 @@ CREATE TABLE IF NOT EXISTS service_version (
 
 CREATE INDEX IF NOT EXISTS idx_service_version_service_platform_version
   ON service_version (service, platform, main_version DESC, minor_version DESC, patch_number DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_service_version_service_platform_semver
+  ON service_version (service, platform, main_version, minor_version, patch_number);
 ```
 
 ```sql

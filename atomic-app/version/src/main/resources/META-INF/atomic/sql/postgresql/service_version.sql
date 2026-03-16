@@ -23,3 +23,6 @@ CREATE INDEX IF NOT EXISTS idx_service_version_service_platform_required_update
     minor_version DESC,
     patch_number DESC
   );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_service_version_service_platform_semver
+  ON service_version (service, platform, main_version, minor_version, patch_number);

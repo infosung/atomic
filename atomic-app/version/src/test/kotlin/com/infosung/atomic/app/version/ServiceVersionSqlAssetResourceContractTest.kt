@@ -24,5 +24,9 @@ class ServiceVersionSqlAssetResourceContractTest {
         sql.contains(
             "CREATE INDEX IF NOT EXISTS idx_service_version_service_platform_required_update"),
     )
+    assertTrue(
+        sql.contains(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_service_version_service_platform_semver"),
+    )
   }
 }

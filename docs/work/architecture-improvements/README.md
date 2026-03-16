@@ -21,6 +21,7 @@ This directory tracks contract-first architecture improvement work for `atomic`.
 - [Phase 9: App-Version Policy Resolution Optimization](phase-9-app-version-policy-resolution-optimization.md)
 - [Phase 10: Callback-Binding Policy Mode](phase-10-callback-binding-policy-mode.md)
 - [Phase 11: Version Policy Rollout-Safe Resolution](phase-11-version-policy-rollout-safe-resolution.md)
+- [Phase 12: Service-Version Uniqueness Guard](phase-12-service-version-uniqueness-guard.md)
 
 ## Review Notes
 

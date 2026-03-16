@@ -2,6 +2,7 @@ package com.infosung.atomic.app.version
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.SpringBootConfiguration
@@ -11,6 +12,7 @@ import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabas
 import org.springframework.boot.persistence.autoconfigure.EntityScan
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Import
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.context.DynamicPropertyRegistry
@@ -88,6 +90,20 @@ class AppVersionMigrationAssetContractTest {
 
     assertTrue(indexes.contains("idx_service_version_service_platform_version"))
     assertTrue(indexes.contains("idx_service_version_service_platform_required_update"))
+    assertTrue(indexes.contains("uq_service_version_service_platform_semver"))
+  }
+
+  @Test
+  fun `official service version sql asset should reject duplicate semantic version rows`() {
+    serviceVersionRepository.saveAndFlush(
+        policy(main = 1, minor = 2, patch = 3, requireUpdate = false, storeAvailable = true),
+    )
+
+    assertFailsWith<DataIntegrityViolationException> {
+      serviceVersionRepository.saveAndFlush(
+          policy(main = 1, minor = 2, patch = 3, requireUpdate = true, storeAvailable = false),
+      )
+    }
   }
 
   private fun policy(
