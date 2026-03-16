@@ -25,6 +25,7 @@ This directory tracks contract-first architecture improvement work for `atomic`.
 - [Phase 13: OAuth State Tamper Test Stability](phase-13-oauth-state-tamper-test-stability.md)
 - [Phase 14: App-Version Migration Test Isolation](phase-14-app-version-migration-test-isolation.md)
 - [Phase 15: App-Version Migration Validator Stability](phase-15-app-version-migration-validator-stability.md)
+- [Phase 16: App-Version Baseline Schema Alignment](phase-16-app-version-baseline-schema-alignment.md)
 
 ## Review Notes
 
