@@ -6,7 +6,7 @@ import org.springframework.core.io.ClassPathResource
 
 class ServiceVersionSqlAssetResourceContractTest {
   @Test
-  fun `official service version sql asset should exist and define documented table and index`() {
+  fun `official service version sql asset should exist and define documented table indexes and constraint`() {
     val sql =
         ClassPathResource("META-INF/atomic/sql/postgresql/service_version.sql")
             .inputStream
@@ -24,9 +24,9 @@ class ServiceVersionSqlAssetResourceContractTest {
         sql.contains(
             "CREATE INDEX IF NOT EXISTS idx_service_version_service_platform_required_update"),
     )
+    assertTrue(sql.contains("CONSTRAINT uq_service_version_service_platform_semver"))
     assertTrue(
-        sql.contains(
-            "CREATE UNIQUE INDEX IF NOT EXISTS uq_service_version_service_platform_semver"),
+        sql.contains("UNIQUE (service, platform, main_version, minor_version, patch_number)"),
     )
   }
 }

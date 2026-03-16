@@ -90,7 +90,23 @@ class AppVersionMigrationAssetContractTest {
 
     assertTrue(indexes.contains("idx_service_version_service_platform_version"))
     assertTrue(indexes.contains("idx_service_version_service_platform_required_update"))
-    assertTrue(indexes.contains("uq_service_version_service_platform_semver"))
+  }
+
+  @Test
+  fun `official service version sql asset should create documented unique constraint`() {
+    val constraints =
+        jdbcTemplate.queryForList(
+            """
+            SELECT conname
+            FROM pg_constraint
+            WHERE conrelid = 'service_version'::regclass
+              AND contype = 'u'
+            """
+                .trimIndent(),
+            String::class.java,
+        )
+
+    assertTrue(constraints.contains("uq_service_version_service_platform_semver"))
   }
 
   @Test

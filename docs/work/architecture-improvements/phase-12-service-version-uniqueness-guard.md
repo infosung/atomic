@@ -28,7 +28,7 @@ can exist only once.
 
 ## Contract To Add
 
-1. The official PostgreSQL asset must declare a uniqueness guard for:
+1. The official PostgreSQL asset must declare a named unique constraint for:
    - `service`
    - `platform`
    - `main_version`
@@ -44,7 +44,9 @@ can exist only once.
 2. Add a failing migration-asset integration test that attempts to insert duplicate semantic-version
    rows and expects the database to reject them.
 3. Add a failing public-contract test for the JPA `@Table(uniqueConstraints = ...)` mapping.
-4. Update schema and entity mapping until the tests pass.
+4. Keep the SQL asset aligned with the JPA `@Table(uniqueConstraints = ...)` contract instead of
+   expressing the rule only as a standalone unique index.
+5. Update schema and entity mapping until the tests pass.
 
 ## Release Impact
 
