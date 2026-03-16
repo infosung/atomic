@@ -6,7 +6,6 @@ import com.infosung.atomic.app.version.AppVersionHttpExceptionHandler
 import com.infosung.atomic.app.version.ServiceVersionRepository
 import kotlin.test.Test
 import kotlin.test.assertIs
-import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import org.mockito.Mockito.mock
 import org.springframework.boot.autoconfigure.AutoConfigurations
