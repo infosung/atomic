@@ -1,5 +1,6 @@
 package com.infosung.atomic.app.version
 
+import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -24,7 +25,7 @@ import org.testcontainers.junit.jupiter.Testcontainers
 @DataJpaTest(
     properties =
         [
-            "spring.jpa.hibernate.ddl-auto=validate",
+            "spring.jpa.hibernate.ddl-auto=none",
             "spring.sql.init.mode=always",
             "spring.sql.init.schema-locations=classpath:META-INF/atomic/sql/postgresql/test/drop_service_version.sql,classpath:META-INF/atomic/sql/postgresql/service_version.sql",
         ],
@@ -163,7 +164,7 @@ class AppVersionMigrationAssetContractTest {
     @JvmStatic
     private val postgres: PostgreSQLContainer<*> =
         PostgreSQLContainer("postgres:16-alpine")
-            .withDatabaseName("app_version_migration_asset_contract")
+            .withDatabaseName("app_version_migration_asset_contract_${UUID.randomUUID()}")
 
     @JvmStatic
     @DynamicPropertySource

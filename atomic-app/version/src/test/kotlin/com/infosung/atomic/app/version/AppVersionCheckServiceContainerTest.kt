@@ -1,6 +1,7 @@
 package com.infosung.atomic.app.version
 
 import com.infosung.atomic.contract.exception.HttpStatusException
+import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -156,7 +157,9 @@ class AppVersionCheckServiceContainerTest {
   companion object {
     @Container
     @JvmStatic
-    private val postgres: PostgreSQLContainer<*> = PostgreSQLContainer("postgres:16-alpine")
+    private val postgres: PostgreSQLContainer<*> =
+        PostgreSQLContainer("postgres:16-alpine")
+            .withDatabaseName("app_version_service_container_${UUID.randomUUID()}")
 
     @JvmStatic
     @DynamicPropertySource
