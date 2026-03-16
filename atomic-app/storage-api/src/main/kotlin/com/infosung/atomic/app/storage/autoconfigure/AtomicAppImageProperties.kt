@@ -20,6 +20,9 @@ class AtomicAppImageProperties {
   /** Maximum allowed quality. */
   var maxQuality: Double = 1.0
 
+  /** Whether thumbnail generation is enabled by default for uploads. */
+  var thumbnailEnabled: Boolean = true
+
   /**
    * Enables uploader identity parameter handling in image upload/delete API.
    *

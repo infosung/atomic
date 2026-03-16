@@ -6,6 +6,7 @@ import javax.sql.DataSource
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 import org.mockito.Mockito.mock
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.support.DefaultListableBeanFactory
@@ -39,7 +40,11 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
     val properties = AtomicAppOauthRedirectProperties()
 
     assertFailsWith<IllegalArgumentException> {
-      autoConfiguration.appOauthRedirectPropertiesValidator(properties)
+      autoConfiguration.appOauthRedirectPropertiesValidator(
+          properties = properties,
+          oauthServiceProviderProvider = provider(),
+          oauthStateManagerProvider = provider(),
+      )
     }
   }
 
@@ -68,7 +73,11 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
     val properties = configuredProperties().apply { relayCodeTtlSeconds = 0 }
 
     assertFailsWith<IllegalArgumentException> {
-      autoConfiguration.appOauthRedirectPropertiesValidator(properties)
+      autoConfiguration.appOauthRedirectPropertiesValidator(
+          properties = properties,
+          oauthServiceProviderProvider = provider(),
+          oauthStateManagerProvider = provider(),
+      )
     }
   }
 
@@ -77,7 +86,11 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
     val properties = AtomicAppOauthRedirectProperties()
 
     assertFailsWith<IllegalArgumentException> {
-      autoConfiguration.appOauthRedirectPropertiesValidator(properties)
+      autoConfiguration.appOauthRedirectPropertiesValidator(
+          properties = properties,
+          oauthServiceProviderProvider = provider(),
+          oauthStateManagerProvider = provider(),
+      )
     }
   }
 
@@ -99,8 +112,38 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
       val properties = configuredProperties().apply { mutate(this) }
 
       assertFailsWith<IllegalArgumentException> {
-        autoConfiguration.appOauthRedirectPropertiesValidator(properties)
+        autoConfiguration.appOauthRedirectPropertiesValidator(
+            properties = properties,
+            oauthServiceProviderProvider = provider(),
+            oauthStateManagerProvider = provider(),
+        )
       }
+    }
+  }
+
+  @Test
+  fun `allowlist entries with invalid structure should fail fast`() {
+    val invalidPrefixes =
+        listOf(
+            "https://app.example.com/oauth?bad=1",
+            "https://user@app.example.com/oauth",
+            "/oauth/callback",
+        )
+
+    invalidPrefixes.forEach { invalidPrefix ->
+      val properties =
+          configuredProperties().apply { allowedRedirectUriPrefixes = listOf(invalidPrefix) }
+
+      val exception =
+          assertFailsWith<IllegalArgumentException> {
+            autoConfiguration.appOauthRedirectPropertiesValidator(
+                properties = properties,
+                oauthServiceProviderProvider = provider(),
+                oauthStateManagerProvider = provider(),
+            )
+          }
+
+      assertTrue(exception.message?.isNotBlank() == true)
     }
   }
 

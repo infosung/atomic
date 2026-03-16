@@ -1,8 +1,10 @@
 package com.infosung.atomic.app.storage.autoconfigure
 
 import com.infosung.atomic.app.storage.AppImageApiService
+import com.infosung.atomic.app.storage.AppImageDeleteRecoveryService
 import com.infosung.atomic.app.storage.AppImageEntityTxService
 import com.infosung.atomic.app.storage.AppStorageController
+import com.infosung.atomic.app.storage.AppStorageHttpExceptionHandler
 import com.infosung.atomic.app.storage.ImageEntity
 import com.infosung.atomic.app.storage.ImageRepository
 import com.infosung.atomic.storage.StorageClient
@@ -69,6 +71,19 @@ class AtomicAppImageAutoConfiguration {
     )
   }
 
+  @Bean
+  @ConditionalOnMissingBean
+  @ConditionalOnBean(ImageService::class)
+  fun appImageDeleteRecoveryService(
+      appImageEntityTxService: AppImageEntityTxService,
+      imageService: ImageService,
+  ): AppImageDeleteRecoveryService {
+    return AppImageDeleteRecoveryService(
+        imageEntityTxService = appImageEntityTxService,
+        imageService = imageService,
+    )
+  }
+
   /**
    * Registers image API controller.
    *
@@ -98,5 +113,11 @@ class AtomicAppImageAutoConfiguration {
         appImageApiService = appImageApiService,
         properties = properties,
     )
+  }
+
+  @Bean
+  @ConditionalOnMissingBean
+  fun appStorageHttpExceptionHandler(): AppStorageHttpExceptionHandler {
+    return AppStorageHttpExceptionHandler()
   }
 }

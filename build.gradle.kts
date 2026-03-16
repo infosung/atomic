@@ -54,7 +54,14 @@ allprojects {
           "**/*.zsh",
           "**/*.sql",
       )
-      targetExclude("**/build/**", ".gradle/**", ".gradle-user/**", ".idea/**", "**/.idea/**")
+      targetExclude(
+          "**/build/**",
+          ".gradle/**",
+          "**/.gradle/**",
+          ".gradle-user/**",
+          ".idea/**",
+          "**/.idea/**",
+      )
       trimTrailingWhitespace()
       endWithNewline()
     }

@@ -1,9 +1,11 @@
 package com.infosung.atomic.app.version
 
 import com.infosung.atomic.contract.exception.HttpStatusException
+import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.SpringBootConfiguration
@@ -73,22 +75,77 @@ class AppVersionCheckServiceContainerTest {
     assertEquals(404, error.status)
   }
 
+  @Test
+  fun `checkVersion should allow unregistered client version on postgres rows`() {
+    val service =
+        AppVersionCheckService(serviceVersionRepository, defaultStoreUrl = "https://default.store")
+    serviceVersionRepository.saveAll(
+        listOf(
+            policy(
+                main = 2,
+                minor = 1,
+                patch = 0,
+                requireUpdate = true,
+                storeUrl = "https://not-ready.update",
+                storeAvailable = false),
+            policy(main = 2, minor = 0, patch = 0, requireUpdate = false, storeAvailable = true),
+            policy(
+                main = 1,
+                minor = 2,
+                patch = 4,
+                requireUpdate = true,
+                storeUrl = "https://force.update",
+                storeAvailable = true),
+        ),
+    )
+
+    val result =
+        service.checkVersion(
+            VersionCheckRequest(
+                service = "MY_SERVICE",
+                platform = "ANDROID",
+                appVersion = "1.2.3",
+            ),
+        )
+
+    assertEquals("2.0.0", result.currentVersion)
+    assertEquals("1.2.3", result.userVersion)
+    assertTrue(result.requiredUpdate)
+    assertEquals("https://force.update", result.storeUrl)
+
+    val reviewerResult =
+        service.checkVersion(
+            VersionCheckRequest(
+                service = "MY_SERVICE",
+                platform = "ANDROID",
+                appVersion = "2.1.0",
+            ),
+        )
+
+    assertEquals("2.0.0", reviewerResult.currentVersion)
+    assertEquals("2.1.0", reviewerResult.userVersion)
+    assertFalse(reviewerResult.requiredUpdate)
+    assertEquals("https://default.store", reviewerResult.storeUrl)
+  }
+
   private fun policy(
       main: Int,
       minor: Int,
       patch: Int,
       requireUpdate: Boolean,
       storeUrl: String? = null,
+      storeAvailable: Boolean = true,
   ): ServiceVersionEntity {
     return ServiceVersionEntity(
-        mainVersion = main,
-        minorVersion = minor,
-        patchNumber = patch,
-        requireUpdate = requireUpdate,
-        service = "MY_SERVICE",
-        platform = "ANDROID",
-        storeUrl = storeUrl,
-    )
+            mainVersion = main,
+            minorVersion = minor,
+            patchNumber = patch,
+            requireUpdate = requireUpdate,
+            service = "MY_SERVICE",
+            platform = "ANDROID",
+            storeUrl = storeUrl,
+        )
+        .also { it.storeAvailable = storeAvailable }
   }
 
   @SpringBootConfiguration
@@ -100,7 +157,9 @@ class AppVersionCheckServiceContainerTest {
   companion object {
     @Container
     @JvmStatic
-    private val postgres: PostgreSQLContainer<*> = PostgreSQLContainer("postgres:16-alpine")
+    private val postgres: PostgreSQLContainer<*> =
+        PostgreSQLContainer("postgres:16-alpine")
+            .withDatabaseName("app_version_service_container_${UUID.randomUUID()}")
 
     @JvmStatic
     @DynamicPropertySource

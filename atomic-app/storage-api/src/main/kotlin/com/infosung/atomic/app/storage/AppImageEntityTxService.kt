@@ -2,6 +2,7 @@ package com.infosung.atomic.app.storage
 
 import java.util.UUID
 import org.slf4j.LoggerFactory
+import org.springframework.data.domain.PageRequest
 import org.springframework.transaction.annotation.Transactional
 
 /** Transaction boundary service for image metadata persistence. */
@@ -22,6 +23,16 @@ open class AppImageEntityTxService(
     }
   }
 
+  /** Reads oldest delete-pending metadata rows for recovery. */
+  @Transactional(readOnly = true)
+  open fun findDeletePending(limit: Int): List<ImageEntity> {
+    log.debug("Loading delete-pending image metadata batch: limit={}", limit)
+    return imageRepository.findAllByStatusOrderByCreatedAtAsc(
+        status = ImageEntity.STATUS_DELETE_PENDING,
+        pageable = PageRequest.of(0, limit),
+    )
+  }
+
   /** Persists uploaded image metadata row. */
   @Transactional
   open fun save(imageEntity: ImageEntity): ImageEntity {
@@ -34,11 +45,45 @@ open class AppImageEntityTxService(
     return imageRepository.save(imageEntity)
   }
 
+  /** Marks metadata row as delete-pending before storage cleanup. */
+  @Transactional
+  open fun markDeletePending(imageEntity: ImageEntity): ImageEntity {
+    if (imageEntity.status == ImageEntity.STATUS_DELETE_PENDING) {
+      log.info(
+          "Image metadata already delete-pending: imageId={}, objectKey={}",
+          imageEntity.id,
+          imageEntity.fileName,
+      )
+      return imageEntity
+    }
+    val pendingEntity = imageEntity.toDeletePending()
+    log.info(
+        "Marking image metadata delete-pending: imageId={}, objectKey={}, previousStatus={}, nextStatus={}",
+        imageEntity.id,
+        imageEntity.fileName,
+        imageEntity.status,
+        pendingEntity.status,
+    )
+    return save(pendingEntity)
+  }
+
   /** Deletes image metadata row. */
   @Transactional
   open fun delete(imageEntity: ImageEntity) {
     log.debug(
         "Deleting image metadata: imageId={}, objectKey={}", imageEntity.id, imageEntity.fileName)
     imageRepository.delete(imageEntity)
+  }
+
+  /** Deletes metadata row after storage cleanup succeeded. */
+  @Transactional
+  open fun purgeDeletePending(imageEntity: ImageEntity) {
+    log.info(
+        "Purging delete-pending image metadata: imageId={}, objectKey={}, status={}",
+        imageEntity.id,
+        imageEntity.fileName,
+        imageEntity.status,
+    )
+    delete(imageEntity)
   }
 }

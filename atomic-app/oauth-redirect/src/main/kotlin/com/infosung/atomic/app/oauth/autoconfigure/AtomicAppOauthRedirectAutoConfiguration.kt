@@ -1,6 +1,8 @@
 package com.infosung.atomic.app.oauth.autoconfigure
 
+import com.infosung.atomic.app.oauth.AllowedRedirectUriPolicy
 import com.infosung.atomic.app.oauth.AppOauthRedirectController
+import com.infosung.atomic.app.oauth.AppOauthRedirectHttpExceptionHandler
 import com.infosung.atomic.app.oauth.AppOauthRedirectService
 import com.infosung.atomic.app.oauth.AppOauthRelayCodeService
 import com.infosung.atomic.app.oauth.CacheOauthRelayCodeStore
@@ -49,9 +51,20 @@ class AtomicAppOauthRedirectAutoConfiguration {
   @Bean
   fun appOauthRedirectPropertiesValidator(
       properties: AtomicAppOauthRedirectProperties,
+      oauthServiceProviderProvider: ObjectProvider<OauthServiceProvider>,
+      oauthStateManagerProvider: ObjectProvider<OauthStateManager>,
   ): Any {
     validateGlobalProperties(properties)
     validateSecurityProperties(properties)
+    validateRequiredOauthBeans(
+        oauthServiceProviderProvider = oauthServiceProviderProvider,
+        oauthStateManagerProvider = oauthStateManagerProvider,
+    )
+    log.debug(
+        "Validated oauth redirect auto-configuration prerequisites: storeType={}, callbackBindingMode={}",
+        properties.store.type,
+        properties.callbackBinding.resolvedMode(),
+    )
     return Any()
   }
 
@@ -104,14 +117,30 @@ class AtomicAppOauthRedirectAutoConfiguration {
               reason = "Configured cache '$cacheName' is not available from CacheManager.",
           )
         } else {
-          CacheOauthRelayCodeStore(
-              cacheManager = cacheManager,
-              cacheName = cacheName,
-              keyPrefix = properties.store.cache.keyPrefix,
-              ttlSeconds = cacheTtlSeconds,
-              objectMapper = objectMapper,
-              timeProvider = timeProvider,
-          )
+          val cache = cacheManager.getCache(cacheName)!!
+          if (!CacheOauthRelayCodeStore.supportsAtomicConsume(cache)) {
+            fallbackOrThrow(
+                properties = properties,
+                timeProvider = timeProvider,
+                reason = CacheOauthRelayCodeStore.unsupportedAtomicConsume(cacheName).message!!,
+            )
+          } else {
+            log.info(
+                "Using cache-backed oauth relay store: cacheName={}, ttlSeconds={}, failFast={}, nativeCacheType={}",
+                cacheName,
+                cacheTtlSeconds,
+                properties.store.failFast,
+                cache.getNativeCache()::class.java.name,
+            )
+            CacheOauthRelayCodeStore(
+                cacheManager = cacheManager,
+                cacheName = cacheName,
+                keyPrefix = properties.store.cache.keyPrefix,
+                ttlSeconds = cacheTtlSeconds,
+                objectMapper = objectMapper,
+                timeProvider = timeProvider,
+            )
+          }
         }
       }
 
@@ -183,6 +212,12 @@ class AtomicAppOauthRedirectAutoConfiguration {
     )
   }
 
+  @Bean
+  @ConditionalOnMissingBean
+  fun appOauthRedirectHttpExceptionHandler(): AppOauthRedirectHttpExceptionHandler {
+    return AppOauthRedirectHttpExceptionHandler()
+  }
+
   private fun newInMemoryStore(
       properties: AtomicAppOauthRedirectProperties,
       timeProvider: TimeProvider,
@@ -193,6 +228,11 @@ class AtomicAppOauthRedirectAutoConfiguration {
           properties.store.inMemory.cleanupInterval,
       )
     }
+    log.info(
+        "Using in-memory oauth relay store: cleanupInterval={}, failFast={}",
+        properties.store.inMemory.cleanupInterval,
+        properties.store.failFast,
+    )
     return InMemoryOauthRelayCodeStore(
         cleanupInterval = properties.store.inMemory.cleanupInterval,
         timeProvider = timeProvider,
@@ -205,6 +245,7 @@ class AtomicAppOauthRedirectAutoConfiguration {
       reason: String,
   ): OauthRelayCodeStore {
     if (properties.store.failFast) {
+      log.error("OAuth redirect relay store fail-fast triggered: {}", reason)
       throw IllegalStateException(reason)
     }
     log.warn("{} Falling back to in-memory relay code store.", reason)
@@ -212,13 +253,9 @@ class AtomicAppOauthRedirectAutoConfiguration {
   }
 
   private fun validateSecurityProperties(properties: AtomicAppOauthRedirectProperties) {
-    val allowedRedirectUriPrefixes =
-        properties.allowedRedirectUriPrefixes.map { it.trim() }.filter { it.isNotBlank() }
-    require(allowedRedirectUriPrefixes.isNotEmpty()) {
-      "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes must not be empty when redirect API is enabled."
-    }
+    AllowedRedirectUriPolicy.validateConfiguredPrefixes(properties.allowedRedirectUriPrefixes)
 
-    if (!properties.callbackBinding.enabled) {
+    if (!properties.callbackBinding.isCookieValidationEnabled()) {
       return
     }
     require(properties.callbackBinding.stateAttributeKey.isNotBlank()) {
@@ -251,5 +288,28 @@ class AtomicAppOauthRedirectAutoConfiguration {
     require(properties.relayCodeTtlSeconds > 0) {
       "atomic.app.oauth.redirect.relay-code-ttl-seconds must be greater than zero."
     }
+  }
+
+  private fun validateRequiredOauthBeans(
+      oauthServiceProviderProvider: ObjectProvider<OauthServiceProvider>,
+      oauthStateManagerProvider: ObjectProvider<OauthStateManager>,
+  ) {
+    val oauthServiceProvider = oauthServiceProviderProvider.getIfAvailable()
+    val oauthStateManager = oauthStateManagerProvider.getIfAvailable()
+    if (oauthServiceProvider != null &&
+        oauthStateManager != null &&
+        oauthStateManager.isReplayProtectionEnabled()) {
+      return
+    }
+    val message =
+        "atomic.app.oauth.redirect.enabled=true requires OauthServiceProvider and store-backed OauthStateManager beans."
+    log.error(
+        "{} providerPresent={}, stateManagerPresent={}, replayProtectionEnabled={}",
+        message,
+        oauthServiceProvider != null,
+        oauthStateManager != null,
+        oauthStateManager?.isReplayProtectionEnabled() == true,
+    )
+    throw IllegalStateException(message)
   }
 }

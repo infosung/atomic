@@ -9,10 +9,8 @@ import com.infosung.atomic.oauth.api.OauthTokenExchangeRequest
 import com.infosung.atomic.oauth.api.OauthTokenResult
 import com.infosung.atomic.oauth.exception.OauthException
 import com.infosung.atomic.oauth.state.OauthStateManager
-import java.net.URI
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
-import java.util.Locale
 import org.slf4j.LoggerFactory
 import org.springframework.security.oauth2.jwt.Jwt
 
@@ -83,9 +81,14 @@ class AppOauthRedirectService(
             message = "Use POST ${properties.callbackEndpointPath}/apple for Apple callback.",
         )
       }
+      log.debug(
+          "Verifying oauth callback state: provider={}, additionalParameterKeys={}",
+          oauthProvider.providerName,
+          additionalParameters.keys.sorted(),
+      )
 
       val stateJwt =
-          oauthStateManager.readState(
+          oauthStateManager.verifyState(
               signedState = state,
               expectedProvider = oauthProvider.providerName,
           )
@@ -191,14 +194,17 @@ class AppOauthRedirectService(
     return try {
       block()
     } catch (e: HttpStatusException) {
+      log.warn("Rejected oauth callback: provider={}, message={}", provider, e.message)
       throw e
     } catch (e: OauthException) {
+      log.warn("Rejected oauth callback: provider={}, message={}", provider, e.message)
       throw HttpStatusException(
           status = 400,
           message = e.message ?: "Invalid OAuth callback request for provider: $provider",
           cause = e,
       )
     } catch (e: IllegalArgumentException) {
+      log.warn("Rejected oauth callback: provider={}, message={}", provider, e.message)
       throw HttpStatusException(
           status = 400,
           message = e.message ?: "Invalid OAuth callback request for provider: $provider",
@@ -208,148 +214,10 @@ class AppOauthRedirectService(
   }
 
   private fun validateRedirectUri(redirectUri: String): String {
-    val normalized = redirectUri.trim()
-    if (normalized.isBlank()) {
-      throw HttpStatusException(status = 400, message = "redirectUri is required.")
-    }
-    val candidateUri = parseUriOrThrow(normalized, message = "redirectUri is invalid.")
-    val allowedPrefixes =
-        properties.allowedRedirectUriPrefixes.map { it.trim() }.filter { it.isNotBlank() }
-    if (allowedPrefixes.isEmpty()) {
-      throw IllegalStateException(
-          "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes must be configured.",
-      )
-    }
-    val allowedPatterns = allowedPrefixes.map { toAllowedRedirectPattern(it) }
-    if (allowedPatterns.none { it.matches(candidateUri) }) {
-      throw HttpStatusException(status = 400, message = "redirectUri is not allowed.")
-    }
-    return normalized
-  }
-
-  private fun parseUriOrThrow(
-      value: String,
-      message: String,
-  ): URI {
-    val uri =
-        runCatching { URI(value) }.getOrNull()
-            ?: throw HttpStatusException(status = 400, message = message)
-    if (!uri.isAbsolute || uri.scheme.isNullOrBlank()) {
-      throw HttpStatusException(status = 400, message = message)
-    }
-    if (!uri.userInfo.isNullOrBlank()) {
-      throw HttpStatusException(status = 400, message = message)
-    }
-    return uri
-  }
-
-  private fun toAllowedRedirectPattern(raw: String): AllowedRedirectPattern {
-    val uri =
-        runCatching { URI(raw) }
-            .getOrElse {
-              log.warn("Invalid allowed redirect URI entry: {}", raw)
-              throw HttpStatusException(
-                  status = 400,
-                  message = "Invalid allowed redirect URI entry: $raw",
-              )
-            }
-    if (!uri.isAbsolute || uri.scheme.isNullOrBlank()) {
-      log.warn("Allowed redirect URI must be absolute: {}", raw)
-      throw HttpStatusException(status = 400, message = "Allowed redirect URI must be absolute.")
-    }
-    if (!uri.userInfo.isNullOrBlank()) {
-      log.warn("Allowed redirect URI must not contain user info: {}", raw)
-      throw HttpStatusException(
-          status = 400,
-          message = "Allowed redirect URI must not contain user info.",
-      )
-    }
-    if (!uri.rawQuery.isNullOrBlank() || !uri.rawFragment.isNullOrBlank()) {
-      log.warn("Allowed redirect URI must not include query or fragment: {}", raw)
-      throw HttpStatusException(
-          status = 400,
-          message = "Allowed redirect URI must not include query or fragment.",
-      )
-    }
-
-    return AllowedRedirectPattern(
-        scheme = uri.scheme.lowercase(Locale.ROOT),
-        host = uri.host?.lowercase(Locale.ROOT),
-        port = effectivePort(uri),
-        pathPrefix = normalizeAllowedPathPrefix(uri.path),
+    return AllowedRedirectUriPolicy.validateRedirectUri(
+        redirectUri = redirectUri,
+        configuredPrefixes = properties.allowedRedirectUriPrefixes,
     )
-  }
-
-  private fun effectivePort(uri: URI): Int {
-    if (uri.port >= 0) {
-      return uri.port
-    }
-    return when (uri.scheme.lowercase(Locale.ROOT)) {
-      "http" -> 80
-      "https" -> 443
-      else -> -1
-    }
-  }
-
-  private fun normalizeAllowedPathPrefix(path: String?): String {
-    val normalized = normalizePath(path)
-    return if (normalized.length > 1 && normalized.endsWith("/")) {
-      normalized.dropLast(1)
-    } else {
-      normalized
-    }
-  }
-
-  private fun normalizePath(path: String?): String {
-    val raw = path?.trim().orEmpty()
-    if (raw.isEmpty()) {
-      return "/"
-    }
-    return if (raw.startsWith("/")) raw else "/$raw"
-  }
-
-  private data class AllowedRedirectPattern(
-      val scheme: String,
-      val host: String?,
-      val port: Int,
-      val pathPrefix: String,
-  ) {
-    fun matches(candidateUri: URI): Boolean {
-      if (candidateUri.scheme.lowercase(Locale.ROOT) != scheme) {
-        return false
-      }
-      val candidateHost = candidateUri.host?.lowercase(Locale.ROOT)
-      if (candidateHost != host) {
-        return false
-      }
-      if (effectiveCandidatePort(candidateUri) != port) {
-        return false
-      }
-      val candidatePath = normalizeCandidatePath(candidateUri.path)
-      if (pathPrefix == "/") {
-        return true
-      }
-      return candidatePath == pathPrefix || candidatePath.startsWith("$pathPrefix/")
-    }
-
-    private fun effectiveCandidatePort(uri: URI): Int {
-      if (uri.port >= 0) {
-        return uri.port
-      }
-      return when (uri.scheme.lowercase(Locale.ROOT)) {
-        "http" -> 80
-        "https" -> 443
-        else -> -1
-      }
-    }
-
-    private fun normalizeCandidatePath(path: String?): String {
-      val raw = path?.trim().orEmpty()
-      if (raw.isEmpty()) {
-        return "/"
-      }
-      return if (raw.startsWith("/")) raw else "/$raw"
-    }
   }
 
   private fun readRedirectUri(stateJwt: Jwt): String {
@@ -371,7 +239,7 @@ class AppOauthRedirectService(
   }
 
   private fun buildStateAttributes(callbackBindingToken: String?): Map<String, String> {
-    if (!properties.callbackBinding.enabled) {
+    if (!properties.callbackBinding.isCookieValidationEnabled()) {
       return emptyMap()
     }
     val stateAttributeKey = resolveCallbackBindingStateAttributeKey()
@@ -381,6 +249,10 @@ class AppOauthRedirectService(
                 status = 400,
                 message = "OAuth callback binding token is required.",
             )
+    log.trace(
+        "Using callback binding token for oauth redirect request: callbackBindingMode={}",
+        properties.callbackBinding.resolvedMode(),
+    )
     return mapOf(stateAttributeKey to bindingToken)
   }
 
@@ -388,7 +260,7 @@ class AppOauthRedirectService(
       stateJwt: Jwt,
       callbackBindingToken: String?,
   ) {
-    if (!properties.callbackBinding.enabled) {
+    if (!properties.callbackBinding.isCookieValidationEnabled()) {
       return
     }
     val stateAttributeKey = resolveCallbackBindingStateAttributeKey()
@@ -406,6 +278,10 @@ class AppOauthRedirectService(
                 message = "OAuth callback binding cookie is missing.",
             )
     if (actualToken != expectedToken) {
+      log.warn(
+          "OAuth callback binding token mismatch detected: callbackBindingMode={}",
+          properties.callbackBinding.resolvedMode(),
+      )
       throw HttpStatusException(
           status = 400,
           message = "OAuth callback binding token mismatch.",

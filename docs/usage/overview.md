@@ -1,13 +1,12 @@
 # Usage Overview
 
-> Status: Development in progress (pre-release).
-> Currently under development (pre-release).
+> Status: `v0.0.2` usage guide for a pre-1.0 release line.
 
 ## Before You Start
 
-- Tested baseline: Java `25`, Kotlin `2.3.10`, Spring Boot `4.0.3`
-- Additional supported combinations are validated by CI matrix in `.github/workflows/ci.yml`.
-- Other patch/minor versions are not guaranteed. Validate in your CI before rollout.
+- Release-validation baseline: Java `25`, Kotlin `2.3.10`, Spring Boot `4.0.3`
+- Other runtime combinations are possible, but they are not part of the `v0.0.2` release
+  guarantee unless your team validates them in its own CI before rollout.
 - Use `atomic.starter` to enable conditional auto-configuration.
 - Add `atomic.contract` when your app directly uses `BaseResponse` / `HttpStatusException`.
 - Add only the feature modules you use.
@@ -15,6 +14,7 @@
 Recommended entry docs:
 - Start with minimal setup: [Atomic Quick Start](quick-start.md)
 - Move to production criteria: [Advanced Operations Playbook](advanced-playbook.md)
+- Release upgrade impact: [Release Migration Guide: v0.0.1 -> v0.0.2](../migration/v0.0.1-to-v0.0.2.md)
 
 ## What Atomic Solves
 
@@ -34,7 +34,10 @@ Use only the modules you need.
 - `atomic.contract`: shared response/header/exception/util model used by all layers
 - `atomic.starter`: conditional Spring Boot auto-configuration entrypoint
 - `atomic.storage`: storage module (S3-compatible backends such as S3/R2/MinIO, plus media helpers)
-- `atomic.app`: common app-level API bundle module (`version` + `storage-api` + `oauth-redirect`)
+- `atomic.app.version`: narrow app-level version API module
+- `atomic.app.storage.api`: narrow app-level image API module
+- `atomic.app.oauth.redirect`: narrow app-level OAuth redirect/callback relay module
+- `atomic.app`: convenience bundle module (`version` + `storage-api` + `oauth-redirect`)
 - `atomic.spring.web`: API error handling, request/response logging, RestTemplate interceptor/error handler
 - `atomic.spring.idempotency`: HTTP idempotency filter for one-time POST processing
 - `atomic.spring.security`: JWT issue/verify + Spring Security filter integration
@@ -43,19 +46,22 @@ Use only the modules you need.
 
 ## 2. Dependencies
 
-Current public publish workflow scope (Maven Central):
+Published artifact examples (`v0.0.2`):
 
 ```kotlin
 dependencies {
-  implementation("com.infosung:atomic.contract:0.0.1")
-  implementation("com.infosung:atomic.storage:0.0.1")
-  implementation("com.infosung:atomic.spring.web:0.0.1")
-  implementation("com.infosung:atomic.spring.security:0.0.1")
-  implementation("com.infosung:atomic.spring.idempotency:0.0.1")
-  implementation("com.infosung:atomic.spring.oauth2:0.0.1")
-  implementation("com.infosung:atomic.heartbeat:0.0.1")
-  implementation("com.infosung:atomic.starter:0.0.1")
-  implementation("com.infosung:atomic.app:0.0.1")
+  implementation("com.infosung:atomic.contract:0.0.2")
+  implementation("com.infosung:atomic.storage:0.0.2")
+  implementation("com.infosung:atomic.spring.web:0.0.2")
+  implementation("com.infosung:atomic.spring.security:0.0.2")
+  implementation("com.infosung:atomic.spring.idempotency:0.0.2")
+  implementation("com.infosung:atomic.spring.oauth2:0.0.2")
+  implementation("com.infosung:atomic.heartbeat:0.0.2")
+  implementation("com.infosung:atomic.starter:0.0.2")
+  implementation("com.infosung:atomic.app.version:0.0.2")
+  implementation("com.infosung:atomic.app.storage.api:0.0.2")
+  implementation("com.infosung:atomic.app.oauth.redirect:0.0.2")
+  implementation("com.infosung:atomic.app:0.0.2")
 }
 ```
 
@@ -94,19 +100,22 @@ dependencies {
 
 ## 3. Quick Start (First Day)
 
-1. Add `atomic.starter` first. Add `atomic.contract` only when your app directly uses `BaseResponse` / `HttpStatusException` (exception: `atomic.app` version-only single-track starts are possible via [Atomic Quick Start](quick-start.md)).
-2. Add one feature module only (`app`, `storage`, `web`, `idempotency`, `security`, `oauth2`, or `heartbeat`); for `app` image/oauth redirect features, also add their prerequisite modules/beans from the module matrix below.
-3. Register only minimum required beans from that guide.
-4. Run one smoke endpoint.
-5. Add optional features after baseline works.
+1. Add the narrowest module first. For app APIs, prefer `atomic.app.version`, `atomic.app.storage.api`, or `atomic.app.oauth.redirect`; use `atomic.app` only when you want the bundle on purpose.
+2. Add `atomic.starter` when you need auto-configured infra. Add `atomic.contract` only when your app directly uses `BaseResponse` / `HttpStatusException`.
+3. Add one feature module only (`app.version`, `app.storage.api`, `app.oauth.redirect`, `storage`, `web`, `idempotency`, `security`, `oauth2`, or `heartbeat`); for image/oauth redirect features, also add their prerequisite modules/beans from the module matrix below.
+4. Register only minimum required beans from that guide.
+5. Run one smoke endpoint.
+6. Add optional features after baseline works.
 
 ## 4. Module Combination Matrix
 
 | Goal | Modules | First Setup |
 |---|---|---|
 | Standard API response + shared contracts | `starter` + `contract` | Use `BaseResponse`, `HttpStatusException` |
-| App-ready version/image APIs | `app` + (`starter` + `storage` for image API) | enable `atomic.app.version.enabled` and/or `atomic.app.image.enabled` |
-| App-ready OAuth redirect/callback relay | `app` + `starter` + `spring.oauth2` | enable `atomic.app.oauth.redirect.enabled`, consume `relayCode` in login API, configure store prerequisites (default `store.type=entity`), and set non-empty `allowed-redirect-uri-prefixes` |
+| App-ready version API | `app.version` | enable `atomic.app.version.enabled`, provision `service_version` schema, and seed version rows |
+| App-ready image upload/delete API | `app.storage.api` + `starter` + `storage` | enable `atomic.app.image.enabled`, provision `image` schema, and configure storage backends |
+| App-ready OAuth redirect/callback relay | `app.oauth.redirect` + `starter` + `spring.oauth2` | enable `atomic.app.oauth.redirect.enabled`, consume `relayCode` in login API, configure store prerequisites (default `store.type=entity`), and set non-empty `allowed-redirect-uri-prefixes` |
+| Convenience bundle for multiple app APIs | `app` + any prerequisites still required by enabled features | enable only the specific `atomic.app.*.enabled` tracks you need |
 | Object storage and media processing | `starter` + `storage` | set `atomic.storage.backends.*` and use `ImageService` |
 | Exception response standardization | `starter` + `spring.web` (+ `contract` when app directly uses `BaseResponse` / `HttpStatusException`) | `BaseExceptionHandler` subclass |
 | API request/response audit logs | `starter` + `spring.web` | add `LogSaver` + `ApiLogAspect` implementation |
@@ -117,12 +126,25 @@ dependencies {
 | Heartbeat ping + dependency checks | `starter` + `heartbeat` | enable `atomic.heartbeat.enabled`, set provider URL, optional DB/Redis checks and dedup mode |
 | Full typical server stack | all modules | start with `starter` -> `storage/web` -> `security` -> `oauth2` |
 
-## 5. Configuration Policy
+## 5. App Module Responsibility Matrix
+
+| Feature | Database schema | Shared store / external state | Host job / runbook | Security rule change | Error-envelope ownership |
+|---|---|---|---|---|---|
+| `atomic.app.version` | `service_version` table + policy rows | none | seed/update version policy data, including whether each row is already store-available | usually none beyond normal API rules | built-in app advice is enough unless your platform overrides it |
+| `atomic.app.storage.api` | `image` table | configured `storageClients` / backend bucket | yes; own the `DELETE_PENDING` recovery path by replaying delete or calling `AppImageDeleteRecoveryService.recoverDeletePendingImages(limit)` | yes; include image paths in Spring Security matchers when security is enabled | built-in app advice is enough unless your platform overrides it |
+| `atomic.app.oauth.redirect` | default `entity` store needs `atomic_oauth_relay_code` table; `cache` / `in-memory` do not | yes; `OauthStateStore` for replay protection, plus relay store policy that matches deployment model | yes; own expired-row cleanup for entity relay store and decide local/dev vs multi-instance store policy | yes; allow redirect/callback endpoints and define CSRF policy for Apple `POST` callback | built-in app advice is enough unless your platform overrides it |
+
+Use this matrix as the shortest handoff summary for app-module adoption. If a row introduces
+infrastructure your team does not want to own yet, stay on the narrower feature set.
+
+## 6. Configuration Policy
 
 - `atomic.starter` activates only when corresponding module classes are on classpath.
 - `atomic.app` APIs are disabled by default and enabled by `atomic.app.version.enabled` / `atomic.app.image.enabled` / `atomic.app.oauth.redirect.enabled`.
 - Some features still require application-specific beans (for example `BaseExceptionHandler`, `ApiLogAspect`, `LogSaver`).
-- `HttpStatusException` status is reflected in HTTP response only when your app maps it (for example `BaseExceptionHandler` subclass); without mapping, default error handling can return `500`.
+- `atomic.app.version`, `atomic.app.image`, and `atomic.app.oauth.redirect` now ship controller-specific `HttpStatusException` mapping, so their documented `400/403/404` wire contract works without host-app exception advice.
+- Host apps can still override app-module error responses with a higher-precedence `@RestControllerAdvice` when a custom envelope is required.
+- Outside those app controllers, `HttpStatusException` still needs application-level mapping (for example `BaseExceptionHandler` subclass) to guarantee wire status and response shape.
 - OAuth provider beans from properties are registered when `OauthStateManager` is available and each provider `enabled=true` (auto path: `atomic.oauth2.state.enabled=true` + `atomic.oauth2.state.signing-secret`, or custom manager bean).
 - `atomic.oauth2.state.signing-secret` must be at least 32 bytes; shorter values fail startup.
 - OAuth one-time state consume requires store path (`in-memory-store.enabled=true` or custom/shared `OauthStateStore`).
@@ -134,29 +156,33 @@ dependencies {
 - Heartbeat dedup `leader` mode automatically re-elects on lease expiry; choose backend (`redis`, `jdbc`, or `custom`) and tune renew/lease values.
 - Start with minimum modules and add optional beans as needed.
 
-## 6. Operational Checklist (All Modules)
+## 7. Operational Checklist (All Modules)
 
 - Keep secrets out of source code and inject via environment.
 - Fix timezone/clock policy once and use consistently.
 - Define one response format policy for all controllers.
 - Verify error mapping behavior in non-200 scenarios.
+- If you override app-module exception mapping, verify that your advice precedence still preserves the documented wire contract.
 - Add integration tests for auth and callback flows before release.
 
-## 7. Troubleshooting Index
+## 8. Troubleshooting Index
 
 - Response shape mismatch: check `BaseResponse` usage consistency.
 - Storage upload `Unknown storageType`: check storage client/profile map keys and call-site `storageType` value.
+- Image delete `stored storageType is unavailable for image delete`: check whether configured storage client keys still match persisted `ImageEntity.storageType` values.
 - App image API setup may fail startup (not only API skip): check `atomic.app.image.enabled=true` with `ImageService`/`storageClients` bean availability.
-- App oauth redirect setup can fail in two ways: startup fail (for example default `store.type=entity` + missing required beans with `store.fail-fast=true`) or conditional endpoint skip/`404` (for example missing `OauthStateManager`/`OauthServiceProvider`); check selected store and OAuth bean prerequisites together.
-- OAuth callback errors: check state and redirect URI mapping, and callback-binding failure type (`state is missing`, `cookie is missing`, `token mismatch`, `cookie is ambiguous`).
-- OAuth relay cache store startup failure: check `atomic.app.oauth.redirect.store.cache.cache-name` exists in `CacheManager` (with default `store.fail-fast=true`).
-- OAuth redirect prefix configuration issue: empty `allowed-redirect-uri-prefixes` fails startup; invalid prefix format returns `400` at redirect/callback request time.
+- Image upload returned no thumbnail fields: check `atomic.app.image.thumbnail-enabled` and the request-level `thumbnailEnabled` override.
+- Image delete rows remain with `DELETE_PENDING`: a previous storage delete failed; keep the stored `storageType` mapping available and retry delete after storage/backend recovery, or invoke `AppImageDeleteRecoveryService.recoverDeletePendingImages(limit)` from an admin job.
+- App oauth redirect setup now fails fast when enabled but required prerequisites are missing; check selected relay store dependencies, `OauthServiceProvider`, and replay-protected `OauthStateManager` together.
+- OAuth callback errors: check state and redirect URI mapping, effective callback-binding mode (`strict`, `relaxed`, `disabled`), and callback-binding failure type (`state is missing`, `cookie is missing`, `token mismatch`, `cookie is ambiguous`).
+- OAuth relay cache store startup failure: check `atomic.app.oauth.redirect.store.cache.cache-name` exists in `CacheManager` and that the selected backend supports atomic remove-and-return consume (with default `store.fail-fast=true`).
+- OAuth redirect prefix configuration issue: empty `allowed-redirect-uri-prefixes` fails startup; invalid prefix entries also fail startup before traffic begins.
 - JWT unauthorized unexpectedly: check channel resolver and token source.
 - API logs missing: check `ServiceLogger.send()` scheduling.
 - Heartbeat fail flood or silence: verify `atomic.heartbeat.dedup.mode`, leader backend bean availability, and ping/check intervals.
 - Artifact not found: switch to `project(":...")` dependency until repository resolution is ready.
 
-## 8. Recommended Reading Order
+## 9. Recommended Reading Order
 
 1. [Atomic Quick Start](quick-start.md)
 2. [Advanced Operations Playbook](advanced-playbook.md)

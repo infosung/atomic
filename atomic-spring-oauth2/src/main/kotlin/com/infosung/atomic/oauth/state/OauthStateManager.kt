@@ -136,6 +136,9 @@ class OauthStateManager(
     )
   }
 
+  /** Returns whether this state manager is backed by replay-protection storage. */
+  fun isReplayProtectionEnabled(): Boolean = store != null
+
   private fun resolveState(
       signedState: String,
       expectedProvider: OauthProviderName? = null,

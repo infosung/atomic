@@ -80,7 +80,9 @@ class AppImageEntityTxServiceContainerTest {
   companion object {
     @Container
     @JvmStatic
-    private val postgres: PostgreSQLContainer<*> = PostgreSQLContainer("postgres:16-alpine")
+    private val postgres: PostgreSQLContainer<*> =
+        PostgreSQLContainer("postgres:16-alpine")
+            .withDatabaseName("app_image_tx_container_${UUID.randomUUID()}")
 
     @JvmStatic
     @DynamicPropertySource

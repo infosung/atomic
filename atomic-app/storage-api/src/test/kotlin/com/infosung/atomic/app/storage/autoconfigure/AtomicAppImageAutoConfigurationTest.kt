@@ -1,7 +1,10 @@
 package com.infosung.atomic.app.storage.autoconfigure
 
 import com.infosung.atomic.app.storage.AppImageApiService
+import com.infosung.atomic.app.storage.AppImageDeleteRecoveryService
 import com.infosung.atomic.app.storage.AppStorageController
+import com.infosung.atomic.app.storage.AppStorageHttpExceptionHandler
+import com.infosung.atomic.storage.image.ImageService
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
@@ -39,6 +42,25 @@ class AtomicAppImageAutoConfigurationTest {
         )
 
     assertIs<AppStorageController>(controller)
+  }
+
+  @Test
+  fun `app storage http exception handler should be created`() {
+    val handler = autoConfiguration.appStorageHttpExceptionHandler()
+
+    assertIs<AppStorageHttpExceptionHandler>(handler)
+  }
+
+  @Test
+  fun `app image delete recovery service should be created`() {
+    val recoveryService =
+        autoConfiguration.appImageDeleteRecoveryService(
+            appImageEntityTxService =
+                mock(com.infosung.atomic.app.storage.AppImageEntityTxService::class.java),
+            imageService = mock(ImageService::class.java),
+        )
+
+    assertIs<AppImageDeleteRecoveryService>(recoveryService)
   }
 
   private fun <T : Any> provider(

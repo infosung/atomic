@@ -4,6 +4,14 @@
 
 Use `atomic.app` when you want prebuilt application APIs instead of composing every controller/service manually.
 
+For new adoption, prefer the narrowest published module first:
+
+- `atomic.app.version`
+- `atomic.app.storage.api`
+- `atomic.app.oauth.redirect`
+
+Use `atomic.app` when you intentionally want the convenience bundle that re-exports all three app APIs.
+
 Current bundled APIs:
 
 - app version check API
@@ -21,10 +29,11 @@ Internally, `atomic.app` is a bundle of:
 `atomic.app` and `atomic.starter` are independent modules.
 
 - `atomic.starter` does not include `atomic.app`.
-- `atomic.app` does not require `atomic.starter` for version API.
-- `atomic.app` image API requires storage beans, so starter-based setups usually add both.
+- `atomic.app.version` does not require `atomic.starter` for version API.
+- `atomic.app.storage.api` requires storage beans, so starter-based setups usually add both.
+- `atomic.app.oauth.redirect` usually pairs with `atomic.starter` + `atomic.spring.oauth2`.
 
-Current public publish workflow scope (Maven Central):
+Published artifact set (`v0.0.2`):
 
 - `atomic-contract`
 - `atomic-storage`
@@ -52,12 +61,23 @@ dependencies {
 }
 ```
 
+Recommended narrow-module setup:
+
+```kotlin
+dependencies {
+  implementation(project(":atomic-app:app-version"))
+  implementation(project(":atomic-app:storage-api"))
+  implementation(project(":atomic-app:oauth-redirect"))
+}
+```
+
 Note:
 
 - `atomic.app.version` can work with JPA/datasource only.
 - `atomic.app.image` requires storage beans (`ImageService`, `storageClients`) and JPA.
 - if `atomic.app.image.enabled=true` and required image/storage beans are missing, startup can fail (not only API skipped).
 - `atomic.app.oauth.redirect` requires `OauthServiceProvider` + `OauthStateManager` beans (typically from `atomic.starter` + `atomic.spring.oauth2`).
+- the `OauthStateManager` used by oauth redirect must be backed by an `OauthStateStore` to preserve one-time callback state semantics.
 - OAuth relay store default is `entity`, so default setup also needs `DataSource` + `PlatformTransactionManager` + `ObjectMapper`.
 - with default `store.type=entity` + `store.fail-fast=true`, missing dependencies fail startup.
 - when `store.type=in-memory` or `store.type=cache`, entity(db) dependency validation is skipped.
@@ -82,6 +102,7 @@ atomic:
       default-quality: 1.0
       min-quality: 0.1
       max-quality: 1.0
+      thumbnail-enabled: true
       uploader-parameter-enabled: false
       uploader-parameter-name: uploaderId
     oauth:
@@ -93,6 +114,7 @@ atomic:
         relay-code-ttl-seconds: 300 # must be > 0
         callback-binding:
           enabled: true
+          mode: strict # optional: strict, relaxed, disabled. When omitted, legacy enabled flag decides effective mode
           state-attribute-key: atomicCallbackBinding
           cookie-name: __Host-atomic_oauth_callback_binding
           cookie-same-site: None
@@ -132,21 +154,41 @@ Input resolution:
 Response fields:
 
 - `currentVersion`: latest registered version for `(service, platform)`
-- `userVersion`: matched client version
-- `requiredUpdate`: whether any higher `requireUpdate=true` policy exists
+- `userVersion`: matched client version, or the normalized client semver when that version is not explicitly registered
+- `requiredUpdate`: whether any higher `requireUpdate=true` and `storeAvailable=true` policy exists
 - `storeUrl`: forced-update target URL or `default-store-url`
 
 Expected version policy table:
 
 - table name: `service_version`
 - entity fields used: `mainVersion`, `minorVersion`, `patchNumber`, `requireUpdate`, `platform`, `service`, `storeUrl`
-- physical column names follow your JPA naming strategy (for Spring default, typically `main_version`, `minor_version`, `patch_number`, `require_update`, `store_url`)
+- rollout-safe field:
+  - `storeAvailable`: whether this row is safe to expose as the current store target and safe to use for forced updates
+- semantic-version uniqueness:
+  - keep exactly one row per `(service, platform, mainVersion, minorVersion, patchNumber)`
+- physical column names are fixed in code and SQL assets:
+  - `id`
+  - `main_version`
+  - `minor_version`
+  - `patch_number`
+  - `require_update`
+  - `store_available`
+  - `platform`
+  - `service`
+  - `store_url`
+  - `created_at`
 
 Version API exception semantics:
 
 - `400` when required input is missing or `appVersion` format is invalid (`x.y.z`)
-- `400` when client version is not registered in policy rows
 - `404` when no policy rows exist for `(service, platform)`
+
+Version API rollout-safe semantics:
+
+- semantically valid but unregistered client versions are still evaluated and return `200`
+- `currentVersion` prefers the latest `storeAvailable=true` row
+- if no row is marked `storeAvailable=true`, the API falls back to the latest registered row and logs a warning
+- use `storeAvailable=false` for app-review, internal-distribution, or not-yet-downloadable rows
 
 ## Image API
 
@@ -168,6 +210,7 @@ POST parameters:
 
 - `file` (required multipart part)
 - `quality` (optional query; default `default-quality`; allowed range `min-quality..max-quality`)
+- `thumbnailEnabled` (optional query; default `atomic.app.image.thumbnail-enabled`)
 - uploader identity parameter (optional by default):
   - enabled when `atomic.app.image.uploader-parameter-enabled=true`
   - parameter name comes from `atomic.app.image.uploader-parameter-name`
@@ -175,25 +218,31 @@ POST parameters:
 
 POST response:
 
-- persisted `ImageEntity` metadata (id, bucket, file names, urls, dimensions, sizes, status)
+- persisted image metadata response (`ImageResponse`) with the same JSON fields as before (id, bucket, file names, urls, dimensions, sizes, status)
 
 DELETE behavior:
 
 - validates `imageId` UUID format
 - validates that row matches `{service}` and `{storageService}`
 - when uploader tracking is enabled, validates request uploader parameter equals stored `ImageEntity.uploaderId`
-- deletes original/thumbnail objects from resolved storage client
-- deletes metadata row
+- resolves delete target from persisted `ImageEntity.storageType` only
+- rejects delete with `400` when persisted storage mapping is unavailable
+- reserves metadata as `DELETE_PENDING` before storage deletion
+- deletes original/thumbnail objects from the persisted storage client mapping
+- purges metadata row only after storage delete succeeds
+- keeps metadata in `DELETE_PENDING` when storage delete fails so a later delete can retry cleanup safely
+- host apps can also recover lingering `DELETE_PENDING` rows by calling `AppImageDeleteRecoveryService.recoverDeletePendingImages(limit)` from their own admin job or scheduler; this library does not ship a built-in reaper
 
 Storage client resolution:
 
-- tries keys in order: `service:storageService`, `service::storageService`, `storageService`
-- for each key, also tries exact/upper/lower variants
-- if no match, returns `400`
+- upload tries keys in order: `service:storageService`, `service::storageService`, `storageService`
+- upload resolution also tries exact/upper/lower variants
+- delete does not re-resolve from path parameters; it uses the persisted `storageType` value only
+- if persisted `storageType` no longer matches a configured storage client key, delete returns `400` without deleting storage objects or metadata
 
 Image API exception semantics:
 
-- `400` invalid quality / unknown storage key / invalid UUID / path mismatch
+- `400` invalid quality / unknown storage key / invalid UUID / path mismatch / unavailable persisted delete storage mapping
 - `400` uploader parameter missing when uploader tracking is enabled
 - `404` image row not found
 - `403` uploader mismatch when uploader tracking is enabled
@@ -217,7 +266,11 @@ Behavior:
 - login API consumes relay payload using `AppOauthRelayCodeService.consumeRelayCode(relayCode)`.
 - redirect endpoint input `redirectUri` must be an absolute URI and must not include user-info.
 - callback binding validates redirect/callback continuity using one-time state attribute + cookie token.
-- callback-binding cookie is reused until `cookie-max-age-seconds` expiration to reduce multi-tab flow clobber.
+- callback-binding mode can be selected with `atomic.app.oauth.redirect.callback-binding.mode`:
+  - `strict` keeps validation enabled and clears the cookie after successful callback
+  - `relaxed` keeps validation enabled and preserves the cookie after successful callback
+  - `disabled` turns callback binding off
+- when `callback-binding.mode` is omitted, legacy `callback-binding.enabled=true|false` still decides the effective mode.
 - relay store default type is `entity`.
 - selected store dependencies are validated; unselected store dependencies are ignored.
 - global relay settings (for example `relay-code-ttl-seconds`) are validated regardless of store type.
@@ -246,9 +299,11 @@ OAuth redirect exception semantics:
 - `400` relayCode is invalid/expired/already consumed (on consume API call)
 - callback/state validation errors are wrapped as `HttpStatusException(400)` in app oauth redirect service.
 - upstream provider I/O errors can propagate as `HttpStatusException(500)` from oauth module.
-- `HttpStatusException` status is applied to HTTP response only when your app has exception mapping (for example `BaseExceptionHandler`).
-- without that mapping, default Spring MVC error handling can return `500` even when exception has `status=400`.
+- app modules now ship controller-specific `HttpStatusException` mapping, so the documented HTTP status and `BaseResponse.error(...)` envelope are returned by default.
+- if your host app wants a different error envelope, register a higher-precedence `@RestControllerAdvice` to override the built-in handler.
 - empty `allowed-redirect-uri-prefixes` fails startup (fail-fast).
+- malformed `allowed-redirect-uri-prefixes` entry also fails startup (absolute URI only; no user-info/query/fragment).
+- enabling oauth redirect without both `OauthServiceProvider` and store-backed `OauthStateManager` fails startup.
 
 Security notes:
 
@@ -257,10 +312,12 @@ Security notes:
 - `allowed-redirect-uri-prefixes` must be non-empty when redirect API is enabled.
   - match uses scheme/host/port/path-prefix boundary (not raw string startsWith).
   - each entry must be an absolute URI without query/fragment.
-  - invalid entry format is detected at redirect/callback request time and returned as `400`.
+  - invalid entry format fails startup.
   - `https://app.example.com/oauth` allows `https://app.example.com/oauth/callback` but rejects `https://app.example.com.evil.com/...`.
 - Keep callback binding enabled in production; change cookie policy only when your provider callback topology requires it.
 - Callback-binding uses hardened cookie constraints when enabled: `cookie-name` must start with `__Host-`, `cookie-secure=true`, and `cookie-path=/`.
+- default `strict` mode clears the callback-binding cookie after success, so each flow must complete with the cookie issued during redirect.
+- use `relaxed` mode when you intentionally prefer multi-tab/back-navigation tolerance over immediate cookie clearing.
 - Local plain HTTP callback testing can fail unless you use HTTPS or disable callback binding in local-only environments.
 
 Relay store notes:
@@ -268,10 +325,13 @@ Relay store notes:
 - `store.type=in-memory`: no datasource/cache validation.
 - `store.type=cache`: validates cache dependencies only (`CacheManager`, `ObjectMapper`).
   - configured `cache-name` must exist in `CacheManager` at startup.
+  - the selected cache backend must expose an atomic remove-and-return path (`ConcurrentMap.remove`, native `getAndRemove`, or `asMap().remove`) to preserve one-time relay consume semantics.
+  - unsupported cache backends now fail startup by default, or fall back to the in-memory relay store when `store.fail-fast=false`.
 - `store.type=entity` (default): validates db dependencies only (`DataSource`, `PlatformTransactionManager`, `ObjectMapper`).
   - `table-name` allows only letters, numbers, and underscores.
-- when `store.fail-fast=false`, selected store errors (missing deps, invalid cache-name/ttl, unavailable cache) do not fail startup and fall back to in-memory store.
+- when `store.fail-fast=false`, selected store errors (missing deps, invalid cache-name/ttl, unavailable cache, unsupported atomic cache backend) do not fail startup and fall back to in-memory store.
 - in-memory fallback is process-local per instance and can break one-time relay semantics in multi-instance deployments.
+- oauth redirect readiness now checks explicit `OauthStateManager.isReplayProtectionEnabled()` capability instead of reflecting internal fields.
 - entity store expects table columns:
   - `relay_code` (PK, string)
   - `payload_json` (text/json string)
@@ -284,7 +344,13 @@ Relay store notes:
 
 ## DDL Examples (PostgreSQL)
 
-Use these as a starting point for production migrations. Adjust naming/index policy to your standard.
+The authoritative PostgreSQL starting-point assets now ship in module resources:
+
+- `atomic-app/version`: `META-INF/atomic/sql/postgresql/service_version.sql`
+- `atomic-app/storage-api`: `META-INF/atomic/sql/postgresql/image.sql`
+- `atomic-app/oauth-redirect`: `META-INF/atomic/sql/postgresql/atomic_oauth_relay_code.sql`
+
+For `service_version` and `image`, these assets now match explicit JPA table/column mappings in code. The SQL below mirrors the shipped assets.
 
 ```sql
 CREATE TABLE IF NOT EXISTS service_version (
@@ -293,10 +359,13 @@ CREATE TABLE IF NOT EXISTS service_version (
   minor_version INTEGER NOT NULL,
   patch_number INTEGER NOT NULL,
   require_update BOOLEAN NOT NULL DEFAULT FALSE,
-  platform VARCHAR(32) NOT NULL,
-  service VARCHAR(64) NOT NULL,
-  store_url TEXT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  store_available BOOLEAN NOT NULL DEFAULT TRUE,
+  platform VARCHAR(255) NOT NULL,
+  service VARCHAR(255) NOT NULL,
+  store_url VARCHAR(255) NULL,
+  created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uq_service_version_service_platform_semver
+    UNIQUE (service, platform, main_version, minor_version, patch_number)
 );
 
 CREATE INDEX IF NOT EXISTS idx_service_version_service_platform_version
@@ -305,24 +374,24 @@ CREATE INDEX IF NOT EXISTS idx_service_version_service_platform_version
 
 ```sql
 CREATE TABLE IF NOT EXISTS image (
-  id VARCHAR(64) PRIMARY KEY,
+  id VARCHAR(255) PRIMARY KEY,
   bucket VARCHAR(255) NOT NULL,
-  service_name VARCHAR(64) NOT NULL,
-  storage_service VARCHAR(64) NOT NULL,
-  status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
-  uploader_id VARCHAR(128) NULL,
-  storage_type VARCHAR(128) NOT NULL,
-  file_name TEXT NULL,
-  thumbnail_file_name TEXT NULL,
-  url TEXT NOT NULL,
-  thumbnail_url TEXT NULL,
+  service_name VARCHAR(255) NOT NULL,
+  storage_service VARCHAR(255) NOT NULL,
+  status VARCHAR(255) NOT NULL DEFAULT 'ACTIVE',
+  uploader_id VARCHAR(255) NULL,
+  storage_type VARCHAR(255) NOT NULL,
+  file_name VARCHAR(255) NULL,
+  thumbnail_file_name VARCHAR(255) NULL,
+  url VARCHAR(255) NOT NULL,
+  thumbnail_url VARCHAR(255) NULL,
   width INTEGER NULL,
   height INTEGER NULL,
   file_size BIGINT NOT NULL,
   thumbnail_width INTEGER NULL,
   thumbnail_height INTEGER NULL,
   thumbnail_file_size BIGINT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_image_service_storage
@@ -333,8 +402,8 @@ CREATE INDEX IF NOT EXISTS idx_image_service_storage
 CREATE TABLE IF NOT EXISTS atomic_oauth_relay_code (
   relay_code VARCHAR(255) PRIMARY KEY,
   payload_json TEXT NOT NULL,
-  expires_at TIMESTAMP NOT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  expires_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+  created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_atomic_oauth_relay_code_expires_at
@@ -344,11 +413,16 @@ CREATE INDEX IF NOT EXISTS idx_atomic_oauth_relay_code_expires_at
 ## Operational Checklist
 
 - Prepare database schema for `service_version` and `image` tables before enabling APIs.
+- Prefer the shipped module SQL assets as your initial migration baseline instead of copying stale inline snippets.
 - if uploader tracking is enabled, add nullable `uploader_id` column to `image` table (or rely on JPA schema generation in non-production environments).
+- use `atomic.app.image.thumbnail-enabled=false` only when you intentionally want original-only uploads by default.
+- when image delete fails after reservation, treat remaining `DELETE_PENDING` rows as retryable cleanup work.
+- if you want proactive cleanup, call `AppImageDeleteRecoveryService.recoverDeletePendingImages(limit)` from your own scheduler or admin command path; a built-in scheduler is intentionally out of scope.
 - choose uploader parameter name per service (for example `memberId`, `userKey`, `ownerId`) and configure `atomic.app.image.uploader-parameter-name`.
 - for OAuth relay, set `atomic.app.oauth.redirect.allowed-redirect-uri-prefixes` in every environment where `atomic.app.oauth.redirect.enabled=true`.
 - if `store.type=entity` (default), create relay table (`atomic_oauth_relay_code` or configured table-name) before rollout.
 - if `store.type=entity`, schedule expired-row cleanup for unconsumed relay entries.
 - Configure `atomic.storage.backends.*` before enabling image API.
 - Keep `storageType` key naming consistent with your `{service}` and `{storageService}` path policy.
+- Do not rename or remove storage client keys that existing `ImageEntity.storageType` rows depend on unless you also migrate stored metadata.
 - Enforce multipart size/time limits at application layer.

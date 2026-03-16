@@ -58,7 +58,7 @@ class OauthStateManagerTest {
             ttlSeconds = 300,
         )
     val state = manager.issueState()
-    val tampered = state.dropLast(1) + if (state.last() == 'a') "b" else "a"
+    val tampered = tamperJwtSignatureSegment(state)
 
     assertFailsWith<InvalidOauthStateException> { manager.verifyState(tampered) }
   }
@@ -181,5 +181,14 @@ class OauthStateManagerTest {
     assertFalse(store.consume("expired", "token-expired"))
     assertTrue(store.consume("fresh", "token-fresh"))
     assertEquals(0, store.currentSize())
+  }
+
+  private fun tamperJwtSignatureSegment(jwt: String): String {
+    val segments = jwt.split('.')
+    check(segments.size == 3) { "JWT must have three compact segments." }
+    val signature = segments[2]
+    check(signature.isNotEmpty()) { "JWT signature segment must not be empty." }
+    val replacement = if (signature.first() == 'A') 'B' else 'A'
+    return "${segments[0]}.${segments[1]}.$replacement${signature.drop(1)}"
   }
 }

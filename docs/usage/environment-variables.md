@@ -264,6 +264,7 @@ Provider registration note:
 | `atomic.app.image.default-quality` | `1.0` | image API enabled | Default quality when request omits quality value. |
 | `atomic.app.image.min-quality` | `0.1` | image API enabled | Minimum allowed quality. |
 | `atomic.app.image.max-quality` | `1.0` | image API enabled | Maximum allowed quality. |
+| `atomic.app.image.thumbnail-enabled` | `true` | optional | Default thumbnail generation toggle for image uploads. Request-level `thumbnailEnabled` can override it per call. |
 | `atomic.app.image.uploader-parameter-enabled` | `false` | optional | Enables uploader identity parameter validation/storage. |
 | `atomic.app.image.uploader-parameter-name` | `uploaderId` | uploader parameter enabled | Request parameter key for uploader identity. |
 
@@ -278,14 +279,15 @@ Provider registration note:
 | `atomic.app.oauth.redirect.callback-endpoint-path` | `/oauth/callback` | optional | Endpoint base path for callback APIs. |
 | `atomic.app.oauth.redirect.relay-code-query-parameter-name` | `relayCode` | optional | Query key appended to client redirect URL. |
 | `atomic.app.oauth.redirect.relay-code-ttl-seconds` | `300` | redirect API enabled | Relay code TTL seconds (`> 0`). |
-| `atomic.app.oauth.redirect.allowed-redirect-uri-prefixes` | empty | redirect API enabled | Allowed redirect URI prefix list for open-redirect protection (must be non-empty). |
+| `atomic.app.oauth.redirect.allowed-redirect-uri-prefixes` | empty | redirect API enabled | Allowed redirect URI prefix list for open-redirect protection (must be non-empty, absolute, and without user-info/query/fragment; invalid config fails startup). |
 | `atomic.app.oauth.redirect.callback-binding.enabled` | `true` | optional | Enables callback-binding validation with state attribute + cookie token. |
-| `atomic.app.oauth.redirect.callback-binding.state-attribute-key` | `atomicCallbackBinding` | callback binding enabled | State attribute key used to store callback-binding token. |
-| `atomic.app.oauth.redirect.callback-binding.cookie-name` | `__Host-atomic_oauth_callback_binding` | callback binding enabled | Cookie name for callback-binding token (must start with `__Host-`). |
-| `atomic.app.oauth.redirect.callback-binding.cookie-same-site` | `None` | callback binding enabled | SameSite policy for callback-binding cookie. |
-| `atomic.app.oauth.redirect.callback-binding.cookie-path` | `/` | callback binding enabled | Path for callback-binding cookie (must be `/`). |
-| `atomic.app.oauth.redirect.callback-binding.cookie-secure` | `true` | callback binding enabled | Secure flag for callback-binding cookie (must be `true`; local plain HTTP callbacks require disabling callback binding). |
-| `atomic.app.oauth.redirect.callback-binding.cookie-max-age-seconds` | `600` | callback binding enabled | Max age in seconds for callback-binding cookie (`> 0`). |
+| `atomic.app.oauth.redirect.callback-binding.mode` | unset -> effective `STRICT` | optional | Optional callback-binding policy mode: `STRICT`, `RELAXED`, `DISABLED`. When unset, legacy `callback-binding.enabled` decides effective mode. |
+| `atomic.app.oauth.redirect.callback-binding.state-attribute-key` | `atomicCallbackBinding` | callback binding mode is not `DISABLED` | State attribute key used to store callback-binding token. |
+| `atomic.app.oauth.redirect.callback-binding.cookie-name` | `__Host-atomic_oauth_callback_binding` | callback binding mode is not `DISABLED` | Cookie name for callback-binding token (must start with `__Host-`). |
+| `atomic.app.oauth.redirect.callback-binding.cookie-same-site` | `None` | callback binding mode is not `DISABLED` | SameSite policy for callback-binding cookie. |
+| `atomic.app.oauth.redirect.callback-binding.cookie-path` | `/` | callback binding mode is not `DISABLED` | Path for callback-binding cookie (must be `/`). |
+| `atomic.app.oauth.redirect.callback-binding.cookie-secure` | `true` | callback binding mode is not `DISABLED` | Secure flag for callback-binding cookie (must be `true`; local plain HTTP callbacks require disabling callback binding). |
+| `atomic.app.oauth.redirect.callback-binding.cookie-max-age-seconds` | `600` | callback binding mode is not `DISABLED` | Max age in seconds for callback-binding cookie (`> 0`). |
 | `atomic.app.oauth.redirect.store.type` | `ENTITY` | optional | Relay store backend: `IN_MEMORY`, `CACHE`, `ENTITY`. |
 | `atomic.app.oauth.redirect.store.fail-fast` | `true` | optional | Fails startup on selected-store dependency issues when true. |
 

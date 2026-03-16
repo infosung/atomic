@@ -2,6 +2,7 @@ package com.infosung.atomic.app.version
 
 import com.infosung.atomic.contract.exception.HttpStatusException
 import org.slf4j.LoggerFactory
+import org.springframework.data.domain.PageRequest
 
 /** Validates client app version against service/platform version policies. */
 class AppVersionCheckService(
@@ -27,42 +28,99 @@ class AppVersionCheckService(
         request.appVersion,
     )
 
-    val versions =
+    log.debug("Loading latest version policy row: service={}, platform={}", service, platform)
+    val latestRegistered =
         serviceVersionRepository
-            .findAllByServiceAndPlatformOrderByMainVersionDescMinorVersionDescPatchNumberDesc(
+            .findFirstByServiceAndPlatformOrderByMainVersionDescMinorVersionDescPatchNumberDesc(
                 service,
                 platform,
             )
-    if (versions.isEmpty()) {
+    if (latestRegistered == null) {
       log.warn("No version policies found: service={}, platform={}", service, platform)
       throw HttpStatusException(
           status = 404,
           message = "No service version policy found for service=$service, platform=$platform",
       )
     }
+    val current =
+        serviceVersionRepository
+            .findFirstByServiceAndPlatformAndStoreAvailableTrueOrderByMainVersionDescMinorVersionDescPatchNumberDesc(
+                service,
+                platform,
+            )
+            ?: latestRegistered.also {
+              log.warn(
+                  "No store-available version policy found; falling back to latest registered version: service={}, platform={}, latestRegistered={}.{}.{}",
+                  service,
+                  platform,
+                  latestRegistered.mainVersion,
+                  latestRegistered.minorVersion,
+                  latestRegistered.patchNumber,
+              )
+            }
+    log.debug(
+        "Loaded latest version policy row: service={}, platform={}, currentVersion={}.{}.{}",
+        service,
+        platform,
+        current.mainVersion,
+        current.minorVersion,
+        current.patchNumber,
+    )
 
-    val userVersion =
-        versions.firstOrNull {
-          it.mainVersion == parsedVersion.major &&
-              it.minorVersion == parsedVersion.minor &&
-              it.patchNumber == parsedVersion.patch
-        }
-            ?: throw HttpStatusException(
-                    status = 400,
-                    message = "Version does not match any registered service version policy.",
-                )
-                .also {
-                  log.warn(
-                      "Client version is not registered in policy: service={}, platform={}, appVersion={}",
-                      service,
-                      platform,
-                      request.appVersion,
-                  )
-                }
+    log.debug(
+        "Loading exact client version policy row: service={}, platform={}, clientVersion={}.{}.{}",
+        service,
+        platform,
+        parsedVersion.major,
+        parsedVersion.minor,
+        parsedVersion.patch,
+    )
+    val userVersionPolicy =
+        serviceVersionRepository
+            .findFirstByServiceAndPlatformAndMainVersionAndMinorVersionAndPatchNumber(
+                service = service,
+                platform = platform,
+                mainVersion = parsedVersion.major,
+                minorVersion = parsedVersion.minor,
+                patchNumber = parsedVersion.patch,
+            )
+    if (userVersionPolicy == null) {
+      log.info(
+          "Client version is not explicitly registered; continuing with rollout-safe semantic evaluation: service={}, platform={}, appVersion={}",
+          service,
+          platform,
+          request.appVersion,
+      )
+    } else {
+      log.debug(
+          "Loaded exact client version policy row: service={}, platform={}, userVersion={}.{}.{}",
+          service,
+          platform,
+          userVersionPolicy.mainVersion,
+          userVersionPolicy.minorVersion,
+          userVersionPolicy.patchNumber,
+      )
+    }
 
+    log.debug(
+        "Loading required-update target above client version: service={}, platform={}, clientVersion={}.{}.{}",
+        service,
+        platform,
+        parsedVersion.major,
+        parsedVersion.minor,
+        parsedVersion.patch,
+    )
     val requiredTarget =
-        versions.firstOrNull { it.requireUpdate && isHigherVersion(it, parsedVersion) }
-    val current = versions.first()
+        serviceVersionRepository
+            .findRequiredUpdateTargetsHigherThan(
+                service = service,
+                platform = platform,
+                mainVersion = parsedVersion.major,
+                minorVersion = parsedVersion.minor,
+                patchNumber = parsedVersion.patch,
+                pageable = PageRequest.of(0, 1),
+            )
+            .firstOrNull()
 
     log.debug(
         "Checked app version: service={}, platform={}, userVersion={}, requiredUpdate={}",
@@ -85,7 +143,7 @@ class AppVersionCheckService(
 
     return VersionCheckResult(
         currentVersion = toVersionString(current),
-        userVersion = toVersionString(userVersion),
+        userVersion = userVersionPolicy?.let(::toVersionString) ?: toVersionString(parsedVersion),
         requiredUpdate = requiredTarget != null,
         storeUrl = requiredTarget?.storeUrl?.takeIf { it.isNotBlank() } ?: defaultStoreUrl,
     )
@@ -117,17 +175,12 @@ class AppVersionCheckService(
     return SemanticVersion(major = numbers[0], minor = numbers[1], patch = numbers[2])
   }
 
-  private fun isHigherVersion(
-      candidate: ServiceVersionEntity,
-      source: SemanticVersion,
-  ): Boolean {
-    if (candidate.mainVersion != source.major) return candidate.mainVersion > source.major
-    if (candidate.minorVersion != source.minor) return candidate.minorVersion > source.minor
-    return candidate.patchNumber > source.patch
-  }
-
   private fun toVersionString(version: ServiceVersionEntity): String {
     return "${version.mainVersion}.${version.minorVersion}.${version.patchNumber}"
+  }
+
+  private fun toVersionString(version: SemanticVersion): String {
+    return "${version.major}.${version.minor}.${version.patch}"
   }
 
   private data class SemanticVersion(
