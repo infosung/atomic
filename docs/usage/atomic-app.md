@@ -33,7 +33,7 @@ Internally, `atomic.app` is a bundle of:
 - `atomic.app.storage.api` requires storage beans, so starter-based setups usually add both.
 - `atomic.app.oauth.redirect` usually pairs with `atomic.starter` + `atomic.spring.oauth2`.
 
-Current public publish workflow scope (Maven Central):
+Published artifact set (`v0.0.2`):
 
 - `atomic-contract`
 - `atomic-storage`
@@ -154,20 +154,23 @@ Input resolution:
 Response fields:
 
 - `currentVersion`: latest registered version for `(service, platform)`
-- `userVersion`: matched client version
-- `requiredUpdate`: whether any higher `requireUpdate=true` policy exists
+- `userVersion`: matched client version, or the normalized client semver when that version is not explicitly registered
+- `requiredUpdate`: whether any higher `requireUpdate=true` and `storeAvailable=true` policy exists
 - `storeUrl`: forced-update target URL or `default-store-url`
 
 Expected version policy table:
 
 - table name: `service_version`
 - entity fields used: `mainVersion`, `minorVersion`, `patchNumber`, `requireUpdate`, `platform`, `service`, `storeUrl`
+- rollout-safe field:
+  - `storeAvailable`: whether this row is safe to expose as the current store target and safe to use for forced updates
 - physical column names are fixed in code and SQL assets:
   - `id`
   - `main_version`
   - `minor_version`
   - `patch_number`
   - `require_update`
+  - `store_available`
   - `platform`
   - `service`
   - `store_url`
@@ -176,8 +179,14 @@ Expected version policy table:
 Version API exception semantics:
 
 - `400` when required input is missing or `appVersion` format is invalid (`x.y.z`)
-- `400` when client version is not registered in policy rows
 - `404` when no policy rows exist for `(service, platform)`
+
+Version API rollout-safe semantics:
+
+- semantically valid but unregistered client versions are still evaluated and return `200`
+- `currentVersion` prefers the latest `storeAvailable=true` row
+- if no row is marked `storeAvailable=true`, the API falls back to the latest registered row and logs a warning
+- use `storeAvailable=false` for app-review, internal-distribution, or not-yet-downloadable rows
 
 ## Image API
 
@@ -348,6 +357,7 @@ CREATE TABLE IF NOT EXISTS service_version (
   minor_version INTEGER NOT NULL,
   patch_number INTEGER NOT NULL,
   require_update BOOLEAN NOT NULL DEFAULT FALSE,
+  store_available BOOLEAN NOT NULL DEFAULT TRUE,
   platform VARCHAR(255) NOT NULL,
   service VARCHAR(255) NOT NULL,
   store_url VARCHAR(255) NULL,

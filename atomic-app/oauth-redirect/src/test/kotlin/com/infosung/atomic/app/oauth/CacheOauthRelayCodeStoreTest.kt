@@ -27,7 +27,8 @@ class CacheOauthRelayCodeStoreTest {
             keyPrefix = "atomic:oauth:relay:",
             ttlSeconds = 300,
             objectMapper = jacksonObjectMapper(),
-            timeProvider = TimeProvider(Clock.fixed(Instant.parse("2026-03-14T00:00:00Z"), ZoneOffset.UTC)),
+            timeProvider =
+                TimeProvider(Clock.fixed(Instant.parse("2026-03-14T00:00:00Z"), ZoneOffset.UTC)),
         )
 
     store.save(
@@ -82,12 +83,14 @@ class CacheOauthRelayCodeStoreTest {
 
     override fun get(key: Any): Cache.ValueWrapper? {
       getCalledCount += 1
-      throw UnsupportedOperationException("get should not be used when atomic native consume is available.")
+      throw UnsupportedOperationException(
+          "get should not be used when atomic native consume is available.")
     }
 
     override fun <T : Any> get(key: Any, type: Class<T>?): T? {
       getCalledCount += 1
-      throw UnsupportedOperationException("typed get should not be used when atomic native consume is available.")
+      throw UnsupportedOperationException(
+          "typed get should not be used when atomic native consume is available.")
     }
 
     override fun <T : Any> get(key: Any, valueLoader: Callable<T>): T {
@@ -109,7 +112,8 @@ class CacheOauthRelayCodeStoreTest {
 
     override fun evict(key: Any) {
       evictCalledCount += 1
-      throw UnsupportedOperationException("evict should not be used when atomic native consume is available.")
+      throw UnsupportedOperationException(
+          "evict should not be used when atomic native consume is available.")
     }
 
     override fun evictIfPresent(key: Any): Boolean = store.remove(key) != null

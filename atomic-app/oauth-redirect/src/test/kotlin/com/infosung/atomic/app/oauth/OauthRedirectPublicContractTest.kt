@@ -10,13 +10,13 @@ import java.sql.Timestamp
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
+import kotlin.reflect.full.memberProperties
+import kotlin.reflect.full.primaryConstructor
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
-import kotlin.reflect.full.memberProperties
-import kotlin.reflect.full.primaryConstructor
 import org.springframework.jdbc.core.JdbcOperations
 import org.springframework.jdbc.core.ResultSetExtractor
 import org.springframework.transaction.PlatformTransactionManager
@@ -24,7 +24,6 @@ import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.TransactionStatus
 import org.springframework.transaction.support.SimpleTransactionStatus
 import org.springframework.transaction.support.TransactionTemplate
-import tools.jackson.databind.ObjectMapper
 import tools.jackson.module.kotlin.jacksonObjectMapper
 
 class OauthRedirectPublicContractTest {
@@ -75,7 +74,9 @@ class OauthRedirectPublicContractTest {
                 "cookieMaxAgeSeconds",
             )
             .sorted(),
-        AtomicAppOauthRedirectProperties.CallbackBinding::class.memberProperties.map { it.name }
+        AtomicAppOauthRedirectProperties.CallbackBinding::class
+            .memberProperties
+            .map { it.name }
             .sorted(),
     )
     assertEquals(
@@ -263,8 +264,7 @@ class OauthRedirectPublicContractTest {
               if (selectedPayloadJson == null || selectedExpiresAt == null) {
                 null
               } else {
-                @Suppress("UNCHECKED_CAST")
-                val extractor = args[1] as ResultSetExtractor<Any?>
+                @Suppress("UNCHECKED_CAST") val extractor = args[1] as ResultSetExtractor<Any?>
                 extractor.extractData(fakeResultSet(selectedPayloadJson, selectedExpiresAt))
               }
             }

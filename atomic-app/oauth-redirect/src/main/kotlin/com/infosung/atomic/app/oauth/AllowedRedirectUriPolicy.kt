@@ -48,7 +48,8 @@ internal object AllowedRedirectUriPolicy {
               "Redirect validation failed because allowlist configuration is invalid: {}",
               e.message,
           )
-          throw HttpStatusException(status = 400, message = e.message ?: "Invalid allowlist.", cause = e)
+          throw HttpStatusException(
+              status = 400, message = e.message ?: "Invalid allowlist.", cause = e)
         }
 
     if (allowedPatterns.none { it.matches(candidateUri) }) {
@@ -84,7 +85,9 @@ internal object AllowedRedirectUriPolicy {
   private fun parseAllowedRedirectPattern(raw: String): AllowedRedirectPattern {
     val uri =
         runCatching { URI(raw) }
-            .getOrElse { throw IllegalArgumentException("Invalid allowed redirect URI entry: $raw", it) }
+            .getOrElse {
+              throw IllegalArgumentException("Invalid allowed redirect URI entry: $raw", it)
+            }
     if (!uri.isAbsolute || uri.scheme.isNullOrBlank()) {
       throw IllegalArgumentException("Allowed redirect URI must be absolute.")
     }

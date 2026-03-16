@@ -9,20 +9,19 @@ import jakarta.persistence.Table
 import java.lang.reflect.Modifier
 import java.time.LocalDateTime
 import java.util.UUID
+import kotlin.reflect.full.declaredFunctions
+import kotlin.reflect.full.memberProperties
+import kotlin.reflect.full.primaryConstructor
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
-import kotlin.reflect.full.declaredFunctions
-import kotlin.reflect.full.memberProperties
-import kotlin.reflect.full.primaryConstructor
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.annotations.UuidGenerator
 import org.hibernate.type.SqlTypes
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
-import org.springframework.web.multipart.MultipartFile
 import tools.jackson.databind.ObjectMapper
 
 class StorageApiPublicContractTest {

@@ -16,20 +16,14 @@ open class ServiceVersionEntity(
     @Column(name = "id")
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     open val id: Long? = null,
-    @Column(name = "main_version")
-    open val mainVersion: Int = 0,
-    @Column(name = "minor_version")
-    open val minorVersion: Int = 0,
-    @Column(name = "patch_number")
-    open val patchNumber: Int = 0,
-    @Column(name = "require_update")
-    open val requireUpdate: Boolean = false,
-    @Column(name = "platform")
-    open val platform: String = "ANDROID",
-    @Column(name = "service")
-    open val service: String = "DEFAULT",
-    @Column(name = "store_url")
-    open val storeUrl: String? = null,
-    @Column(name = "created_at")
-    open val createdAt: LocalDateTime = LocalDateTime.now(),
-)
+    @Column(name = "main_version") open val mainVersion: Int = 0,
+    @Column(name = "minor_version") open val minorVersion: Int = 0,
+    @Column(name = "patch_number") open val patchNumber: Int = 0,
+    @Column(name = "require_update") open val requireUpdate: Boolean = false,
+    @Column(name = "platform") open val platform: String = "ANDROID",
+    @Column(name = "service") open val service: String = "DEFAULT",
+    @Column(name = "store_url") open val storeUrl: String? = null,
+    @Column(name = "created_at") open val createdAt: LocalDateTime = LocalDateTime.now(),
+) {
+  @Column(name = "store_available") open var storeAvailable: Boolean = true
+}

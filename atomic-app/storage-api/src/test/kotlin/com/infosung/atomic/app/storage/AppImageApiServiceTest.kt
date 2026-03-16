@@ -116,10 +116,7 @@ class AppImageApiServiceTest {
     val imageRepository = mock(ImageRepository::class.java)
     val imageEntityTxService = AppImageEntityTxService(imageRepository)
     val imageService = createImageService(storageClient = storageClient, storageType = "S3")
-    val properties =
-        AtomicAppImageProperties().apply {
-          thumbnailEnabled = false
-        }
+    val properties = AtomicAppImageProperties().apply { thumbnailEnabled = false }
     val apiService =
         AppImageApiService(
             imageEntityTxService = imageEntityTxService,
@@ -535,7 +532,8 @@ class AppImageApiServiceTest {
         }
 
     assertEquals(400, exception.status)
-    assertEquals("memberId is required when uploader parameter tracking is enabled.", exception.message)
+    assertEquals(
+        "memberId is required when uploader parameter tracking is enabled.", exception.message)
     assertTrue(storageClient.deletedObjectKeys.isEmpty())
   }
 

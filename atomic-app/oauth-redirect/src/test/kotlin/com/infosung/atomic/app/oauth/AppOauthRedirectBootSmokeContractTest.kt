@@ -85,7 +85,8 @@ class AppOauthRedirectBootSmokeContractTest {
         appOauthRedirectService: AppOauthRedirectService,
         properties: AtomicAppOauthRedirectProperties,
     ): AppOauthRedirectController {
-      return AppOauthRedirectController(appOauthRedirectService = appOauthRedirectService, properties = properties)
+      return AppOauthRedirectController(
+          appOauthRedirectService = appOauthRedirectService, properties = properties)
     }
 
     @Bean

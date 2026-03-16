@@ -249,7 +249,9 @@ class AppOauthRedirectController(
     val cookieName = resolveCallbackBindingCookieName()
     val matchedCookies = request.cookies?.filter { it.name == cookieName }.orEmpty()
     if (matchedCookies.size > 1) {
-      log.warn("Rejected OAuth callback due to ambiguous callback binding cookie: cookieName={}", cookieName)
+      log.warn(
+          "Rejected OAuth callback due to ambiguous callback binding cookie: cookieName={}",
+          cookieName)
       throw HttpStatusException(
           status = 400,
           message = "OAuth callback binding cookie is ambiguous.",

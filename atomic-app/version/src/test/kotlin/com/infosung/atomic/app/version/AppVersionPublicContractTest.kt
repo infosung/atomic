@@ -9,11 +9,11 @@ import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
 import java.lang.reflect.Modifier
+import kotlin.reflect.full.memberProperties
+import kotlin.reflect.full.primaryConstructor
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
-import kotlin.reflect.full.memberProperties
-import kotlin.reflect.full.primaryConstructor
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
@@ -54,6 +54,7 @@ class AppVersionPublicContractTest {
     val mainVersionField = ServiceVersionEntity::class.java.getDeclaredField("mainVersion")
     val patchNumberField = ServiceVersionEntity::class.java.getDeclaredField("patchNumber")
     val requireUpdateField = ServiceVersionEntity::class.java.getDeclaredField("requireUpdate")
+    val storeAvailableField = ServiceVersionEntity::class.java.getDeclaredField("storeAvailable")
     val storeUrlField = ServiceVersionEntity::class.java.getDeclaredField("storeUrl")
 
     assertEquals("service_version", entity.name)
@@ -64,6 +65,7 @@ class AppVersionPublicContractTest {
     assertEquals("main_version", mainVersionField.getAnnotation(Column::class.java).name)
     assertEquals("patch_number", patchNumberField.getAnnotation(Column::class.java).name)
     assertEquals("require_update", requireUpdateField.getAnnotation(Column::class.java).name)
+    assertEquals("store_available", storeAvailableField.getAnnotation(Column::class.java).name)
     assertEquals("store_url", storeUrlField.getAnnotation(Column::class.java).name)
   }
 

@@ -2,9 +2,9 @@ package com.infosung.atomic.oauth.api
 
 import com.infosung.atomic.oauth.state.OauthStateManager
 import java.lang.reflect.Modifier
+import kotlin.reflect.full.primaryConstructor
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.reflect.full.primaryConstructor
 
 class OauthPublicApiContractTest {
   @Test

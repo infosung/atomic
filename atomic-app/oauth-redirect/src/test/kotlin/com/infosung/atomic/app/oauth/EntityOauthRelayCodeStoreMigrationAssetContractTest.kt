@@ -39,7 +39,8 @@ class EntityOauthRelayCodeStoreMigrationAssetContractTest {
             jdbcOperations = jdbcTemplate,
             transactionTemplate = TransactionTemplate(DataSourceTransactionManager(dataSource)),
             objectMapper = jacksonObjectMapper(),
-            timeProvider = TimeProvider(Clock.fixed(Instant.parse("2026-03-14T00:00:00Z"), ZoneOffset.UTC)),
+            timeProvider =
+                TimeProvider(Clock.fixed(Instant.parse("2026-03-14T00:00:00Z"), ZoneOffset.UTC)),
             tableName = "atomic_oauth_relay_code",
         )
 

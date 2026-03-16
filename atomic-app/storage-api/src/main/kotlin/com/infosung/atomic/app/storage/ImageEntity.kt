@@ -14,11 +14,7 @@ import org.hibernate.type.SqlTypes
 @Entity(name = "image")
 @Table(name = "image")
 class ImageEntity(
-    @Id
-    @Column(name = "id")
-    @UuidGenerator
-    @JdbcTypeCode(SqlTypes.VARCHAR)
-    val id: UUID? = null,
+    @Id @Column(name = "id") @UuidGenerator @JdbcTypeCode(SqlTypes.VARCHAR) val id: UUID? = null,
     @Column(name = "bucket") val bucket: String,
     @Column(name = "service_name") val serviceName: String,
     @Column(name = "storage_service") val storageService: String,

@@ -33,13 +33,12 @@ class AppStorageControllerHttpContractTest {
     val multipartFile = MockMultipartFile("file", "profile.png", "image/png", "img".toByteArray())
     val imageEntity = sampleImageEntity()
 
-    `when`(service.uploadImage("svc", "S3", multipartFile, 0.75, null, true)).thenReturn(imageEntity)
+    `when`(service.uploadImage("svc", "S3", multipartFile, 0.75, null, true))
+        .thenReturn(imageEntity)
 
     mockMvc
         .perform(
-            multipart("/api/v1/storage/image/svc/S3")
-                .file(multipartFile)
-                .param("quality", "0.75"),
+            multipart("/api/v1/storage/image/svc/S3").file(multipartFile).param("quality", "0.75"),
         )
         .andExpect(status().isOk)
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
@@ -115,7 +114,8 @@ class AppStorageControllerHttpContractTest {
     val mockMvc = newMockMvc(controller = controller, endpointPath = properties.endpointPath)
     val multipartFile = MockMultipartFile("file", "profile.png", "image/png", "img".toByteArray())
 
-    `when`(service.uploadImage("svc", "S3", multipartFile, 0.85, null, true)).thenReturn(sampleImageEntity())
+    `when`(service.uploadImage("svc", "S3", multipartFile, 0.85, null, true))
+        .thenReturn(sampleImageEntity())
 
     mockMvc
         .perform(multipart("/api/v1/storage/image/svc/S3").file(multipartFile))
@@ -163,9 +163,7 @@ class AppStorageControllerHttpContractTest {
 
     mockMvc
         .perform(
-            multipart("/api/v1/storage/image/svc/S3")
-                .file(multipartFile)
-                .param("quality", "0.05"),
+            multipart("/api/v1/storage/image/svc/S3").file(multipartFile).param("quality", "0.05"),
         )
         .andExpect(status().isBadRequest)
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
@@ -222,7 +220,8 @@ class AppStorageControllerHttpContractTest {
           )
         }
 
-    `when`(service.uploadImage("svc", "S3", multipartFile, 1.0, null, false)).thenReturn(imageEntity)
+    `when`(service.uploadImage("svc", "S3", multipartFile, 1.0, null, false))
+        .thenReturn(imageEntity)
 
     mockMvc
         .perform(

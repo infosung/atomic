@@ -72,7 +72,8 @@ class AppOauthRelayCodeServiceTest {
 
   @Test
   fun `consume should fail when relayCode is expired`() {
-    val timeProvider = TimeProvider(Clock.fixed(Instant.parse("2026-03-14T00:00:00Z"), ZoneOffset.UTC))
+    val timeProvider =
+        TimeProvider(Clock.fixed(Instant.parse("2026-03-14T00:00:00Z"), ZoneOffset.UTC))
     val service =
         AppOauthRelayCodeService(
             relayCodeStore = InMemoryOauthRelayCodeStore(timeProvider = timeProvider),
@@ -84,10 +85,7 @@ class AppOauthRelayCodeServiceTest {
 
     timeProvider.configureClock(Clock.fixed(Instant.parse("2026-03-14T00:02:00Z"), ZoneOffset.UTC))
 
-    val exception =
-        assertFailsWith<HttpStatusException> {
-          service.consumeRelayCode(relayCode)
-        }
+    val exception = assertFailsWith<HttpStatusException> { service.consumeRelayCode(relayCode) }
 
     assertEquals(400, exception.status)
     assertEquals("relayCode is invalid, expired, or already used.", exception.message)

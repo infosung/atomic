@@ -72,7 +72,8 @@ class AppStorageControllerBootSmokeContractTest {
           when (invocation.method.name) {
             "uploadImage" ->
                 if (invocation.arguments[3] == 0.05) {
-                  throw HttpStatusException(status = 400, message = "quality must be in range 0.1..1.0")
+                  throw HttpStatusException(
+                      status = 400, message = "quality must be in range 0.1..1.0")
                 } else {
                   ImageEntity(
                       id = UUID.fromString("11111111-1111-1111-1111-111111111111"),

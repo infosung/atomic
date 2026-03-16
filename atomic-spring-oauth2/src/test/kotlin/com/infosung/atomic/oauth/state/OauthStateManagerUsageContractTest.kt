@@ -97,7 +97,8 @@ class OauthStateManagerUsageContractTest {
 
     val tooManyException =
         assertFailsWith<InvalidOauthStateException> {
-          tooManyAttributesManager.issueState(attributes = mapOf("flow" to "mobile", "device" to "ios"))
+          tooManyAttributesManager.issueState(
+              attributes = mapOf("flow" to "mobile", "device" to "ios"))
         }
     val tooLargeException =
         assertFailsWith<InvalidOauthStateException> {

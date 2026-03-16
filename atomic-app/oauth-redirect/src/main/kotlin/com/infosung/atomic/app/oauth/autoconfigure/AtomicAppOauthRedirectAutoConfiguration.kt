@@ -1,10 +1,10 @@
 package com.infosung.atomic.app.oauth.autoconfigure
 
+import com.infosung.atomic.app.oauth.AllowedRedirectUriPolicy
 import com.infosung.atomic.app.oauth.AppOauthRedirectController
 import com.infosung.atomic.app.oauth.AppOauthRedirectHttpExceptionHandler
 import com.infosung.atomic.app.oauth.AppOauthRedirectService
 import com.infosung.atomic.app.oauth.AppOauthRelayCodeService
-import com.infosung.atomic.app.oauth.AllowedRedirectUriPolicy
 import com.infosung.atomic.app.oauth.CacheOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.EntityOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.InMemoryOauthRelayCodeStore
@@ -296,11 +296,9 @@ class AtomicAppOauthRedirectAutoConfiguration {
   ) {
     val oauthServiceProvider = oauthServiceProviderProvider.getIfAvailable()
     val oauthStateManager = oauthStateManagerProvider.getIfAvailable()
-    if (
-        oauthServiceProvider != null &&
-            oauthStateManager != null &&
-            oauthStateManager.isReplayProtectionEnabled()
-    ) {
+    if (oauthServiceProvider != null &&
+        oauthStateManager != null &&
+        oauthStateManager.isReplayProtectionEnabled()) {
       return
     }
     val message =

@@ -23,7 +23,9 @@ class CacheOauthRelayCodeStore(
     private val timeProvider: TimeProvider = TimeProvider(),
 ) : OauthRelayCodeStore {
   private val log = LoggerFactory.getLogger(this::class.java)
-  private val atomicConsumeAccessor: AtomicConsumeAccessor by lazy { resolveRequiredAtomicConsumeAccessor() }
+  private val atomicConsumeAccessor: AtomicConsumeAccessor by lazy {
+    resolveRequiredAtomicConsumeAccessor()
+  }
 
   override fun save(
       relayCode: String,
@@ -90,14 +92,13 @@ class CacheOauthRelayCodeStore(
   private fun resolveRequiredAtomicConsumeAccessor(): AtomicConsumeAccessor {
     val cache = cacheManager.getCache(cacheName) ?: throw cacheMissing()
     return resolveAtomicConsumeAccessor(cache)
-        ?: throw unsupportedAtomicConsume(cacheName)
-            .also {
-              log.error(
-                  "OAuth relay cache does not expose atomic consume support: cacheName={}, nativeCacheType={}",
-                  cacheName,
-                  cache.getNativeCache()::class.java.name,
-              )
-            }
+        ?: throw unsupportedAtomicConsume(cacheName).also {
+          log.error(
+              "OAuth relay cache does not expose atomic consume support: cacheName={}, nativeCacheType={}",
+              cacheName,
+              cache.getNativeCache()::class.java.name,
+          )
+        }
   }
 
   private fun unwrapStoredValue(storedValue: Any?): String? {
@@ -138,8 +139,7 @@ class CacheOauthRelayCodeStore(
     private fun resolveAtomicConsumeAccessor(cache: Cache): AtomicConsumeAccessor? {
       val nativeCache = cache.getNativeCache()
       if (nativeCache is ConcurrentMap<*, *>) {
-        @Suppress("UNCHECKED_CAST")
-        val concurrentMap = nativeCache as ConcurrentMap<Any, Any?>
+        @Suppress("UNCHECKED_CAST") val concurrentMap = nativeCache as ConcurrentMap<Any, Any?>
         staticLog.debug(
             "Resolved oauth relay cache atomic consume path via native ConcurrentMap.remove: cacheName={}, nativeCacheType={}",
             cache.name,
@@ -153,7 +153,7 @@ class CacheOauthRelayCodeStore(
 
       val getAndRemoveMethod =
           nativeCache.javaClass.methods.firstOrNull { method ->
-                method.name == "getAndRemove" &&
+            method.name == "getAndRemove" &&
                 method.parameterCount == 1 &&
                 method.returnType != Void.TYPE &&
                 method.returnType != Boolean::class.javaObjectType &&
@@ -178,8 +178,7 @@ class CacheOauthRelayCodeStore(
       if (asMapMethod != null) {
         val mapView = asMapMethod.invoke(nativeCache)
         if (mapView is ConcurrentMap<*, *>) {
-          @Suppress("UNCHECKED_CAST")
-          val concurrentMap = mapView as ConcurrentMap<Any, Any?>
+          @Suppress("UNCHECKED_CAST") val concurrentMap = mapView as ConcurrentMap<Any, Any?>
           staticLog.debug(
               "Resolved oauth relay cache atomic consume path via native asMap.remove: cacheName={}, nativeCacheType={}, mapViewType={}",
               cache.name,

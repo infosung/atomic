@@ -2,8 +2,7 @@
 
 Atomic is a Kotlin/Spring library suite for backend services.
 
-> Status: Development in progress (pre-release).
-> Currently under development (pre-release).
+> Status: `v0.0.2` documentation for a pre-1.0 release line.
 
 ## Tested Baseline
 
@@ -11,12 +10,15 @@ Atomic is a Kotlin/Spring library suite for backend services.
 - Kotlin `2.3.10`
 - Spring Boot `4.0.3`
 - `atomic.spring.web` AOP dependency uses `org.springframework.boot:spring-boot-starter-aspectj` (BOM-managed).
+- `v0.0.2` release validation is written against this baseline. If you run a different runtime mix,
+  treat it as self-validated in your own CI before rollout.
 
 ## Start Here (Recommended Path)
 
 1. Minimal adoption: [Atomic Quick Start](docs/usage/quick-start.md)
 2. Production transition: [Advanced Operations Playbook](docs/usage/advanced-playbook.md)
-3. Module-level details: see `Detailed Guides` below
+3. Upgrade from `v0.0.1`: [Release Migration Guide](docs/migration/v0.0.1-to-v0.0.2.md)
+4. Module-level details: see `Detailed Guides` below
 
 ## Feature-First Onboarding
 
@@ -56,22 +58,22 @@ Relationship summary:
 
 ## Dependency Setup
 
-### Current public publish workflow scope
+### Published Artifact Examples (`v0.0.2`)
 
 ```kotlin
 dependencies {
-  implementation("com.infosung:atomic.contract:0.0.1")
-  implementation("com.infosung:atomic.storage:0.0.1")
-  implementation("com.infosung:atomic.spring.web:0.0.1")
-  implementation("com.infosung:atomic.spring.security:0.0.1")
-  implementation("com.infosung:atomic.spring.idempotency:0.0.1")
-  implementation("com.infosung:atomic.spring.oauth2:0.0.1")
-  implementation("com.infosung:atomic.heartbeat:0.0.1")
-  implementation("com.infosung:atomic.starter:0.0.1")
-  implementation("com.infosung:atomic.app.version:0.0.1")
-  implementation("com.infosung:atomic.app.storage.api:0.0.1")
-  implementation("com.infosung:atomic.app.oauth.redirect:0.0.1")
-  implementation("com.infosung:atomic.app:0.0.1")
+  implementation("com.infosung:atomic.contract:0.0.2")
+  implementation("com.infosung:atomic.storage:0.0.2")
+  implementation("com.infosung:atomic.spring.web:0.0.2")
+  implementation("com.infosung:atomic.spring.security:0.0.2")
+  implementation("com.infosung:atomic.spring.idempotency:0.0.2")
+  implementation("com.infosung:atomic.spring.oauth2:0.0.2")
+  implementation("com.infosung:atomic.heartbeat:0.0.2")
+  implementation("com.infosung:atomic.starter:0.0.2")
+  implementation("com.infosung:atomic.app.version:0.0.2")
+  implementation("com.infosung:atomic.app.storage.api:0.0.2")
+  implementation("com.infosung:atomic.app.oauth.redirect:0.0.2")
+  implementation("com.infosung:atomic.app:0.0.2")
 }
 ```
 
@@ -114,7 +116,7 @@ dependencies {
 |---|---|---|---|
 | Contract utilities (`TimeProvider`, `TraceIdGenerator`) | `atomic.contract` (starter optional) | none | In starter-based flow these are auto-configured; for direct usage, `atomic.contract` alone is enough |
 | Storage (`storageClients`, `storageProfiles`, `ImageService`) | `atomic.starter` + `atomic.storage` | `atomic.storage.enabled=true` (default); configure at least one enabled `atomic.storage.backends.*` entry before storage API traffic | none |
-| Common version check API (`GET /api/v1/version/check`) | `atomic.app.version` (+ datasource/JPA) or convenience bundle `atomic.app` | `atomic.app.version.enabled=true` | `service_version` table schema and version policy data |
+| Common version check API (`GET /api/v1/version/check`) | `atomic.app.version` (+ datasource/JPA) or convenience bundle `atomic.app` | `atomic.app.version.enabled=true` | `service_version` table schema and version policy data (`store_available` defaults to `true`; set it to `false` for review/pre-rollout rows that must not become force-update targets yet) |
 | Common image upload/delete API (`POST/DELETE /api/v1/storage/image/{service}/{storageService}`) | `atomic.app.storage.api` + `atomic.starter` + `atomic.storage` + storage backend config, or convenience bundle `atomic.app` | `atomic.app.image.enabled=true`, `atomic.storage.enabled=true` (+ optional uploader tracking config) | `image` table schema |
 | Common OAuth redirect/callback relay API (`/oauth/redirect/{provider}`, `/oauth/callback/{provider}`, `POST /oauth/callback/apple`) | `atomic.app.oauth.redirect` + `atomic.starter` + `atomic.spring.oauth2`, or convenience bundle `atomic.app` | `atomic.app.oauth.redirect.enabled=true`, oauth state/provider properties | login API that consumes relayCode |
 | Web logging/json/rate-limit helpers | `atomic.starter` + `atomic.spring.web` | `atomic.web.enabled=true` (default), `atomic.web.logging.enabled=true` (default), `atomic.web.rate-limit.enabled=false` (default) | for logging/exception mapping: `LogSaver` + `ApiLogAspect` + `BaseExceptionHandler`; for rate-limit only: no mandatory app bean |

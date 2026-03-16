@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS service_version (
   minor_version INTEGER NOT NULL,
   patch_number INTEGER NOT NULL,
   require_update BOOLEAN NOT NULL DEFAULT FALSE,
+  store_available BOOLEAN NOT NULL DEFAULT TRUE,
   platform VARCHAR(255) NOT NULL,
   service VARCHAR(255) NOT NULL,
   store_url VARCHAR(255) NULL,

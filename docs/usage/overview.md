@@ -1,13 +1,12 @@
 # Usage Overview
 
-> Status: Development in progress (pre-release).
-> Currently under development (pre-release).
+> Status: `v0.0.2` usage guide for a pre-1.0 release line.
 
 ## Before You Start
 
-- Tested baseline: Java `25`, Kotlin `2.3.10`, Spring Boot `4.0.3`
-- Additional supported combinations are validated by CI matrix in `.github/workflows/ci.yml`.
-- Other patch/minor versions are not guaranteed. Validate in your CI before rollout.
+- Release-validation baseline: Java `25`, Kotlin `2.3.10`, Spring Boot `4.0.3`
+- Other runtime combinations are possible, but they are not part of the `v0.0.2` release
+  guarantee unless your team validates them in its own CI before rollout.
 - Use `atomic.starter` to enable conditional auto-configuration.
 - Add `atomic.contract` when your app directly uses `BaseResponse` / `HttpStatusException`.
 - Add only the feature modules you use.
@@ -15,7 +14,7 @@
 Recommended entry docs:
 - Start with minimal setup: [Atomic Quick Start](quick-start.md)
 - Move to production criteria: [Advanced Operations Playbook](advanced-playbook.md)
-- Track in-progress breaking changes: [Migration Guide: v0.0.1 -> next](../migration/v0.0.1-to-next.md)
+- Release upgrade impact: [Release Migration Guide: v0.0.1 -> v0.0.2](../migration/v0.0.1-to-v0.0.2.md)
 
 ## What Atomic Solves
 
@@ -47,19 +46,22 @@ Use only the modules you need.
 
 ## 2. Dependencies
 
-Current public publish workflow scope (Maven Central):
+Published artifact examples (`v0.0.2`):
 
 ```kotlin
 dependencies {
-  implementation("com.infosung:atomic.contract:0.0.1")
-  implementation("com.infosung:atomic.storage:0.0.1")
-  implementation("com.infosung:atomic.spring.web:0.0.1")
-  implementation("com.infosung:atomic.spring.security:0.0.1")
-  implementation("com.infosung:atomic.spring.idempotency:0.0.1")
-  implementation("com.infosung:atomic.spring.oauth2:0.0.1")
-  implementation("com.infosung:atomic.heartbeat:0.0.1")
-  implementation("com.infosung:atomic.starter:0.0.1")
-  implementation("com.infosung:atomic.app:0.0.1")
+  implementation("com.infosung:atomic.contract:0.0.2")
+  implementation("com.infosung:atomic.storage:0.0.2")
+  implementation("com.infosung:atomic.spring.web:0.0.2")
+  implementation("com.infosung:atomic.spring.security:0.0.2")
+  implementation("com.infosung:atomic.spring.idempotency:0.0.2")
+  implementation("com.infosung:atomic.spring.oauth2:0.0.2")
+  implementation("com.infosung:atomic.heartbeat:0.0.2")
+  implementation("com.infosung:atomic.starter:0.0.2")
+  implementation("com.infosung:atomic.app.version:0.0.2")
+  implementation("com.infosung:atomic.app.storage.api:0.0.2")
+  implementation("com.infosung:atomic.app.oauth.redirect:0.0.2")
+  implementation("com.infosung:atomic.app:0.0.2")
 }
 ```
 
@@ -124,7 +126,18 @@ dependencies {
 | Heartbeat ping + dependency checks | `starter` + `heartbeat` | enable `atomic.heartbeat.enabled`, set provider URL, optional DB/Redis checks and dedup mode |
 | Full typical server stack | all modules | start with `starter` -> `storage/web` -> `security` -> `oauth2` |
 
-## 5. Configuration Policy
+## 5. App Module Responsibility Matrix
+
+| Feature | Database schema | Shared store / external state | Host job / runbook | Security rule change | Error-envelope ownership |
+|---|---|---|---|---|---|
+| `atomic.app.version` | `service_version` table + policy rows | none | seed/update version policy data, including whether each row is already store-available | usually none beyond normal API rules | built-in app advice is enough unless your platform overrides it |
+| `atomic.app.storage.api` | `image` table | configured `storageClients` / backend bucket | yes; own the `DELETE_PENDING` recovery path by replaying delete or calling `AppImageDeleteRecoveryService.recoverDeletePendingImages(limit)` | yes; include image paths in Spring Security matchers when security is enabled | built-in app advice is enough unless your platform overrides it |
+| `atomic.app.oauth.redirect` | default `entity` store needs `atomic_oauth_relay_code` table; `cache` / `in-memory` do not | yes; `OauthStateStore` for replay protection, plus relay store policy that matches deployment model | yes; own expired-row cleanup for entity relay store and decide local/dev vs multi-instance store policy | yes; allow redirect/callback endpoints and define CSRF policy for Apple `POST` callback | built-in app advice is enough unless your platform overrides it |
+
+Use this matrix as the shortest handoff summary for app-module adoption. If a row introduces
+infrastructure your team does not want to own yet, stay on the narrower feature set.
+
+## 6. Configuration Policy
 
 - `atomic.starter` activates only when corresponding module classes are on classpath.
 - `atomic.app` APIs are disabled by default and enabled by `atomic.app.version.enabled` / `atomic.app.image.enabled` / `atomic.app.oauth.redirect.enabled`.
@@ -143,7 +156,7 @@ dependencies {
 - Heartbeat dedup `leader` mode automatically re-elects on lease expiry; choose backend (`redis`, `jdbc`, or `custom`) and tune renew/lease values.
 - Start with minimum modules and add optional beans as needed.
 
-## 6. Operational Checklist (All Modules)
+## 7. Operational Checklist (All Modules)
 
 - Keep secrets out of source code and inject via environment.
 - Fix timezone/clock policy once and use consistently.
@@ -152,7 +165,7 @@ dependencies {
 - If you override app-module exception mapping, verify that your advice precedence still preserves the documented wire contract.
 - Add integration tests for auth and callback flows before release.
 
-## 7. Troubleshooting Index
+## 8. Troubleshooting Index
 
 - Response shape mismatch: check `BaseResponse` usage consistency.
 - Storage upload `Unknown storageType`: check storage client/profile map keys and call-site `storageType` value.
@@ -169,7 +182,7 @@ dependencies {
 - Heartbeat fail flood or silence: verify `atomic.heartbeat.dedup.mode`, leader backend bean availability, and ping/check intervals.
 - Artifact not found: switch to `project(":...")` dependency until repository resolution is ready.
 
-## 8. Recommended Reading Order
+## 9. Recommended Reading Order
 
 1. [Atomic Quick Start](quick-start.md)
 2. [Advanced Operations Playbook](advanced-playbook.md)

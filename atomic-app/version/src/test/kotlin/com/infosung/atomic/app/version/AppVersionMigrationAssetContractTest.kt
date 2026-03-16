@@ -36,12 +36,24 @@ class AppVersionMigrationAssetContractTest {
   @Autowired private lateinit var service: AppVersionCheckService
 
   @Test
-  fun `official service version sql asset should support version checks`() {
+  fun `official service version sql asset should support rollout safe version checks`() {
     serviceVersionRepository.saveAll(
         listOf(
-            policy(main = 2, minor = 0, patch = 0, requireUpdate = false),
-            policy(main = 1, minor = 2, patch = 4, requireUpdate = true, storeUrl = "https://force.update"),
-            policy(main = 1, minor = 2, patch = 3, requireUpdate = false),
+            policy(
+                main = 2,
+                minor = 1,
+                patch = 0,
+                requireUpdate = true,
+                storeUrl = "https://not-ready.update",
+                storeAvailable = false),
+            policy(main = 2, minor = 0, patch = 0, requireUpdate = false, storeAvailable = true),
+            policy(
+                main = 1,
+                minor = 2,
+                patch = 4,
+                requireUpdate = true,
+                storeUrl = "https://force.update",
+                storeAvailable = true),
         ),
     )
 
@@ -84,16 +96,18 @@ class AppVersionMigrationAssetContractTest {
       patch: Int,
       requireUpdate: Boolean,
       storeUrl: String? = null,
+      storeAvailable: Boolean = true,
   ): ServiceVersionEntity {
     return ServiceVersionEntity(
-        mainVersion = main,
-        minorVersion = minor,
-        patchNumber = patch,
-        requireUpdate = requireUpdate,
-        service = "MY_SERVICE",
-        platform = "ANDROID",
-        storeUrl = storeUrl,
-    )
+            mainVersion = main,
+            minorVersion = minor,
+            patchNumber = patch,
+            requireUpdate = requireUpdate,
+            service = "MY_SERVICE",
+            platform = "ANDROID",
+            storeUrl = storeUrl,
+        )
+        .also { it.storeAvailable = storeAvailable }
   }
 
   @SpringBootConfiguration
@@ -102,7 +116,9 @@ class AppVersionMigrationAssetContractTest {
   @EnableJpaRepositories(basePackageClasses = [ServiceVersionRepository::class])
   class TestConfiguration {
     @Bean
-    fun appVersionCheckService(serviceVersionRepository: ServiceVersionRepository): AppVersionCheckService {
+    fun appVersionCheckService(
+        serviceVersionRepository: ServiceVersionRepository
+    ): AppVersionCheckService {
       return AppVersionCheckService(
           serviceVersionRepository = serviceVersionRepository,
           defaultStoreUrl = "https://default.store",

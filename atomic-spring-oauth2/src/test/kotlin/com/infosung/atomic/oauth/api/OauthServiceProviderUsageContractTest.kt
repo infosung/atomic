@@ -35,9 +35,7 @@ class OauthServiceProviderUsageContractTest {
     assertNull(provider.getService(OauthProviderName.KAKAO))
 
     val exception =
-        assertFailsWith<OauthException> {
-          provider.requireService(OauthProviderName.APPLE)
-        }
+        assertFailsWith<OauthException> { provider.requireService(OauthProviderName.APPLE) }
     assertEquals("OAuth provider is not registered: APPLE", exception.message)
   }
 

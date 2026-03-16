@@ -65,7 +65,8 @@ class AtomicAppOauthRedirectPropertiesEnvironmentContractTest {
           assertEquals("/env/oauth/callback", properties.callbackEndpointPath)
           assertEquals("code", properties.relayCodeQueryParameterName)
           assertEquals(900, properties.relayCodeTtlSeconds)
-          assertEquals(listOf("https://app.example.com/oauth"), properties.allowedRedirectUriPrefixes)
+          assertEquals(
+              listOf("https://app.example.com/oauth"), properties.allowedRedirectUriPrefixes)
         }
   }
 

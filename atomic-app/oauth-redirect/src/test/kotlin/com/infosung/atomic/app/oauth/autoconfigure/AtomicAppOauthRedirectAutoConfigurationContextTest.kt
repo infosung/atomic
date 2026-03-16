@@ -28,16 +28,17 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import org.mockito.Mockito.doReturn
 import org.mockito.Mockito.mock
-import org.springframework.cache.Cache
-import org.springframework.cache.CacheManager
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
+import org.springframework.cache.Cache
+import org.springframework.cache.CacheManager
 import tools.jackson.module.kotlin.jacksonObjectMapper
 
 class AtomicAppOauthRedirectAutoConfigurationContextTest {
   private val contextRunner =
       ApplicationContextRunner()
-          .withConfiguration(AutoConfigurations.of(AtomicAppOauthRedirectAutoConfiguration::class.java))
+          .withConfiguration(
+              AutoConfigurations.of(AtomicAppOauthRedirectAutoConfiguration::class.java))
 
   @Test
   fun `disabled oauth redirect should not register relay or controller beans`() {
@@ -626,7 +627,8 @@ class AtomicAppOauthRedirectAutoConfigurationContextTest {
     }
 
     override fun putIfAbsent(key: Any, value: Any?): Cache.ValueWrapper? {
-      val existing = if (value != null) store.putIfAbsent(key, value) else store.putIfAbsent(key, NullValue)
+      val existing =
+          if (value != null) store.putIfAbsent(key, value) else store.putIfAbsent(key, NullValue)
       return existing?.let { SimpleValueWrapper(it) }
     }
 

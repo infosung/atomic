@@ -1,7 +1,7 @@
 package com.infosung.atomic.app.version
 
-import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.domain.Pageable
+import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
@@ -15,6 +15,12 @@ interface ServiceVersionRepository : JpaRepository<ServiceVersionEntity, Long> {
 
   /** Reads the latest policy row for one service/platform. */
   fun findFirstByServiceAndPlatformOrderByMainVersionDescMinorVersionDescPatchNumberDesc(
+      service: String,
+      platform: String,
+  ): ServiceVersionEntity?
+
+  /** Reads the latest store-available policy row for one service/platform. */
+  fun findFirstByServiceAndPlatformAndStoreAvailableTrueOrderByMainVersionDescMinorVersionDescPatchNumberDesc(
       service: String,
       platform: String,
   ): ServiceVersionEntity?
@@ -35,6 +41,7 @@ interface ServiceVersionRepository : JpaRepository<ServiceVersionEntity, Long> {
       FROM service_version sv
       WHERE sv.service = :service
         AND sv.platform = :platform
+        AND sv.storeAvailable = true
         AND sv.requireUpdate = true
         AND (
           sv.mainVersion > :mainVersion

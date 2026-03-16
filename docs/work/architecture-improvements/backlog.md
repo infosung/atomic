@@ -8,7 +8,7 @@ These items came out of the review but are intentionally not part of Phase 1.
 
 ## Medium Priority
 
-- document synchronous request-thread image processing limits and async/offload threshold
+- no open medium-priority backlog items at the moment
 
 ## Long-Term Architecture
 

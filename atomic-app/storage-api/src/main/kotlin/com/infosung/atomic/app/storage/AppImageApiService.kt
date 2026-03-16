@@ -332,7 +332,8 @@ class AppImageApiService(
       )
       throw HttpStatusException(
           status = 400,
-          message = "stored storageType is unavailable for image delete: ${imageEntity.storageType}",
+          message =
+              "stored storageType is unavailable for image delete: ${imageEntity.storageType}",
       )
     }
     log.debug(

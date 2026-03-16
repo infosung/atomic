@@ -1,5 +1,6 @@
 package com.infosung.atomic.app.storage
 
+import com.infosung.atomic.storage.PutObjectRequest
 import com.infosung.atomic.storage.StorageClient
 import com.infosung.atomic.storage.StorageProfile
 import com.infosung.atomic.storage.image.ImageInputValidator
@@ -9,7 +10,6 @@ import com.infosung.atomic.storage.image.ImageObjectKeyGenerator
 import com.infosung.atomic.storage.image.ImageService
 import com.infosung.atomic.storage.image.ImageThumbnailGenerator
 import com.infosung.atomic.storage.image.ValidatedImageInput
-import com.infosung.atomic.storage.PutObjectRequest
 import java.io.File
 import java.util.UUID
 import kotlin.test.Test
@@ -140,7 +140,8 @@ class AppImageDeleteRecoveryServiceTest {
     private val pendingEntities: MutableList<ImageEntity> = initialEntities.toMutableList()
     val purgedIds: MutableList<UUID> = mutableListOf()
 
-    override fun findDeletePending(limit: Int): List<ImageEntity> = pendingEntities.take(limit).toList()
+    override fun findDeletePending(limit: Int): List<ImageEntity> =
+        pendingEntities.take(limit).toList()
 
     override fun purgeDeletePending(imageEntity: ImageEntity) {
       val imageId = requireNotNull(imageEntity.id)

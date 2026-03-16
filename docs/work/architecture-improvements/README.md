@@ -20,6 +20,11 @@ This directory tracks contract-first architecture improvement work for `atomic`.
 - [Phase 8: Image Response DTO Separation](phase-8-image-response-dto-separation.md)
 - [Phase 9: App-Version Policy Resolution Optimization](phase-9-app-version-policy-resolution-optimization.md)
 - [Phase 10: Callback-Binding Policy Mode](phase-10-callback-binding-policy-mode.md)
+- [Phase 11: Version Policy Rollout-Safe Resolution](phase-11-version-policy-rollout-safe-resolution.md)
+
+## Review Notes
+
+- [2026-03-16: Multi-Perspective Review](review-2026-03-16-multi-perspective.md)
 
 ## Scope Rules
 

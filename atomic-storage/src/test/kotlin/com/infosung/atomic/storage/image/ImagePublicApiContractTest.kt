@@ -48,7 +48,9 @@ class ImagePublicApiContractTest {
             "uploadImage(InputStream, String, String, double):ImageUploadResult",
             "uploadImage(InputStream, String, String, double, boolean):ImageUploadResult",
         ),
-        ImageService::class.java.declaredMethods
+        ImageService::class
+            .java
+            .declaredMethods
             .filter {
               Modifier.isPublic(it.modifiers) && !it.isSynthetic && !it.name.contains("\$default")
             }

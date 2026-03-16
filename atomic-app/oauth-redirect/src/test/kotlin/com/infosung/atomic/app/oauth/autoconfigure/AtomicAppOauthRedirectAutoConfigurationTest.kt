@@ -132,9 +132,7 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
 
     invalidPrefixes.forEach { invalidPrefix ->
       val properties =
-          configuredProperties().apply {
-            allowedRedirectUriPrefixes = listOf(invalidPrefix)
-          }
+          configuredProperties().apply { allowedRedirectUriPrefixes = listOf(invalidPrefix) }
 
       val exception =
           assertFailsWith<IllegalArgumentException> {

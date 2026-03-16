@@ -24,7 +24,7 @@ class AppVersionController(
    * - `X-App-Version`: semantic version (`x.y.z`) of client app.
    *
    * @throws HttpStatusException 400 when any required header is missing/blank.
-   * @throws HttpStatusException 400 when app version format is invalid or not registered.
+   * @throws HttpStatusException 400 when app version format is invalid.
    * @throws HttpStatusException 404 when no version policy rows exist for service/platform.
    */
   @GetMapping("\${atomic.app.version.endpoint-path:/api/v1/version/check}")

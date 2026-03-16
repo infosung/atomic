@@ -36,10 +36,13 @@ References:
 
 - [ ] Enable only the APIs you actually use (`version`, `image`, `oauth redirect`)
 - [ ] Version API: prepare `service_version` table and policy rows
+- [ ] Version API: keep review/pre-rollout rows with `store_available=false` until they are safe force-update targets
 - [ ] Image API: prepare `image` table, `storageClients`/`ImageService`, and endpoint security rules
 - [ ] OAuth redirect API: set non-empty `allowed-redirect-uri-prefixes` in every enabled environment, and pin production prefixes to real domains only
 - [ ] OAuth redirect + Spring Security: define `permitAll` for redirect/callback and explicit CSRF policy for Apple `POST` callback
 - [ ] Document relay store policy (`entity`/`cache`/`in-memory`) and fail-fast behavior by deployment model
+- [ ] Image API: decide who owns `DELETE_PENDING` recovery, how it is invoked, and what alert threshold is acceptable
+- [ ] Image API: decide whether synchronous request-thread image processing still fits your latency/error budget
 
 References:
 - [atomic.app Guide](atomic-app.md)
@@ -104,7 +107,74 @@ References:
 - [atomic.heartbeat Guide](atomic-heartbeat.md)
 - [Property Reference by Module](environment-variables.md) (`atomic.heartbeat`)
 
-## 3) Common Misconfigurations and Diagnosis
+## 3) App-Module Production Decision Matrix
+
+| Concern | Single-node / local validation | Multi-instance / production |
+|---|---|---|
+| OAuth state replay protection | `atomic.oauth2.state.in-memory-store.enabled=true` is acceptable | use a shared/custom `OauthStateStore`; do not rely on process-local state storage |
+| OAuth relay store | `in-memory`, `cache`, or `entity` can be acceptable depending on convenience | prefer `entity` or a cache backend with verified atomic consume semantics; keep `store.fail-fast=true` |
+| Callback-binding mode | `strict` default, `relaxed` when you want easier multi-tab/back-navigation validation, `disabled` only for local escape-hatch testing | keep `strict` unless product UX explicitly prefers `relaxed`; treat `disabled` as non-production |
+| Image delete cleanup | manual retry is usually enough | define an admin job or operator path that calls `AppImageDeleteRecoveryService.recoverDeletePendingImages(limit)` |
+| Exception envelope | built-in app advice is enough for quick validation | verify advice precedence if your platform already standardizes a different error envelope |
+
+## 4) `DELETE_PENDING` Runbook
+
+Treat `DELETE_PENDING` as retryable cleanup work, not as a successful delete.
+
+Detection:
+- count rows in `image` where `status='DELETE_PENDING'`
+- alert if the count stops returning to zero after storage recovery or if old rows keep aging
+
+Minimum operator action:
+1. confirm the backing storage client key named by `image.storage_type` still exists
+2. restore the failing storage/backend condition
+3. retry cleanup by replaying the original delete or invoking `AppImageDeleteRecoveryService.recoverDeletePendingImages(limit)`
+4. verify the row is purged only after storage objects are actually deleted
+
+Recommended alerts:
+- non-zero `DELETE_PENDING` count older than your normal storage incident window
+- repeated recovery failures for the same image id
+- rising delete failure rate after storage client key or bucket changes
+
+Recommended ownership:
+- product team owns the scheduler/admin trigger cadence
+- platform/ops team owns the alert threshold and recovery runbook
+
+## 5) OAuth Redirect Deployment Rules
+
+- For `single-node/local`, convenience settings are acceptable when they are clearly isolated from production:
+  - `atomic.oauth2.state.in-memory-store.enabled=true`
+  - `atomic.app.oauth.redirect.store.type=in-memory`
+  - `atomic.app.oauth.redirect.callback-binding.mode=disabled` only for local HTTP-only callback testing
+- For `multi-instance/production`:
+  - keep `atomic.app.oauth.redirect.store.fail-fast=true`
+  - do not rely on process-local fallback when a selected store fails
+  - use a shared/custom `OauthStateStore`
+  - use `strict` callback-binding by default, and move to `relaxed` only when the browser UX tradeoff is intentional and verified
+
+## 6) Synchronous Image Processing Envelope
+
+The current image path is intentionally synchronous: request upload, original object upload,
+optional thumbnail generation, and thumbnail upload all happen on the request thread.
+
+Treat this path as the supported envelope for:
+- interactive user uploads
+- a modest number of image variants per request
+- workloads where request latency can legitimately include image resize/upload time
+
+Do not treat it as the default answer for:
+- bulk ingestion or backfill jobs
+- high fan-out media generation
+- workloads with strict latency SLOs that cannot absorb image-processing time
+- environments already showing temp-disk pressure or CPU contention from image transforms
+
+Plan an async/offload path when any of these start happening:
+- upload traffic begins to compete with request latency budgets
+- thumbnail generation failures or timeouts become operationally common
+- operators need queue-based retries or isolation from request spikes
+- your service needs explicit throughput guarantees independent of end-user HTTP requests
+
+## 7) Common Misconfigurations and Diagnosis
 
 ### A. Storage
 
@@ -173,7 +243,7 @@ Diagnosis:
 Action:
 - Re-select dedup policy and retune renew/lease/check interval/timeout
 
-## 4) `HttpStatusException` Mapping Guide (Core)
+## 8) `HttpStatusException` Mapping Guide (Core)
 
 ### Scenario 1: With `BaseExceptionHandler` (Recommended)
 
@@ -213,16 +283,19 @@ class AppExceptionHandler(
 }
 ```
 
-## 5) Release Gate (Before Production)
+## 9) Release Gate (Before Production)
 
 - [ ] Module checklists completed (storage/oauth2/security/idempotency/heartbeat)
 - [ ] Integration tests pass for `HttpStatusException` 400/401/404/500 cases
 - [ ] Multi-instance verification complete for idempotency/heartbeat
+- [ ] `DELETE_PENDING` recovery ownership and alerts are defined when image API is enabled
+- [ ] OAuth redirect store/state policy matches deployment model (`single-node/local` vs `multi-instance/production`)
+- [ ] Synchronous image-processing latency is acceptable for the intended workload envelope
 - [ ] Logging policy verified: `ApiLogAspect`/`RestClientErrorHandler` do not emit raw body dumps; keep `ServiceLogger` TRACE off in production
 - [ ] No secret/key/token values remain in repository config
 - [ ] Observability metrics prepared (401/403/409/429/5xx, state failure rate, heartbeat send failure rate)
 
-## 6) Detailed Links
+## 10) Detailed Links
 
 - [atomic.storage Guide](atomic-storage.md)
 - [atomic.spring.oauth2 Guide](atomic-spring-oauth2.md)

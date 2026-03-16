@@ -62,7 +62,8 @@ class AppOauthRedirectControllerHttpContractTest {
     assertTrue(setCookie.contains("Max-Age=${properties.callbackBinding.cookieMaxAgeSeconds}"))
     val authorizationRequest = assertNotNull(provider.lastAuthorizationRequest)
     assertTrue(
-        authorizationRequest.stateAttributes.containsKey(properties.callbackBinding.stateAttributeKey),
+        authorizationRequest.stateAttributes.containsKey(
+            properties.callbackBinding.stateAttributeKey),
     )
   }
 
@@ -146,9 +147,7 @@ class AppOauthRedirectControllerHttpContractTest {
 
     mockMvc
         .perform(
-            get("/oauth/callback/google")
-                .param("code", "code-123")
-                .param("state", state),
+            get("/oauth/callback/google").param("code", "code-123").param("state", state),
         )
         .andExpect(status().isFound)
         .andExpect(redirectedUrlPattern("https://app.example.com/oauth/callback?code=*"))
@@ -178,18 +177,14 @@ class AppOauthRedirectControllerHttpContractTest {
 
     mockMvc
         .perform(
-            get("/oauth/callback/google")
-                .param("code", "code-123")
-                .param("state", state),
+            get("/oauth/callback/google").param("code", "code-123").param("state", state),
         )
         .andExpect(status().isFound)
         .andExpect(redirectedUrlPattern("https://app.example.com/oauth/callback?relayCode=*"))
 
     mockMvc
         .perform(
-            get("/oauth/callback/google")
-                .param("code", "code-123")
-                .param("state", state),
+            get("/oauth/callback/google").param("code", "code-123").param("state", state),
         )
         .andExpect(status().isBadRequest)
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
@@ -215,8 +210,7 @@ class AppOauthRedirectControllerHttpContractTest {
             redirectUri = "https://app.example.com/oauth/callback",
             attributes =
                 mapOf(
-                    properties.callbackBinding.stateAttributeKey to
-                        "callback-binding-token-1",
+                    properties.callbackBinding.stateAttributeKey to "callback-binding-token-1",
                 ),
         )
 
@@ -398,8 +392,7 @@ class AppOauthRedirectControllerHttpContractTest {
             redirectUri = "https://app.example.com/oauth/callback",
             attributes =
                 mapOf(
-                    properties.callbackBinding.stateAttributeKey to
-                        "callback-binding-token-apple",
+                    properties.callbackBinding.stateAttributeKey to "callback-binding-token-apple",
                 ),
         )
 
