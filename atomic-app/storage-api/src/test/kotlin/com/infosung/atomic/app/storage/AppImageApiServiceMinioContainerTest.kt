@@ -223,7 +223,9 @@ class AppImageApiServiceMinioContainerTest {
 
     @Container
     @JvmStatic
-    private val postgres: PostgreSQLContainer<*> = PostgreSQLContainer("postgres:16-alpine")
+    private val postgres: PostgreSQLContainer<*> =
+        PostgreSQLContainer("postgres:16-alpine")
+            .withDatabaseName("app_image_api_minio_${UUID.randomUUID()}")
 
     @Container
     @JvmStatic

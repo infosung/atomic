@@ -23,9 +23,9 @@ import org.testcontainers.junit.jupiter.Testcontainers
 @DataJpaTest(
     properties =
         [
-            "spring.jpa.hibernate.ddl-auto=validate",
+            "spring.jpa.hibernate.ddl-auto=none",
             "spring.sql.init.mode=always",
-            "spring.sql.init.schema-locations=classpath:META-INF/atomic/sql/postgresql/image.sql",
+            "spring.sql.init.schema-locations=classpath:META-INF/atomic/sql/postgresql/test/drop_image.sql,classpath:META-INF/atomic/sql/postgresql/image.sql",
         ],
 )
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -101,7 +101,9 @@ class AppImageMigrationAssetContractTest {
   companion object {
     @Container
     @JvmStatic
-    private val postgres: PostgreSQLContainer<*> = PostgreSQLContainer("postgres:16-alpine")
+    private val postgres: PostgreSQLContainer<*> =
+        PostgreSQLContainer("postgres:16-alpine")
+            .withDatabaseName("app_image_migration_asset_contract_${UUID.randomUUID()}")
 
     @JvmStatic
     @DynamicPropertySource

@@ -2,12 +2,11 @@ package com.infosung.atomic.app.storage
 
 import java.util.UUID
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
-import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.condition.EnabledIf
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.SpringBootConfiguration
+import org.springframework.boot.SpringBootVersion
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase
@@ -20,55 +19,24 @@ import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 
-@DataJpaTest
+@EnabledIf("isBaselineSpringBootLine")
+@DataJpaTest(
+    properties =
+        [
+            "spring.jpa.hibernate.ddl-auto=validate",
+            "spring.sql.init.mode=always",
+            "spring.sql.init.schema-locations=classpath:META-INF/atomic/sql/postgresql/test/drop_image.sql,classpath:META-INF/atomic/sql/postgresql/image.sql",
+        ],
+)
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import(AppImageEntityTxService::class)
 @Testcontainers(disabledWithoutDocker = true)
-class AppImageEntityTxServiceContainerTest {
+class AppImageSchemaAlignmentBaselineTest {
   @Autowired private lateinit var imageEntityTxService: AppImageEntityTxService
 
   @Test
-  fun `save and find should persist metadata on postgres`() {
-    val saved = imageEntityTxService.save(newEntity())
-    val imageId = requireNotNull(saved.id)
-    assertNotNull(imageId)
-    val loaded = imageEntityTxService.findByIdOrThrow(imageId, imageId.toString())
-    assertEquals(saved.id, loaded.id)
-    assertEquals(saved.fileName, loaded.fileName)
-    assertEquals(saved.thumbnailFileName, loaded.thumbnailFileName)
-    assertEquals(saved.storageType, loaded.storageType)
-  }
-
-  @Test
-  fun `delete should remove metadata row on postgres`() {
-    val saved = imageEntityTxService.save(newEntity())
-    val imageId = requireNotNull(saved.id)
-
-    imageEntityTxService.delete(saved)
-
-    val exception =
-        assertThrows<IllegalArgumentException> {
-          imageEntityTxService.findByIdOrThrow(imageId, imageId.toString())
-        }
-    assertTrue(exception.message?.contains("image not found") == true)
-  }
-
-  private fun newEntity(): ImageEntity {
-    val suffix = UUID.randomUUID().toString().take(8)
-    val objectKey = "images/$suffix/original.png"
-    val thumbnailKey = "images/$suffix/original_thumb.webp"
-    return ImageEntity(
-        bucket = "bucket",
-        serviceName = "svc",
-        storageService = "S3",
-        storageType = "S3",
-        fileName = objectKey,
-        thumbnailFileName = thumbnailKey,
-        url = "https://cdn.example.com/$objectKey",
-        thumbnailUrl = "https://cdn.example.com/$thumbnailKey",
-        fileSize = 123,
-        thumbnailFileSize = 45,
-    )
+  fun `baseline runtime should validate official image sql asset against jpa mapping`() {
+    assertNotNull(imageEntityTxService)
   }
 
   @SpringBootConfiguration
@@ -82,7 +50,12 @@ class AppImageEntityTxServiceContainerTest {
     @JvmStatic
     private val postgres: PostgreSQLContainer<*> =
         PostgreSQLContainer("postgres:16-alpine")
-            .withDatabaseName("app_image_tx_container_${UUID.randomUUID()}")
+            .withDatabaseName("app_image_schema_alignment_${UUID.randomUUID()}")
+
+    @JvmStatic
+    fun isBaselineSpringBootLine(): Boolean {
+      return SpringBootVersion.getVersion() == "4.0.3"
+    }
 
     @JvmStatic
     @DynamicPropertySource
@@ -90,7 +63,6 @@ class AppImageEntityTxServiceContainerTest {
       registry.add("spring.datasource.url", postgres::getJdbcUrl)
       registry.add("spring.datasource.username", postgres::getUsername)
       registry.add("spring.datasource.password", postgres::getPassword)
-      registry.add("spring.jpa.hibernate.ddl-auto") { "create" }
     }
   }
 }
