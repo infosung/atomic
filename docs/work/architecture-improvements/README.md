@@ -23,6 +23,7 @@ This directory tracks contract-first architecture improvement work for `atomic`.
 - [Phase 11: Version Policy Rollout-Safe Resolution](phase-11-version-policy-rollout-safe-resolution.md)
 - [Phase 12: Service-Version Uniqueness Guard](phase-12-service-version-uniqueness-guard.md)
 - [Phase 13: OAuth State Tamper Test Stability](phase-13-oauth-state-tamper-test-stability.md)
+- [Phase 14: App-Version Migration Test Isolation](phase-14-app-version-migration-test-isolation.md)
 
 ## Review Notes
 

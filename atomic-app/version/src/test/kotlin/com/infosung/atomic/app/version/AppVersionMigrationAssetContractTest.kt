@@ -26,7 +26,7 @@ import org.testcontainers.junit.jupiter.Testcontainers
         [
             "spring.jpa.hibernate.ddl-auto=validate",
             "spring.sql.init.mode=always",
-            "spring.sql.init.schema-locations=classpath:META-INF/atomic/sql/postgresql/service_version.sql",
+            "spring.sql.init.schema-locations=classpath:META-INF/atomic/sql/postgresql/test/drop_service_version.sql,classpath:META-INF/atomic/sql/postgresql/service_version.sql",
         ],
 )
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -161,7 +161,9 @@ class AppVersionMigrationAssetContractTest {
   companion object {
     @Container
     @JvmStatic
-    private val postgres: PostgreSQLContainer<*> = PostgreSQLContainer("postgres:16-alpine")
+    private val postgres: PostgreSQLContainer<*> =
+        PostgreSQLContainer("postgres:16-alpine")
+            .withDatabaseName("app_version_migration_asset_contract")
 
     @JvmStatic
     @DynamicPropertySource
