@@ -11,7 +11,9 @@ import com.infosung.atomic.app.oauth.InMemoryOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.OauthRelayCodeStore
 import com.infosung.atomic.contract.time.TimeProvider
 import com.infosung.atomic.oauth.api.OauthServiceProvider
+import com.infosung.atomic.oauth.state.InMemoryOauthStateStore
 import com.infosung.atomic.oauth.state.OauthStateManager
+import com.infosung.atomic.oauth.state.OauthStateStore
 import javax.sql.DataSource
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
@@ -48,22 +50,38 @@ import tools.jackson.databind.ObjectMapper
 class AtomicAppOauthRedirectAutoConfiguration {
   private val log = LoggerFactory.getLogger(this::class.java)
 
+  private enum class StateStoreSummaryType {
+    ABSENT,
+    OPAQUE_REPLAY_PROTECTED,
+    MULTIPLE_CANDIDATES,
+    IN_MEMORY,
+    CUSTOM_OR_SHARED,
+  }
+
   @Bean
   fun appOauthRedirectPropertiesValidator(
       properties: AtomicAppOauthRedirectProperties,
       oauthServiceProviderProvider: ObjectProvider<OauthServiceProvider>,
       oauthStateManagerProvider: ObjectProvider<OauthStateManager>,
+      oauthStateStoreProvider: ObjectProvider<OauthStateStore>,
   ): Any {
     validateGlobalProperties(properties)
     validateSecurityProperties(properties)
-    validateRequiredOauthBeans(
-        oauthServiceProviderProvider = oauthServiceProviderProvider,
-        oauthStateManagerProvider = oauthStateManagerProvider,
+    val oauthStateManager =
+        validateRequiredOauthBeans(
+            oauthServiceProviderProvider = oauthServiceProviderProvider,
+            oauthStateManagerProvider = oauthStateManagerProvider,
+        )
+    logDeploymentSummary(
+        properties = properties,
+        oauthStateManager = oauthStateManager,
+        oauthStateStoreProvider = oauthStateStoreProvider,
     )
     log.debug(
-        "Validated oauth redirect auto-configuration prerequisites: storeType={}, callbackBindingMode={}",
+        "Validated oauth redirect auto-configuration prerequisites: storeType={}, callbackBindingMode={}, replayProtectionEnabled={}",
         properties.store.type,
         properties.callbackBinding.resolvedMode(),
+        oauthStateManager.isReplayProtectionEnabled(),
     )
     return Any()
   }
@@ -82,7 +100,11 @@ class AtomicAppOauthRedirectAutoConfiguration {
 
     return when (properties.store.type) {
       AtomicAppOauthRedirectProperties.StoreType.IN_MEMORY -> {
-        newInMemoryStore(properties = properties, timeProvider = timeProvider)
+        newInMemoryStore(
+            properties = properties,
+            timeProvider = timeProvider,
+            selectionReason = "configured",
+        )
       }
 
       AtomicAppOauthRedirectProperties.StoreType.CACHE -> {
@@ -221,6 +243,7 @@ class AtomicAppOauthRedirectAutoConfiguration {
   private fun newInMemoryStore(
       properties: AtomicAppOauthRedirectProperties,
       timeProvider: TimeProvider,
+      selectionReason: String,
   ): OauthRelayCodeStore {
     if (properties.store.inMemory.cleanupInterval <= 0) {
       log.warn(
@@ -229,7 +252,9 @@ class AtomicAppOauthRedirectAutoConfiguration {
       )
     }
     log.info(
-        "Using in-memory oauth relay store: cleanupInterval={}, failFast={}",
+        "Using in-memory oauth relay store: configuredStoreType={}, selectionReason={}, cleanupInterval={}, failFast={}",
+        properties.store.type,
+        selectionReason,
         properties.store.inMemory.cleanupInterval,
         properties.store.failFast,
     )
@@ -248,8 +273,15 @@ class AtomicAppOauthRedirectAutoConfiguration {
       log.error("OAuth redirect relay store fail-fast triggered: {}", reason)
       throw IllegalStateException(reason)
     }
-    log.warn("{} Falling back to in-memory relay code store.", reason)
-    return newInMemoryStore(properties = properties, timeProvider = timeProvider)
+    log.warn(
+        "{} Falling back to in-memory relay code store (process-local per instance).",
+        reason,
+    )
+    return newInMemoryStore(
+        properties = properties,
+        timeProvider = timeProvider,
+        selectionReason = "fallback",
+    )
   }
 
   private fun validateSecurityProperties(properties: AtomicAppOauthRedirectProperties) {
@@ -293,13 +325,13 @@ class AtomicAppOauthRedirectAutoConfiguration {
   private fun validateRequiredOauthBeans(
       oauthServiceProviderProvider: ObjectProvider<OauthServiceProvider>,
       oauthStateManagerProvider: ObjectProvider<OauthStateManager>,
-  ) {
+  ): OauthStateManager {
     val oauthServiceProvider = oauthServiceProviderProvider.getIfAvailable()
     val oauthStateManager = oauthStateManagerProvider.getIfAvailable()
     if (oauthServiceProvider != null &&
         oauthStateManager != null &&
         oauthStateManager.isReplayProtectionEnabled()) {
-      return
+      return oauthStateManager
     }
     val message =
         "atomic.app.oauth.redirect.enabled=true requires OauthServiceProvider and store-backed OauthStateManager beans."
@@ -311,5 +343,70 @@ class AtomicAppOauthRedirectAutoConfiguration {
         oauthStateManager?.isReplayProtectionEnabled() == true,
     )
     throw IllegalStateException(message)
+  }
+
+  private fun logDeploymentSummary(
+      properties: AtomicAppOauthRedirectProperties,
+      oauthStateManager: OauthStateManager,
+      oauthStateStoreProvider: ObjectProvider<OauthStateStore>,
+  ) {
+    val callbackBindingMode = properties.callbackBinding.resolvedMode()
+    val stateStoreType =
+        resolveStateStoreType(
+            oauthStateManager = oauthStateManager,
+            oauthStateStoreProvider = oauthStateStoreProvider,
+        )
+
+    log.info(
+        "OAuth redirect deployment summary: relayStoreType={}, relayStoreFailFast={}, callbackBindingMode={}, replayProtectionEnabled={}, stateStoreType={}",
+        properties.store.type,
+        properties.store.failFast,
+        callbackBindingMode,
+        oauthStateManager.isReplayProtectionEnabled(),
+        stateStoreType.name,
+    )
+
+    if (properties.store.type == AtomicAppOauthRedirectProperties.StoreType.IN_MEMORY) {
+      log.warn(
+          "OAuth redirect relay store is configured as in-memory. It is process-local per instance and fits only local or intentionally single-node deployments.")
+    }
+    if (properties.store.type != AtomicAppOauthRedirectProperties.StoreType.IN_MEMORY &&
+        !properties.store.failFast) {
+      log.warn(
+          "OAuth redirect relay store fail-fast is disabled for configuredStoreType={}. Startup fallback can switch to the in-memory relay store, which is process-local per instance.",
+          properties.store.type,
+      )
+    }
+    if (stateStoreType == StateStoreSummaryType.IN_MEMORY) {
+      log.warn(
+          "OAuth state replay protection uses the in-memory state store. It is process-local per instance and is not suitable for multi-instance deployments.")
+    }
+    when (callbackBindingMode) {
+      AtomicAppOauthRedirectProperties.CallbackBindingMode.DISABLED ->
+          log.warn(
+              "OAuth callback binding mode is disabled. Use this only for local HTTP-only testing or other explicitly trusted environments.")
+
+      AtomicAppOauthRedirectProperties.CallbackBindingMode.RELAXED ->
+          log.info(
+              "OAuth callback binding mode is relaxed. Cookie reuse is allowed after successful callbacks; verify the UX and security tradeoff intentionally.")
+
+      AtomicAppOauthRedirectProperties.CallbackBindingMode.STRICT -> Unit
+    }
+  }
+
+  private fun resolveStateStoreType(
+      oauthStateManager: OauthStateManager,
+      oauthStateStoreProvider: ObjectProvider<OauthStateStore>,
+  ): StateStoreSummaryType {
+    if (!oauthStateManager.isReplayProtectionEnabled()) {
+      return StateStoreSummaryType.ABSENT
+    }
+    val stateStores = oauthStateStoreProvider.orderedStream().limit(2).toList()
+    return when {
+      stateStores.isEmpty() -> StateStoreSummaryType.OPAQUE_REPLAY_PROTECTED
+      stateStores.size > 1 -> StateStoreSummaryType.MULTIPLE_CANDIDATES
+      stateStores.first() is InMemoryOauthStateStore -> StateStoreSummaryType.IN_MEMORY
+      else -> StateStoreSummaryType.CUSTOM_OR_SHARED
+    }
   }
 }

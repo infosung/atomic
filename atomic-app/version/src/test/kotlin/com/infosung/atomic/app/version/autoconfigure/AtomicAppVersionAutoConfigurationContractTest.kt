@@ -10,6 +10,7 @@ import kotlin.test.assertTrue
 import org.mockito.Mockito.mock
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
+import org.springframework.jdbc.core.JdbcTemplate
 
 class AtomicAppVersionAutoConfigurationContractTest {
   private val contextRunner =
@@ -42,5 +43,15 @@ class AtomicAppVersionAutoConfigurationContractTest {
     assertIs<AppVersionCheckService>(service)
     assertIs<AppVersionController>(controller)
     assertIs<AppVersionHttpExceptionHandler>(handler)
+  }
+
+  @Test
+  fun `auto configuration factory method should create schema upgrade preflight`() {
+    val autoConfiguration = AtomicAppVersionAutoConfiguration()
+
+    val preflight =
+        autoConfiguration.appVersionSchemaUpgradePreflight(mock(JdbcTemplate::class.java))
+
+    assertIs<AppVersionSchemaUpgradePreflight>(preflight)
   }
 }

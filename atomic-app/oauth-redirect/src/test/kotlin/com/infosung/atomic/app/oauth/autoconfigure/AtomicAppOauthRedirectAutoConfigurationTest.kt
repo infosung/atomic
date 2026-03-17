@@ -1,13 +1,22 @@
 package com.infosung.atomic.app.oauth.autoconfigure
 
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import com.infosung.atomic.app.oauth.EntityOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.InMemoryOauthRelayCodeStore
+import com.infosung.atomic.oauth.api.OauthServiceProvider
+import com.infosung.atomic.oauth.state.InMemoryOauthStateStore
+import com.infosung.atomic.oauth.state.OauthStateManager
+import com.infosung.atomic.oauth.state.OauthStateStore
 import javax.sql.DataSource
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import org.mockito.Mockito.mock
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.support.DefaultListableBeanFactory
 import org.springframework.cache.Cache
@@ -18,6 +27,113 @@ import tools.jackson.databind.ObjectMapper
 
 class AtomicAppOauthRedirectAutoConfigurationTest {
   private val autoConfiguration = AtomicAppOauthRedirectAutoConfiguration()
+
+  @Test
+  fun `validator should log deployment summary and process local warnings for in memory preset`() {
+    val properties =
+        configuredProperties().apply {
+          store.type = AtomicAppOauthRedirectProperties.StoreType.IN_MEMORY
+        }
+    val stateStore = InMemoryOauthStateStore()
+
+    withListAppender(AtomicAppOauthRedirectAutoConfiguration::class.java, Level.INFO) { events ->
+      autoConfiguration.appOauthRedirectPropertiesValidator(
+          properties = properties,
+          oauthServiceProviderProvider =
+              provider(OauthServiceProvider::class.java, OauthServiceProvider(emptyList())),
+          oauthStateManagerProvider =
+              provider(
+                  OauthStateManager::class.java,
+                  OauthStateManager(
+                      signingSecret = "0123456789abcdef0123456789abcdef",
+                      store = stateStore,
+                  ),
+              ),
+          oauthStateStoreProvider = provider(OauthStateStore::class.java, stateStore),
+      )
+
+      val logs = events.map { it.formattedMessage }
+      assertTrue(
+          logs.any {
+            it.contains("OAuth redirect deployment summary") &&
+                it.contains("relayStoreType=IN_MEMORY") &&
+                it.contains("callbackBindingMode=STRICT") &&
+                it.contains("stateStoreType=IN_MEMORY")
+          })
+      assertTrue(logs.any { it.contains("process-local") && it.contains("relay store") })
+      assertTrue(
+          logs.any { it.contains("process-local") && it.contains("state replay protection") })
+    }
+  }
+
+  @Test
+  fun `validator should warn when callback binding mode is disabled`() {
+    val properties =
+        configuredProperties().apply {
+          store.type = AtomicAppOauthRedirectProperties.StoreType.IN_MEMORY
+          callbackBinding.mode = AtomicAppOauthRedirectProperties.CallbackBindingMode.DISABLED
+        }
+    val stateStore = InMemoryOauthStateStore()
+
+    withListAppender(AtomicAppOauthRedirectAutoConfiguration::class.java, Level.INFO) { events ->
+      autoConfiguration.appOauthRedirectPropertiesValidator(
+          properties = properties,
+          oauthServiceProviderProvider =
+              provider(OauthServiceProvider::class.java, OauthServiceProvider(emptyList())),
+          oauthStateManagerProvider =
+              provider(
+                  OauthStateManager::class.java,
+                  OauthStateManager(
+                      signingSecret = "0123456789abcdef0123456789abcdef",
+                      store = stateStore,
+                  ),
+              ),
+          oauthStateStoreProvider = provider(OauthStateStore::class.java, stateStore),
+      )
+
+      val logs = events.map { it.formattedMessage }
+      assertTrue(
+          logs.any {
+            it.contains("callback binding mode is disabled") &&
+                it.contains("local HTTP-only testing")
+          })
+    }
+  }
+
+  @Test
+  fun `validator should not require unique oauth state store bean for deployment summary`() {
+    val properties =
+        configuredProperties().apply {
+          store.type = AtomicAppOauthRedirectProperties.StoreType.IN_MEMORY
+        }
+    val primaryStateStore = InMemoryOauthStateStore()
+    val secondaryStateStore = InMemoryOauthStateStore()
+
+    withListAppender(AtomicAppOauthRedirectAutoConfiguration::class.java, Level.INFO) { events ->
+      autoConfiguration.appOauthRedirectPropertiesValidator(
+          properties = properties,
+          oauthServiceProviderProvider =
+              provider(OauthServiceProvider::class.java, OauthServiceProvider(emptyList())),
+          oauthStateManagerProvider =
+              provider(
+                  OauthStateManager::class.java,
+                  OauthStateManager(
+                      signingSecret = "0123456789abcdef0123456789abcdef",
+                      store = primaryStateStore,
+                  ),
+              ),
+          oauthStateStoreProvider =
+              provider(
+                  OauthStateStore::class.java,
+                  primaryStateStore,
+                  secondaryStateStore,
+              ),
+      )
+
+      val logs = events.map { it.formattedMessage }
+      assertTrue(logs.any { it.contains("stateStoreType=MULTIPLE_CANDIDATES") })
+    }
+  }
 
   @Test
   fun `default store type should be entity and fail when dependencies are missing`() {
@@ -44,6 +160,7 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
           properties = properties,
           oauthServiceProviderProvider = provider(),
           oauthStateManagerProvider = provider(),
+          oauthStateStoreProvider = provider(),
       )
     }
   }
@@ -77,6 +194,7 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
           properties = properties,
           oauthServiceProviderProvider = provider(),
           oauthStateManagerProvider = provider(),
+          oauthStateStoreProvider = provider(),
       )
     }
   }
@@ -90,6 +208,7 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
           properties = properties,
           oauthServiceProviderProvider = provider(),
           oauthStateManagerProvider = provider(),
+          oauthStateStoreProvider = provider(),
       )
     }
   }
@@ -116,6 +235,7 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
             properties = properties,
             oauthServiceProviderProvider = provider(),
             oauthStateManagerProvider = provider(),
+            oauthStateStoreProvider = provider(),
         )
       }
     }
@@ -140,6 +260,7 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
                 properties = properties,
                 oauthServiceProviderProvider = provider(),
                 oauthStateManagerProvider = provider(),
+                oauthStateStoreProvider = provider(),
             )
           }
 
@@ -156,14 +277,26 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
         }
 
     val store =
-        autoConfiguration.oauthRelayCodeStore(
-            properties = properties,
-            timeProviderProvider = provider(),
-            objectMapperProvider = provider(ObjectMapper::class.java, ObjectMapper()),
-            cacheManagerProvider = provider(),
-            dataSourceProvider = provider(),
-            transactionManagerProvider = provider(),
-        )
+        withListAppender(AtomicAppOauthRedirectAutoConfiguration::class.java, Level.INFO) { events
+          ->
+          val resolvedStore =
+              autoConfiguration.oauthRelayCodeStore(
+                  properties = properties,
+                  timeProviderProvider = provider(),
+                  objectMapperProvider = provider(ObjectMapper::class.java, ObjectMapper()),
+                  cacheManagerProvider = provider(),
+                  dataSourceProvider = provider(),
+                  transactionManagerProvider = provider(),
+              )
+
+          val logs = events.map { it.formattedMessage }
+          assertTrue(
+              logs.any {
+                it.contains("Falling back to in-memory relay code store") &&
+                    it.contains("process-local")
+              })
+          resolvedStore
+        }
 
     assertIs<InMemoryOauthRelayCodeStore>(store)
   }
@@ -234,6 +367,17 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
     return beanFactory.getBeanProvider(type)
   }
 
+  private fun <T : Any> provider(
+      type: Class<T>,
+      firstBean: T,
+      secondBean: T,
+  ): ObjectProvider<T> {
+    val beanFactory = DefaultListableBeanFactory()
+    beanFactory.registerSingleton("${type.name}#1", firstBean)
+    beanFactory.registerSingleton("${type.name}#2", secondBean)
+    return beanFactory.getBeanProvider(type)
+  }
+
   private inline fun <reified T : Any> provider(): ObjectProvider<T> {
     return provider(T::class.java)
   }
@@ -241,6 +385,25 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
   private fun configuredProperties(): AtomicAppOauthRedirectProperties {
     return AtomicAppOauthRedirectProperties().apply {
       allowedRedirectUriPrefixes = listOf("https://app.example.com/oauth")
+    }
+  }
+
+  private fun <T> withListAppender(
+      loggerClass: Class<*>,
+      level: Level,
+      block: (events: List<ILoggingEvent>) -> T,
+  ): T {
+    val logger = LoggerFactory.getLogger(loggerClass) as Logger
+    val previousLevel = logger.level
+    val appender = ListAppender<ILoggingEvent>()
+    appender.start()
+    logger.addAppender(appender)
+    logger.level = level
+    try {
+      return block(appender.list)
+    } finally {
+      logger.detachAppender(appender)
+      logger.level = previousLevel
     }
   }
 }

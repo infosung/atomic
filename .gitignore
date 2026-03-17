@@ -48,3 +48,4 @@ bin/
 .idea/
 **/resources/**/*.apps.googleusercontent.com.json
 **/resources/**/*.p8
+/docs/work/

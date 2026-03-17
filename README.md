@@ -457,6 +457,7 @@ OAuth relay option (without token in callback query):
   - each entry must be an absolute URI without query/fragment.
   - invalid entry format fails startup.
   - example: `https://app.example.com/oauth` allows `https://app.example.com/oauth/callback` but rejects `https://app.example.com.evil.com/...`.
+  - custom mobile deep links are supported too, but keep the configured entry in the exact URI shape your client emits (`myapp://oauth/...` and `myapp:/oauth/...` are different contracts).
 - empty `allowed-redirect-uri-prefixes` fails startup (fail-fast).
 - callback binding is enabled by default and validates redirect/callback flow using state-attribute + cookie token match.
   - hardened defaults require `cookie-name` with `__Host-` prefix, `cookie-secure=true`, and `cookie-path=/`.

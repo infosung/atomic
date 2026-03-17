@@ -118,12 +118,33 @@ Notes:
 - `allowed-redirect-uri-prefixes` is required when `atomic.app.oauth.redirect.enabled=true`.
 - `atomic.app.oauth.redirect.enabled=true` also requires both `OauthServiceProvider` and a store-backed `OauthStateManager`. The easiest path is `atomic-starter` plus `atomic-spring-oauth2` with both `atomic.oauth2.state.signing-secret` and `atomic.oauth2.state.in-memory-store.enabled=true`.
 - malformed `allowed-redirect-uri-prefixes` entries fail startup, not first request.
+- mobile/custom-scheme deep links are supported, but allowlist matching still uses `scheme + host + port + path-prefix`.
+  - `myapp://oauth` allows `myapp://oauth/callback`
+  - `myapp:/oauth` allows `myapp:/oauth/callback`
+  - keep the configured entry in the exact URI shape your client actually emits; `myapp://oauth/...` and `myapp:/oauth/...` do not match each other
 - Default callback-binding uses hardened cookie constraints (`cookie-name` with `__Host-` prefix, `cookie-secure=true`, `cookie-path=/`), so local plain HTTP callbacks can fail with `OAuth callback binding cookie is missing.`
   - For local HTTP-only testing, use HTTPS tunneling or set `atomic.app.oauth.redirect.callback-binding.mode=disabled` (legacy `callback-binding.enabled=false` still works).
 - Default callback-binding mode is `strict`, so a successful callback clears the callback-binding cookie and the callback must complete with the cookie minted during redirect.
 - If your UX prefers multi-tab/back-navigation tolerance, set `atomic.app.oauth.redirect.callback-binding.mode=relaxed`.
 - `spring.autoconfigure.exclude` is a temporary quick-start shortcut for non-DB environments. For production, configure DataSource/store policy explicitly (`entity/cache/custom`).
 - If Spring Security is enabled, explicitly configure `permitAll` for redirect/callback endpoints and CSRF policy for Apple `POST` callback path.
+- startup now logs an oauth redirect deployment summary (`relayStoreType`, `relayStoreFailFast`, `callbackBindingMode`, `replayProtectionEnabled`, `stateStoreType`).
+  - if you see warnings about `process-local per instance`, `callback binding mode is disabled`, or in-memory state replay protection, treat that configuration as local-only or intentionally single-node.
+
+Preset shortcut:
+- `local-development`
+  - `atomic.oauth2.state.in-memory-store.enabled=true`
+  - `atomic.app.oauth.redirect.store.type=in-memory`
+  - optional `atomic.app.oauth.redirect.callback-binding.mode=disabled` only for local HTTP callback testing
+- `single-node-production`
+  - prefer `atomic.app.oauth.redirect.store.type=entity` or verified `cache`
+  - keep `atomic.app.oauth.redirect.store.fail-fast=true`
+  - keep `callback-binding.mode=strict` by default
+- `multi-instance-production`
+  - use shared/custom `OauthStateStore` instead of in-memory replay protection
+  - prefer `entity` or verified `cache` relay store
+  - keep `store.fail-fast=true`
+  - do not rely on process-local fallback
 
 ---
 
@@ -132,13 +153,14 @@ Notes:
 | Track | What to verify immediately |
 |---|---|
 | `A. version-only` | On `GET /api/v1/version/check`, confirm headers (`X-Service-Name`, `X-Platform`, `X-App-Version`) are present and `service_version` table/rows are ready |
-| `B. image API` | Confirm `POST /api/v1/storage/image/{service}/{storageService}` is not `404`, storage backend key (`S3`, etc.) matches request path values, and thumbnail behavior matches `atomic.app.image.thumbnail-enabled` / request `thumbnailEnabled` |
+| `B. image API` | Confirm `POST /api/v1/storage/image/{service}/{storageService}` is not `404`, storage backend key (`S3`, etc.) matches request path values, thumbnail behavior matches `atomic.app.image.thumbnail-enabled` / request `thumbnailEnabled`, and your team knows that failed DELETE can leave retryable `DELETE_PENDING` metadata |
 | `C. oauth redirect relay API` | Confirm `GET /oauth/redirect/google?redirectUri=...` returns redirect, and provider console redirect URI exactly matches `https://{host}/oauth/callback/google` |
 
 Common failure causes:
 - Missing module dependencies while `enabled=true`
 - OAuth `signing-secret` length is below 32 bytes
 - Callback URI mismatch between provider console and server config
+- Image DELETE can reserve metadata as `DELETE_PENDING` before storage cleanup; retry the same DELETE after backend recovery or use `AppImageDeleteRecoveryService` from your own admin/scheduler path
 
 ---
 

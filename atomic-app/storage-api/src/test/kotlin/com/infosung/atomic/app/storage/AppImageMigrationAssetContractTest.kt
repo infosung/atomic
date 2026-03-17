@@ -1,5 +1,6 @@
 package com.infosung.atomic.app.storage
 
+import java.time.LocalDateTime
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -72,24 +73,82 @@ class AppImageMigrationAssetContractTest {
         )
 
     assertTrue(indexes.contains("idx_image_service_storage"))
+    assertTrue(indexes.contains("idx_image_status_created_at"))
   }
 
-  private fun newEntity(): ImageEntity {
+  @Test
+  fun `official image sql asset should support delete pending snapshot queries`() {
+    imageEntityTxService.save(
+        newEntity(
+            fileName = "images/older/original.png",
+            status = ImageEntity.STATUS_DELETE_PENDING,
+            createdAt = LocalDateTime.of(2024, 1, 1, 0, 0, 0),
+        ),
+    )
+    imageEntityTxService.save(
+        newEntity(
+            fileName = "images/newer/original.png",
+            status = ImageEntity.STATUS_DELETE_PENDING,
+            createdAt = LocalDateTime.of(2024, 1, 2, 0, 0, 0),
+        ),
+    )
+
+    val snapshot = imageEntityTxService.inspectDeletePendingImages()
+
+    assertEquals(2L, snapshot.pendingCount)
+    assertEquals(LocalDateTime.of(2024, 1, 1, 0, 0, 0), snapshot.oldestPendingCreatedAt)
+  }
+
+  @Test
+  fun `official image sql asset should support long external strings`() {
+    val saved =
+        imageEntityTxService.save(
+            newEntity(
+                fileName = longValue("original-", 640),
+                thumbnailFileName = longValue("thumbnail-", 620),
+                url = "https://cdn.example.com/${longValue("path-", 900)}",
+                thumbnailUrl = "https://cdn.example.com/${longValue("thumb-", 880)}",
+            ),
+        )
+
+    val imageId = requireNotNull(saved.id)
+    val loaded = imageEntityTxService.findByIdOrThrow(imageId, imageId.toString())
+
+    assertEquals(saved.fileName, loaded.fileName)
+    assertEquals(saved.thumbnailFileName, loaded.thumbnailFileName)
+    assertEquals(saved.url, loaded.url)
+    assertEquals(saved.thumbnailUrl, loaded.thumbnailUrl)
+  }
+
+  private fun newEntity(
+      fileName: String? = null,
+      thumbnailFileName: String? = null,
+      url: String? = null,
+      thumbnailUrl: String? = null,
+      status: String = ImageEntity.STATUS_ACTIVE,
+      createdAt: LocalDateTime = LocalDateTime.now(),
+  ): ImageEntity {
     val suffix = UUID.randomUUID().toString().take(8)
-    val objectKey = "images/$suffix/original.png"
-    val thumbnailKey = "images/$suffix/original_thumb.webp"
+    val defaultObjectKey = "images/$suffix/original.png"
+    val defaultThumbnailKey = "images/$suffix/original_thumb.webp"
     return ImageEntity(
         bucket = "bucket",
         serviceName = "svc",
         storageService = "S3",
+        status = status,
         storageType = "S3",
-        fileName = objectKey,
-        thumbnailFileName = thumbnailKey,
-        url = "https://cdn.example.com/$objectKey",
-        thumbnailUrl = "https://cdn.example.com/$thumbnailKey",
+        fileName = fileName ?: defaultObjectKey,
+        thumbnailFileName = thumbnailFileName ?: defaultThumbnailKey,
+        url = url ?: "https://cdn.example.com/$defaultObjectKey",
+        thumbnailUrl = thumbnailUrl ?: "https://cdn.example.com/$defaultThumbnailKey",
         fileSize = 123,
         thumbnailFileSize = 45,
+        createdAt = createdAt,
     )
+  }
+
+  private fun longValue(prefix: String, totalLength: Int): String {
+    return prefix + "x".repeat((totalLength - prefix.length).coerceAtLeast(0))
   }
 
   @SpringBootConfiguration

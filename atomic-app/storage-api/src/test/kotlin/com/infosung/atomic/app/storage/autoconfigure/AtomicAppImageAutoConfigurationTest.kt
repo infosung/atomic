@@ -5,6 +5,7 @@ import com.infosung.atomic.app.storage.AppImageDeleteRecoveryService
 import com.infosung.atomic.app.storage.AppStorageController
 import com.infosung.atomic.app.storage.AppStorageHttpExceptionHandler
 import com.infosung.atomic.storage.image.ImageService
+import java.time.Clock
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
@@ -13,6 +14,7 @@ import kotlin.test.assertTrue
 import org.mockito.Mockito.mock
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.support.DefaultListableBeanFactory
+import org.springframework.jdbc.core.JdbcTemplate
 
 class AtomicAppImageAutoConfigurationTest {
   private val autoConfiguration = AtomicAppImageAutoConfiguration()
@@ -58,9 +60,17 @@ class AtomicAppImageAutoConfigurationTest {
             appImageEntityTxService =
                 mock(com.infosung.atomic.app.storage.AppImageEntityTxService::class.java),
             imageService = mock(ImageService::class.java),
+            clockProvider = provider(Clock::class.java, Clock.systemUTC()),
         )
 
     assertIs<AppImageDeleteRecoveryService>(recoveryService)
+  }
+
+  @Test
+  fun `app image schema upgrade preflight should be created`() {
+    val preflight = autoConfiguration.appImageSchemaUpgradePreflight(mock(JdbcTemplate::class.java))
+
+    assertIs<AppImageSchemaUpgradePreflight>(preflight)
   }
 
   private fun <T : Any> provider(

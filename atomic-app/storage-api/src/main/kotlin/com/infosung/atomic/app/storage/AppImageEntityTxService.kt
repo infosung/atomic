@@ -33,6 +33,25 @@ open class AppImageEntityTxService(
     )
   }
 
+  /** Returns a lightweight operator snapshot for current delete-pending work. */
+  @Transactional(readOnly = true)
+  open fun inspectDeletePendingImages(): ImageDeletePendingSnapshot {
+    val pendingCount = imageRepository.countByStatus(ImageEntity.STATUS_DELETE_PENDING)
+    val oldestPendingCreatedAt =
+        imageRepository
+            .findFirstByStatusOrderByCreatedAtAsc(ImageEntity.STATUS_DELETE_PENDING)
+            ?.createdAt
+    log.debug(
+        "Loaded delete-pending image metadata snapshot: pendingCount={}, oldestPendingCreatedAt={}",
+        pendingCount,
+        oldestPendingCreatedAt,
+    )
+    return ImageDeletePendingSnapshot(
+        pendingCount = pendingCount,
+        oldestPendingCreatedAt = oldestPendingCreatedAt,
+    )
+  }
+
   /** Persists uploaded image metadata row. */
   @Transactional
   open fun save(imageEntity: ImageEntity): ImageEntity {

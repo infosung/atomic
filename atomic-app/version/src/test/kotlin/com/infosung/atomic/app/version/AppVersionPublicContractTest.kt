@@ -55,6 +55,8 @@ class AppVersionPublicContractTest {
     val patchNumberField = ServiceVersionEntity::class.java.getDeclaredField("patchNumber")
     val requireUpdateField = ServiceVersionEntity::class.java.getDeclaredField("requireUpdate")
     val storeAvailableField = ServiceVersionEntity::class.java.getDeclaredField("storeAvailable")
+    val platformField = ServiceVersionEntity::class.java.getDeclaredField("platform")
+    val serviceField = ServiceVersionEntity::class.java.getDeclaredField("service")
     val storeUrlField = ServiceVersionEntity::class.java.getDeclaredField("storeUrl")
 
     assertEquals("service_version", entity.name)
@@ -75,7 +77,12 @@ class AppVersionPublicContractTest {
     assertEquals("patch_number", patchNumberField.getAnnotation(Column::class.java).name)
     assertEquals("require_update", requireUpdateField.getAnnotation(Column::class.java).name)
     assertEquals("store_available", storeAvailableField.getAnnotation(Column::class.java).name)
+    assertEquals("platform", platformField.getAnnotation(Column::class.java).name)
+    assertEquals(255, platformField.getAnnotation(Column::class.java).length)
+    assertEquals("service", serviceField.getAnnotation(Column::class.java).name)
+    assertEquals(255, serviceField.getAnnotation(Column::class.java).length)
     assertEquals("store_url", storeUrlField.getAnnotation(Column::class.java).name)
+    assertEquals("TEXT", storeUrlField.getAnnotation(Column::class.java).columnDefinition)
   }
 
   @Test

@@ -29,4 +29,17 @@ class ServiceVersionSqlAssetResourceContractTest {
         sql.contains("UNIQUE (service, platform, main_version, minor_version, patch_number)"),
     )
   }
+
+  @Test
+  fun `official service version sql asset should widen store url and keep identifiers bounded`() {
+    val sql =
+        ClassPathResource("META-INF/atomic/sql/postgresql/service_version.sql")
+            .inputStream
+            .bufferedReader()
+            .use { it.readText() }
+
+    assertTrue(sql.contains("platform VARCHAR(255) NOT NULL"))
+    assertTrue(sql.contains("service VARCHAR(255) NOT NULL"))
+    assertTrue(sql.contains("store_url TEXT NULL"))
+  }
 }

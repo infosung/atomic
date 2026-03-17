@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS service_version (
+CREATE TABLE service_version (
   id BIGSERIAL PRIMARY KEY,
   main_version INTEGER NOT NULL,
   minor_version INTEGER NOT NULL,
@@ -7,21 +7,8 @@ CREATE TABLE IF NOT EXISTS service_version (
   store_available BOOLEAN NOT NULL DEFAULT TRUE,
   platform VARCHAR(255) NOT NULL,
   service VARCHAR(255) NOT NULL,
-  store_url TEXT NULL,
+  store_url VARCHAR(2048) NULL,
   created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT uq_service_version_service_platform_semver
     UNIQUE (service, platform, main_version, minor_version, patch_number)
 );
-
-CREATE INDEX IF NOT EXISTS idx_service_version_service_platform_version
-  ON service_version (service, platform, main_version DESC, minor_version DESC, patch_number DESC);
-
-CREATE INDEX IF NOT EXISTS idx_service_version_service_platform_required_update
-  ON service_version (
-    service,
-    platform,
-    require_update,
-    main_version DESC,
-    minor_version DESC,
-    patch_number DESC
-  );

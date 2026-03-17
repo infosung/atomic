@@ -64,11 +64,12 @@ class AppImageApiService(
         resolveStorageType(serviceName = serviceName, storageService = storageService)
     val resolvedUploaderId = resolveUploaderIdForUpload(uploaderId)
     log.debug(
-        "Uploading image: serviceName={}, storageService={}, resolvedStorageType={}, originalFilename={}, uploaderTracked={}, thumbnailEnabled={}",
+        "Uploading image: serviceName={}, storageService={}, resolvedStorageType={}, originalFilename={}, originalFilenameLength={}, uploaderTracked={}, thumbnailEnabled={}",
         serviceName,
         storageService,
         resolvedStorageType,
         originalFilename,
+        originalFilename.length,
         resolvedUploaderId != null,
         thumbnailEnabled,
     )
@@ -86,11 +87,15 @@ class AppImageApiService(
               generateThumbnail = thumbnailEnabled,
           )
       log.debug(
-          "Storage upload completed: serviceName={}, storageService={}, objectKey={}, thumbnailKey={}, thumbnailEnabled={}",
+          "Storage upload completed: serviceName={}, storageService={}, objectKey={}, objectKeyLength={}, thumbnailKey={}, thumbnailKeyLength={}, urlLength={}, thumbnailUrlLength={}, thumbnailEnabled={}",
           serviceName,
           storageService,
           uploaded.fileName,
+          uploaded.fileName.length,
           uploaded.thumbnailFileName,
+          uploaded.thumbnailFileName?.length ?: 0,
+          uploaded.url.length,
+          uploaded.thumbnailUrl?.length ?: 0,
           thumbnailEnabled,
       )
       val entity =
@@ -116,11 +121,14 @@ class AppImageApiService(
       return try {
         val saved = imageEntityTxService.save(entity)
         log.info(
-            "Image metadata saved: serviceName={}, storageService={}, imageId={}, objectKey={}",
+            "Image metadata saved: serviceName={}, storageService={}, imageId={}, objectKey={}, objectKeyLength={}, urlLength={}, thumbnailUrlLength={}",
             serviceName,
             storageService,
             saved.id,
             saved.fileName,
+            saved.fileName?.length ?: 0,
+            saved.url.length,
+            saved.thumbnailUrl?.length ?: 0,
         )
         saved
       } catch (e: Exception) {
@@ -216,6 +224,17 @@ class AppImageApiService(
             serviceName = serviceName,
             storageService = storageService,
         )
+    if (imageEntity.status == ImageEntity.STATUS_DELETE_PENDING) {
+      log.info(
+          "Delete requested for image metadata already marked delete-pending. Retrying storage cleanup: imageId={}, serviceName={}, storageService={}, storageType={}, fileName={}, thumbnailFileName={}",
+          imageId,
+          serviceName,
+          storageService,
+          resolvedStorageType,
+          imageEntity.fileName,
+          imageEntity.thumbnailFileName,
+      )
+    }
     val deleteReservedEntity = imageEntityTxService.markDeletePending(imageEntity)
 
     try {
@@ -233,7 +252,7 @@ class AppImageApiService(
       )
     } catch (e: Exception) {
       log.error(
-          "Storage delete failed while metadata remains delete-pending: imageId={}, storageType={}, fileName={}, thumbnailFileName={}",
+          "Storage delete failed while metadata remains delete-pending. Retry delete or run AppImageDeleteRecoveryService: imageId={}, storageType={}, fileName={}, thumbnailFileName={}",
           imageId,
           resolvedStorageType,
           deleteReservedEntity.fileName,

@@ -52,7 +52,8 @@ internal object AllowedRedirectUriPolicy {
               status = 400, message = e.message ?: "Invalid allowlist.", cause = e)
         }
 
-    if (allowedPatterns.none { it.matches(candidateUri) }) {
+    val matchedPattern = allowedPatterns.firstOrNull { it.matches(candidateUri) }
+    if (matchedPattern == null) {
       log.warn(
           "Rejected oauth redirect URI: redirectUri={}, configuredPrefixCount={}",
           normalizedRedirectUri,
@@ -60,6 +61,16 @@ internal object AllowedRedirectUriPolicy {
       )
       throw HttpStatusException(status = 400, message = "redirectUri is not allowed.")
     }
+
+    log.debug(
+        "Accepted oauth redirect URI: redirectUri={}, matchedPattern={}, scheme={}, host={}, port={}, path={}",
+        normalizedRedirectUri,
+        matchedPattern.raw,
+        candidateUri.scheme,
+        candidateUri.host,
+        effectivePort(candidateUri),
+        normalizePath(candidateUri.path),
+    )
     return normalizedRedirectUri
   }
 
@@ -99,6 +110,7 @@ internal object AllowedRedirectUriPolicy {
     }
 
     return AllowedRedirectPattern(
+        raw = raw,
         scheme = uri.scheme.lowercase(Locale.ROOT),
         host = uri.host?.lowercase(Locale.ROOT),
         port = effectivePort(uri),
@@ -135,6 +147,7 @@ internal object AllowedRedirectUriPolicy {
   }
 
   private data class AllowedRedirectPattern(
+      val raw: String,
       val scheme: String,
       val host: String?,
       val port: Int,

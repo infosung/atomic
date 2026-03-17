@@ -31,9 +31,9 @@ open class ServiceVersionEntity(
     @Column(name = "minor_version") open val minorVersion: Int = 0,
     @Column(name = "patch_number") open val patchNumber: Int = 0,
     @Column(name = "require_update") open val requireUpdate: Boolean = false,
-    @Column(name = "platform") open val platform: String = "ANDROID",
-    @Column(name = "service") open val service: String = "DEFAULT",
-    @Column(name = "store_url") open val storeUrl: String? = null,
+    @Column(name = "platform", length = 255) open val platform: String = "ANDROID",
+    @Column(name = "service", length = 255) open val service: String = "DEFAULT",
+    @Column(name = "store_url", columnDefinition = "TEXT") open val storeUrl: String? = null,
     @Column(name = "created_at") open val createdAt: LocalDateTime = LocalDateTime.now(),
 ) {
   @Column(name = "store_available") open var storeAvailable: Boolean = true

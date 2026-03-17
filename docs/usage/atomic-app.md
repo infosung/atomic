@@ -153,10 +153,14 @@ Input resolution:
 
 Response fields:
 
-- `currentVersion`: latest registered version for `(service, platform)`
+- `currentVersion`: latest rollout-safe version for `(service, platform)`; this prefers the latest `storeAvailable=true` row and falls back to the latest registered row only when no store-safe row exists
 - `userVersion`: matched client version, or the normalized client semver when that version is not explicitly registered
-- `requiredUpdate`: whether any higher `requireUpdate=true` and `storeAvailable=true` policy exists
-- `storeUrl`: forced-update target URL or `default-store-url`
+- `requiredUpdate`: the only signal that a force-update target exists for this client version
+- `storeUrl`: URL value returned with the response; when no policy URL exists, `default-store-url` can still be used as a fallback
+
+Client contract note:
+
+- decide force-update UX from `requiredUpdate`, not from `storeUrl` presence alone
 
 Expected version policy table:
 
@@ -219,6 +223,9 @@ POST parameters:
 POST response:
 
 - persisted image metadata response (`ImageResponse`) with the same JSON fields as before (id, bucket, file names, urls, dimensions, sizes, status)
+- nullable fields are normal:
+  - `uploaderId`: null when uploader tracking is disabled or omitted
+  - `thumbnailFileName`, `thumbnailUrl`, `thumbnailWidth`, `thumbnailHeight`, `thumbnailFileSize`: null when thumbnail generation is disabled or unavailable
 
 DELETE behavior:
 
@@ -231,7 +238,46 @@ DELETE behavior:
 - deletes original/thumbnail objects from the persisted storage client mapping
 - purges metadata row only after storage delete succeeds
 - keeps metadata in `DELETE_PENDING` when storage delete fails so a later delete can retry cleanup safely
-- host apps can also recover lingering `DELETE_PENDING` rows by calling `AppImageDeleteRecoveryService.recoverDeletePendingImages(limit)` from their own admin job or scheduler; this library does not ship a built-in reaper
+- host apps can inspect lingering `DELETE_PENDING` rows with `AppImageDeleteRecoveryService.inspectDeletePendingImages()`
+- host apps can recover lingering `DELETE_PENDING` rows with `AppImageDeleteRecoveryService.recoverDeletePendingImages(limit)` from their own admin job or scheduler; this library does not ship a built-in reaper
+
+Recovery operator entrypoints:
+
+- `inspectDeletePendingImages()`
+  - returns `pendingCount`
+  - returns `oldestPendingCreatedAt`
+- `recoverDeletePendingImages(limit)`
+  - returns `scannedCount`, `recoveredCount`, `failedCount`
+  - also returns `remainingPendingCount` and `oldestPendingCreatedAt` after the batch
+
+Example host-owned scheduler:
+
+```kotlin
+@Component
+class ImageDeletePendingRecoveryJob(
+    private val recoveryService: AppImageDeleteRecoveryService,
+) {
+  private val logger = LoggerFactory.getLogger(this::class.java)
+
+  @Scheduled(fixedDelayString = "\${jobs.image-delete-recovery.delay-ms:300000}")
+  fun run() {
+    val snapshot = recoveryService.inspectDeletePendingImages()
+    if (snapshot.pendingCount == 0L) {
+      return
+    }
+
+    val result = recoveryService.recoverDeletePendingImages(limit = 100)
+    logger.info(
+        "image delete recovery job completed: scanned={}, recovered={}, failed={}, remaining={}, oldestPendingCreatedAt={}",
+        result.scannedCount,
+        result.recoveredCount,
+        result.failedCount,
+        result.remainingPendingCount,
+        result.oldestPendingCreatedAt,
+    )
+  }
+}
+```
 
 Storage client resolution:
 
@@ -314,6 +360,10 @@ Security notes:
   - each entry must be an absolute URI without query/fragment.
   - invalid entry format fails startup.
   - `https://app.example.com/oauth` allows `https://app.example.com/oauth/callback` but rejects `https://app.example.com.evil.com/...`.
+  - mobile/custom-scheme deep links are supported when they are absolute URIs and explicitly allowlisted in the exact emitted shape.
+    - `myapp://oauth` matches `myapp://oauth/callback`
+    - `myapp:/oauth` matches `myapp:/oauth/callback`
+    - `myapp://oauth/...` and `myapp:/oauth/...` are different contracts because host/port/path matching still applies
 - Keep callback binding enabled in production; change cookie policy only when your provider callback topology requires it.
 - Callback-binding uses hardened cookie constraints when enabled: `cookie-name` must start with `__Host-`, `cookie-secure=true`, and `cookie-path=/`.
 - default `strict` mode clears the callback-binding cookie after success, so each flow must complete with the cookie issued during redirect.
@@ -342,6 +392,30 @@ Relay store notes:
 - for entity store, run periodic cleanup (for example `DELETE FROM atomic_oauth_relay_code WHERE expires_at <= NOW()`) to remove unconsumed expired rows.
 - `in-memory.cleanup-interval <= 0` disables periodic expired-entry cleanup.
 
+OAuth redirect deployment presets:
+
+| Preset | State replay protection | Relay store | `store.fail-fast` | Callback binding | Notes |
+|---|---|---|---|---|---|
+| `local-development` | `in-memory-store.enabled=true` is acceptable | `in-memory` is acceptable | `false` or `true` depending on convenience | `strict` by default, `disabled` only for local HTTP callback testing | expect startup warnings about process-local behavior |
+| `single-node-production` | in-memory can be acceptable only when the deployment is intentionally single-node | prefer `entity` or verified `cache` | keep `true` | `strict` by default; `relaxed` only intentionally | do not silently rely on fallback semantics |
+| `multi-instance-production` | use shared/custom `OauthStateStore` | prefer `entity` or verified `cache` | keep `true` | `strict` by default; `relaxed` only after UX/security review | do not use process-local relay/state storage |
+
+Startup summary:
+
+- oauth redirect startup now logs one summary line with:
+  - configured relay store type
+  - relay store fail-fast policy
+  - effective callback-binding mode
+  - whether replay protection is enabled
+  - state store type (`IN_MEMORY`, `CUSTOM_OR_SHARED`, `OPAQUE_REPLAY_PROTECTED`)
+- follow-up warnings mean:
+  - `process-local per instance`
+    - one-time semantics depend on local memory; treat as local-only or intentionally single-node
+  - `callback binding mode is disabled`
+    - only appropriate for local HTTP-only testing or explicitly trusted environments
+  - `callback binding mode is relaxed`
+    - intentional UX tradeoff; cookie reuse after success remains possible
+
 ## DDL Examples (PostgreSQL)
 
 The authoritative PostgreSQL starting-point assets now ship in module resources:
@@ -351,6 +425,9 @@ The authoritative PostgreSQL starting-point assets now ship in module resources:
 - `atomic-app/oauth-redirect`: `META-INF/atomic/sql/postgresql/atomic_oauth_relay_code.sql`
 
 For `service_version` and `image`, these assets now match explicit JPA table/column mappings in code. The SQL below mirrors the shipped assets.
+
+- Identifier-like columns (`service`, `platform`, `bucket`, `service_name`, `storage_service`, `storage_type`) keep a bounded `VARCHAR(255)` contract.
+- Columns affected by external lengths (`store_url`, `file_name`, `thumbnail_file_name`, `url`, `thumbnail_url`) are shipped as `TEXT`.
 
 ```sql
 CREATE TABLE IF NOT EXISTS service_version (
@@ -362,7 +439,7 @@ CREATE TABLE IF NOT EXISTS service_version (
   store_available BOOLEAN NOT NULL DEFAULT TRUE,
   platform VARCHAR(255) NOT NULL,
   service VARCHAR(255) NOT NULL,
-  store_url VARCHAR(255) NULL,
+  store_url TEXT NULL,
   created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT uq_service_version_service_platform_semver
     UNIQUE (service, platform, main_version, minor_version, patch_number)
@@ -381,10 +458,10 @@ CREATE TABLE IF NOT EXISTS image (
   status VARCHAR(255) NOT NULL DEFAULT 'ACTIVE',
   uploader_id VARCHAR(255) NULL,
   storage_type VARCHAR(255) NOT NULL,
-  file_name VARCHAR(255) NULL,
-  thumbnail_file_name VARCHAR(255) NULL,
-  url VARCHAR(255) NOT NULL,
-  thumbnail_url VARCHAR(255) NULL,
+  file_name TEXT NULL,
+  thumbnail_file_name TEXT NULL,
+  url TEXT NOT NULL,
+  thumbnail_url TEXT NULL,
   width INTEGER NULL,
   height INTEGER NULL,
   file_size BIGINT NOT NULL,
@@ -410,14 +487,38 @@ CREATE INDEX IF NOT EXISTS idx_atomic_oauth_relay_code_expires_at
   ON atomic_oauth_relay_code (expires_at);
 ```
 
+### Upgrade Note for Existing Tables
+
+If your database already has the older `VARCHAR(255)` shape for externally sized fields, `CREATE TABLE IF NOT EXISTS`
+alone will not widen those columns. Apply an explicit migration before rolling out builds that can persist longer values.
+
+When `atomic.app.version.enabled=true` or `atomic.app.image.enabled=true`, startup now validates these externally sized
+columns and fails fast if the old narrow shape is still present. The shipped baseline is `TEXT`, but custom schemas are
+also accepted when they use a sufficiently wide `VARCHAR(>=1024)` equivalent.
+
+PostgreSQL example:
+
+```sql
+ALTER TABLE service_version
+  ALTER COLUMN store_url TYPE TEXT;
+
+ALTER TABLE image
+  ALTER COLUMN file_name TYPE TEXT,
+  ALTER COLUMN thumbnail_file_name TYPE TEXT,
+  ALTER COLUMN url TYPE TEXT,
+  ALTER COLUMN thumbnail_url TYPE TEXT;
+```
+
 ## Operational Checklist
 
 - Prepare database schema for `service_version` and `image` tables before enabling APIs.
 - Prefer the shipped module SQL assets as your initial migration baseline instead of copying stale inline snippets.
+- If you already run older `service_version` / `image` tables, widen the documented `TEXT` columns explicitly before deploying new builds.
+- If startup now fails with a schema-upgrade preflight error, treat it as a migration problem first, not as an API runtime bug.
 - if uploader tracking is enabled, add nullable `uploader_id` column to `image` table (or rely on JPA schema generation in non-production environments).
 - use `atomic.app.image.thumbnail-enabled=false` only when you intentionally want original-only uploads by default.
 - when image delete fails after reservation, treat remaining `DELETE_PENDING` rows as retryable cleanup work.
-- if you want proactive cleanup, call `AppImageDeleteRecoveryService.recoverDeletePendingImages(limit)` from your own scheduler or admin command path; a built-in scheduler is intentionally out of scope.
+- if you want proactive cleanup, call `AppImageDeleteRecoveryService.inspectDeletePendingImages()` and `AppImageDeleteRecoveryService.recoverDeletePendingImages(limit)` from your own scheduler or admin command path; a built-in scheduler is intentionally out of scope.
 - choose uploader parameter name per service (for example `memberId`, `userKey`, `ownerId`) and configure `atomic.app.image.uploader-parameter-name`.
 - for OAuth relay, set `atomic.app.oauth.redirect.allowed-redirect-uri-prefixes` in every environment where `atomic.app.oauth.redirect.enabled=true`.
 - if `store.type=entity` (default), create relay table (`atomic_oauth_relay_code` or configured table-name) before rollout.

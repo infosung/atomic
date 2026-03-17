@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS image (
+CREATE TABLE image (
   id VARCHAR(255) PRIMARY KEY,
   bucket VARCHAR(255) NOT NULL,
   service_name VARCHAR(255) NOT NULL,
@@ -6,10 +6,10 @@ CREATE TABLE IF NOT EXISTS image (
   status VARCHAR(255) NOT NULL DEFAULT 'ACTIVE',
   uploader_id VARCHAR(255) NULL,
   storage_type VARCHAR(255) NOT NULL,
-  file_name TEXT NULL,
-  thumbnail_file_name TEXT NULL,
-  url TEXT NOT NULL,
-  thumbnail_url TEXT NULL,
+  file_name VARCHAR(2048) NULL,
+  thumbnail_file_name VARCHAR(2048) NULL,
+  url VARCHAR(2048) NOT NULL,
+  thumbnail_url VARCHAR(2048) NULL,
   width INTEGER NULL,
   height INTEGER NULL,
   file_size BIGINT NOT NULL,
@@ -18,9 +18,3 @@ CREATE TABLE IF NOT EXISTS image (
   thumbnail_file_size BIGINT NULL,
   created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-
-CREATE INDEX IF NOT EXISTS idx_image_service_storage
-  ON image (service_name, storage_service);
-
-CREATE INDEX IF NOT EXISTS idx_image_status_created_at
-  ON image (status, created_at);
