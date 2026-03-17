@@ -153,7 +153,7 @@ Input resolution:
 
 Response fields:
 
-- `currentVersion`: latest registered version for `(service, platform)`
+- `currentVersion`: latest rollout-safe version for `(service, platform)`; this prefers the latest `storeAvailable=true` row and falls back to the latest registered row only when no store-safe row exists
 - `userVersion`: matched client version, or the normalized client semver when that version is not explicitly registered
 - `requiredUpdate`: the only signal that a force-update target exists for this client version
 - `storeUrl`: URL value returned with the response; when no policy URL exists, `default-store-url` can still be used as a fallback

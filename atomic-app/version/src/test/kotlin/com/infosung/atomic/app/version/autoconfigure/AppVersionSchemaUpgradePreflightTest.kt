@@ -40,6 +40,20 @@ class AppVersionSchemaUpgradePreflightTest {
   }
 
   @Test
+  fun `preflight should reject service version schema missing store available column`() {
+    executeScript("META-INF/atomic/sql/postgresql/test/drop_service_version.sql")
+    executeScript("META-INF/atomic/sql/postgresql/test/service_version_missing_store_available.sql")
+
+    val exception =
+        assertFailsWith<IllegalStateException> {
+          AppVersionSchemaUpgradePreflight(jdbcTemplate).verifyOrThrow()
+        }
+
+    assertTrue(exception.message!!.contains("service_version.store_available"))
+    assertTrue(exception.message!!.contains("was not found"))
+  }
+
+  @Test
   fun `preflight should allow shipped text service version schema`() {
     executeScript("META-INF/atomic/sql/postgresql/test/drop_service_version.sql")
     executeScript("META-INF/atomic/sql/postgresql/service_version.sql")
