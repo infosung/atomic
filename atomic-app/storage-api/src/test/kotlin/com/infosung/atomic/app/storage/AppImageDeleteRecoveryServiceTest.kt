@@ -93,6 +93,7 @@ class AppImageDeleteRecoveryServiceTest {
     assertEquals(0, result.failedCount)
     assertEquals(1, result.remainingPendingCount)
     assertEquals(LocalDateTime.of(2024, 1, 1, 0, 2, 0), result.oldestPendingCreatedAt)
+    assertEquals(1, txService.claimedBatches.size)
     assertEquals(listOf(requireNotNull(image1.id), requireNotNull(image2.id)), txService.purgedIds)
     assertEquals(listOf(requireNotNull(image3.id)), txService.remainingIds())
   }
@@ -129,6 +130,7 @@ class AppImageDeleteRecoveryServiceTest {
     assertEquals(1, result.failedCount)
     assertEquals(1, result.remainingPendingCount)
     assertEquals(LocalDateTime.of(2024, 1, 1, 0, 1, 0), result.oldestPendingCreatedAt)
+    assertEquals(listOf(requireNotNull(image2.id)), txService.releasedIds)
     assertEquals(
         listOf(requireNotNull(image1.id), requireNotNull(image3.id)),
         txService.purgedIds,
@@ -149,6 +151,38 @@ class AppImageDeleteRecoveryServiceTest {
         }
 
     assertEquals("limit must be greater than zero.", exception.message)
+  }
+
+  @Test
+  fun `recoverDeletePendingImages should skip rows already claimed by another batch`() {
+    val claimedElsewhere =
+        newDeletePendingImageEntity(
+            fileName = "images/test/claimed-elsewhere.png",
+            createdAt = LocalDateTime.of(2024, 1, 1, 0, 0, 0),
+        )
+    val claimable =
+        newDeletePendingImageEntity(
+            fileName = "images/test/claimable.png",
+            createdAt = LocalDateTime.of(2024, 1, 1, 0, 1, 0),
+        )
+    val storageClient = CapturingStorageClient()
+    val imageService = createImageService(storageClient = storageClient, storageType = "S3")
+    val txService =
+        FakeRecoveryImageEntityTxService(
+            initialEntities = listOf(claimedElsewhere, claimable),
+            externallyClaimedIds = setOf(requireNotNull(claimedElsewhere.id)),
+        )
+    val recoveryService = AppImageDeleteRecoveryService(txService, imageService)
+
+    val result = recoveryService.recoverDeletePendingImages(limit = 10)
+
+    assertEquals(1, result.scannedCount)
+    assertEquals(1, result.recoveredCount)
+    assertEquals(0, result.failedCount)
+    assertEquals(1, result.remainingPendingCount)
+    assertEquals(LocalDateTime.of(2024, 1, 1, 0, 0, 0), result.oldestPendingCreatedAt)
+    assertEquals(listOf(requireNotNull(claimable.id)), txService.purgedIds)
+    assertEquals(listOf(requireNotNull(claimedElsewhere.id)), txService.remainingIds())
   }
 
   private fun createImageService(
@@ -212,12 +246,27 @@ class AppImageDeleteRecoveryServiceTest {
 
   private class FakeRecoveryImageEntityTxService(
       initialEntities: List<ImageEntity>,
+      private val externallyClaimedIds: Set<UUID> = emptySet(),
   ) : AppImageEntityTxService(mock(ImageRepository::class.java)) {
     private val pendingEntities: MutableList<ImageEntity> = initialEntities.toMutableList()
     val purgedIds: MutableList<UUID> = mutableListOf()
+    val releasedIds: MutableList<UUID> = mutableListOf()
+    val claimedBatches: MutableList<List<UUID>> = mutableListOf()
 
-    override fun findDeletePending(limit: Int): List<ImageEntity> =
-        pendingEntities.take(limit).toList()
+    override fun claimDeletePending(
+        limit: Int,
+        claimToken: String,
+        claimedAt: LocalDateTime,
+    ): List<ImageEntity> {
+      val claimed =
+          pendingEntities
+              .asSequence()
+              .filter { entity -> requireNotNull(entity.id) !in externallyClaimedIds }
+              .take(limit)
+              .toList()
+      claimedBatches += claimed.map { requireNotNull(it.id) }
+      return claimed
+    }
 
     override fun inspectDeletePendingImages(): ImageDeletePendingSnapshot {
       val oldestPendingCreatedAt = pendingEntities.minByOrNull { it.createdAt }?.createdAt
@@ -231,6 +280,13 @@ class AppImageDeleteRecoveryServiceTest {
       val imageId = requireNotNull(imageEntity.id)
       purgedIds += imageId
       pendingEntities.removeIf { it.id == imageId }
+    }
+
+    override fun releaseDeleteRecoveryClaim(
+        imageId: UUID,
+        claimToken: String,
+    ) {
+      releasedIds += imageId
     }
 
     fun remainingIds(): List<UUID> = pendingEntities.mapNotNull { it.id }

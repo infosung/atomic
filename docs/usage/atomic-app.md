@@ -240,6 +240,8 @@ DELETE behavior:
 - keeps metadata in `DELETE_PENDING` when storage delete fails so a later delete can retry cleanup safely
 - host apps can inspect lingering `DELETE_PENDING` rows with `AppImageDeleteRecoveryService.inspectDeletePendingImages()`
 - host apps can recover lingering `DELETE_PENDING` rows with `AppImageDeleteRecoveryService.recoverDeletePendingImages(limit)` from their own admin job or scheduler; this library does not ship a built-in reaper
+- recovery batches claim eligible `DELETE_PENDING` rows before cleanup so overlapping admin/scheduler triggers do not keep retrying the same row in the same batch window
+- stale claims are reclaimable after the built-in 15-minute recovery claim timeout
 
 Recovery operator entrypoints:
 
@@ -249,6 +251,8 @@ Recovery operator entrypoints:
 - `recoverDeletePendingImages(limit)`
   - returns `scannedCount`, `recoveredCount`, `failedCount`
   - also returns `remainingPendingCount` and `oldestPendingCreatedAt` after the batch
+  - claims eligible pending rows before storage cleanup and releases the claim again when cleanup fails
+  - can reclaim stale claims after the built-in 15-minute recovery claim timeout
 
 Example host-owned scheduler:
 
@@ -519,6 +523,8 @@ ALTER TABLE image
 - use `atomic.app.image.thumbnail-enabled=false` only when you intentionally want original-only uploads by default.
 - when image delete fails after reservation, treat remaining `DELETE_PENDING` rows as retryable cleanup work.
 - if you want proactive cleanup, call `AppImageDeleteRecoveryService.inspectDeletePendingImages()` and `AppImageDeleteRecoveryService.recoverDeletePendingImages(limit)` from your own scheduler or admin command path; a built-in scheduler is intentionally out of scope.
+- recovery is still host-owned. The library reduces overlapping retries by claiming rows per batch, but it does not become a distributed job system or built-in reaper.
+- recovery claims are reclaimable after a built-in 15-minute timeout. If your scheduler interval is longer, document that expectation in your runbook.
 - choose uploader parameter name per service (for example `memberId`, `userKey`, `ownerId`) and configure `atomic.app.image.uploader-parameter-name`.
 - for OAuth relay, set `atomic.app.oauth.redirect.allowed-redirect-uri-prefixes` in every environment where `atomic.app.oauth.redirect.enabled=true`.
 - if `store.type=entity` (default), create relay table (`atomic_oauth_relay_code` or configured table-name) before rollout.

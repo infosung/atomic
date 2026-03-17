@@ -52,8 +52,12 @@ class AtomicAppImageAutoConfiguration {
   @ConditionalOnMissingBean
   fun appImageEntityTxService(
       imageRepository: ImageRepository,
+      jdbcTemplate: JdbcTemplate,
   ): AppImageEntityTxService {
-    return AppImageEntityTxService(imageRepository = imageRepository)
+    return AppImageEntityTxService(
+        imageRepository = imageRepository,
+        jdbcTemplate = jdbcTemplate,
+    )
   }
 
   @Bean
