@@ -1,5 +1,6 @@
 package com.infosung.atomic.spring.web.header
 
+import java.util.Locale
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -36,6 +37,29 @@ class RequestHeaderReaderTest {
         }
 
     assertNull(RequestHeaderReader.getDeviceId(request))
+  }
+
+  @Test
+  fun `getCustomLanguage should keep raw Accept-Language helper behavior`() {
+    val request =
+        MockHttpServletRequest("GET", "/v1/test").apply {
+          addHeader("Accept-Language", "ko-KR,ko;q=0.9,en-US;q=0.8")
+        }
+
+    assertEquals(
+        "ko-KR,ko;q=0.9,en-US;q=0.8",
+        RequestHeaderReader.getCustomLanguage(request),
+    )
+  }
+
+  @Test
+  fun `getPreferredLanguageTag should delegate to parsed request language hint`() {
+    val request =
+        MockHttpServletRequest("GET", "/v1/test").apply {
+          addPreferredLocale(Locale.forLanguageTag("pt-BR"))
+        }
+
+    assertEquals("pt-BR", RequestHeaderReader.getPreferredLanguageTag(request))
   }
 
   private fun java.util.Enumeration<String>.toList(): List<String> {

@@ -92,14 +92,36 @@ Required:
 
 Purpose:
 
-- normalize header DTO and supported locale resolution
+- normalize header DTO, request language hint extraction, and supported locale resolution
 
 No bean required:
 
 - `toHeaderDto(...)`
 - `getClientIp()`
 - `RequestHeaderReader`
+- `RequestLanguageResolver`
 - `SupportedLocaleResolver`
+
+Header/language helper guidance:
+
+- Use `RequestHeaderReader.getCustomLanguage(...)` when you need the raw inbound header helper.
+  This keeps `X-Custom-Language` first and otherwise returns raw `Accept-Language`.
+- Use `RequestHeaderReader.getPreferredLanguageTag(...)` or `RequestLanguageResolver.resolvePreferredLanguageTag(...)`
+  when you need one request language hint string.
+  This keeps `X-Custom-Language` first and otherwise falls back to the first Servlet-preferred locale
+  from `HttpServletRequest.getLocales()`.
+- The returned value is a canonical language tag when the input is usable.
+- This helper is request hint extraction only.
+  It does not perform supported-locale selection or domain policy resolution.
+- Use `SupportedLocaleResolver` only after your service has decided how to match supported locales.
+
+Quick selection guide:
+
+| Need | Use |
+|---|---|
+| raw inbound header value | `RequestHeaderReader.getCustomLanguage(...)` |
+| one canonical request language hint | `RequestHeaderReader.getPreferredLanguageTag(...)` or `RequestLanguageResolver.resolvePreferredLanguageTag(...)` |
+| supported locale matching | `SupportedLocaleResolver.resolveSupportedLocale(...)` |
 
 ### E) Rate-limit Filter
 
@@ -336,11 +358,13 @@ class RateLimitConfig {
 ## Optional Helper Usage
 
 ```kotlin
+import com.infosung.atomic.spring.web.header.RequestLanguageResolver
 import com.infosung.atomic.spring.web.header.toHeaderDto
 import com.infosung.atomic.spring.web.locale.SupportedLocaleResolver
 import java.util.Locale
 
 val headerDto = request.toHeaderDto()
+val preferredLanguageTag = RequestLanguageResolver.resolvePreferredLanguageTag(request)
 
 val resolved =
     SupportedLocaleResolver.resolveSupportedLocale(
