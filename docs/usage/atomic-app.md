@@ -360,6 +360,10 @@ Security notes:
   - each entry must be an absolute URI without query/fragment.
   - invalid entry format fails startup.
   - `https://app.example.com/oauth` allows `https://app.example.com/oauth/callback` but rejects `https://app.example.com.evil.com/...`.
+  - mobile/custom-scheme deep links are supported when they are absolute URIs and explicitly allowlisted in the exact emitted shape.
+    - `myapp://oauth` matches `myapp://oauth/callback`
+    - `myapp:/oauth` matches `myapp:/oauth/callback`
+    - `myapp://oauth/...` and `myapp:/oauth/...` are different contracts because host/port/path matching still applies
 - Keep callback binding enabled in production; change cookie policy only when your provider callback topology requires it.
 - Callback-binding uses hardened cookie constraints when enabled: `cookie-name` must start with `__Host-`, `cookie-secure=true`, and `cookie-path=/`.
 - default `strict` mode clears the callback-binding cookie after success, so each flow must complete with the cookie issued during redirect.

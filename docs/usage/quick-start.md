@@ -118,6 +118,10 @@ Notes:
 - `allowed-redirect-uri-prefixes` is required when `atomic.app.oauth.redirect.enabled=true`.
 - `atomic.app.oauth.redirect.enabled=true` also requires both `OauthServiceProvider` and a store-backed `OauthStateManager`. The easiest path is `atomic-starter` plus `atomic-spring-oauth2` with both `atomic.oauth2.state.signing-secret` and `atomic.oauth2.state.in-memory-store.enabled=true`.
 - malformed `allowed-redirect-uri-prefixes` entries fail startup, not first request.
+- mobile/custom-scheme deep links are supported, but allowlist matching still uses `scheme + host + port + path-prefix`.
+  - `myapp://oauth` allows `myapp://oauth/callback`
+  - `myapp:/oauth` allows `myapp:/oauth/callback`
+  - keep the configured entry in the exact URI shape your client actually emits; `myapp://oauth/...` and `myapp:/oauth/...` do not match each other
 - Default callback-binding uses hardened cookie constraints (`cookie-name` with `__Host-` prefix, `cookie-secure=true`, `cookie-path=/`), so local plain HTTP callbacks can fail with `OAuth callback binding cookie is missing.`
   - For local HTTP-only testing, use HTTPS tunneling or set `atomic.app.oauth.redirect.callback-binding.mode=disabled` (legacy `callback-binding.enabled=false` still works).
 - Default callback-binding mode is `strict`, so a successful callback clears the callback-binding cookie and the callback must complete with the cookie minted during redirect.
