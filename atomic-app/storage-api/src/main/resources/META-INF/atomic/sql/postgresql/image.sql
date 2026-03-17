@@ -21,3 +21,6 @@ CREATE TABLE IF NOT EXISTS image (
 
 CREATE INDEX IF NOT EXISTS idx_image_service_storage
   ON image (service_name, storage_service);
+
+CREATE INDEX IF NOT EXISTS idx_image_status_created_at
+  ON image (status, created_at);

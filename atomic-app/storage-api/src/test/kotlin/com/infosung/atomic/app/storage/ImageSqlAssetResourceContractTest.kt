@@ -18,6 +18,7 @@ class ImageSqlAssetResourceContractTest {
     assertTrue(sql.contains("storage_service"))
     assertTrue(sql.contains("storage_type"))
     assertTrue(sql.contains("CREATE INDEX IF NOT EXISTS idx_image_service_storage"))
+    assertTrue(sql.contains("CREATE INDEX IF NOT EXISTS idx_image_status_created_at"))
   }
 
   @Test

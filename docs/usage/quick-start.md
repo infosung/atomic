@@ -132,13 +132,14 @@ Notes:
 | Track | What to verify immediately |
 |---|---|
 | `A. version-only` | On `GET /api/v1/version/check`, confirm headers (`X-Service-Name`, `X-Platform`, `X-App-Version`) are present and `service_version` table/rows are ready |
-| `B. image API` | Confirm `POST /api/v1/storage/image/{service}/{storageService}` is not `404`, storage backend key (`S3`, etc.) matches request path values, and thumbnail behavior matches `atomic.app.image.thumbnail-enabled` / request `thumbnailEnabled` |
+| `B. image API` | Confirm `POST /api/v1/storage/image/{service}/{storageService}` is not `404`, storage backend key (`S3`, etc.) matches request path values, thumbnail behavior matches `atomic.app.image.thumbnail-enabled` / request `thumbnailEnabled`, and your team knows that failed DELETE can leave retryable `DELETE_PENDING` metadata |
 | `C. oauth redirect relay API` | Confirm `GET /oauth/redirect/google?redirectUri=...` returns redirect, and provider console redirect URI exactly matches `https://{host}/oauth/callback/google` |
 
 Common failure causes:
 - Missing module dependencies while `enabled=true`
 - OAuth `signing-secret` length is below 32 bytes
 - Callback URI mismatch between provider console and server config
+- Image DELETE can reserve metadata as `DELETE_PENDING` before storage cleanup; retry the same DELETE after backend recovery or use `AppImageDeleteRecoveryService` from your own admin/scheduler path
 
 ---
 

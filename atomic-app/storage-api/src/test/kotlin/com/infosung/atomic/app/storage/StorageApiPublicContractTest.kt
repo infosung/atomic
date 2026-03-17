@@ -88,6 +88,37 @@ class StorageApiPublicContractTest {
   }
 
   @Test
+  fun `image delete pending snapshot constructor contract should remain stable`() {
+    val parameterNames =
+        ImageDeletePendingSnapshot::class.primaryConstructor!!.parameters.mapNotNull { it.name }
+
+    assertEquals(
+        listOf(
+            "pendingCount",
+            "oldestPendingCreatedAt",
+        ),
+        parameterNames,
+    )
+  }
+
+  @Test
+  fun `image delete recovery result constructor contract should remain stable`() {
+    val parameterNames =
+        ImageDeleteRecoveryResult::class.primaryConstructor!!.parameters.mapNotNull { it.name }
+
+    assertEquals(
+        listOf(
+            "scannedCount",
+            "recoveredCount",
+            "failedCount",
+            "remainingPendingCount",
+            "oldestPendingCreatedAt",
+        ),
+        parameterNames,
+    )
+  }
+
+  @Test
   fun `image entity schema annotations should remain stable`() {
     val entity = ImageEntity::class.java.getAnnotation(Entity::class.java)
     val table = ImageEntity::class.java.getAnnotation(Table::class.java)
@@ -161,6 +192,7 @@ class StorageApiPublicContractTest {
   fun `app image delete recovery service public methods should remain stable`() {
     assertEquals(
         listOf(
+            "inspectDeletePendingImages():ImageDeletePendingSnapshot",
             "recoverDeletePendingImages(int):ImageDeleteRecoveryResult",
         ),
         publicSignatures(AppImageDeleteRecoveryService::class.java),

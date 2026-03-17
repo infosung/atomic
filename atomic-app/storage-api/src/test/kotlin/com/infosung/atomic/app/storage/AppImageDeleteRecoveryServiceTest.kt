@@ -11,6 +11,7 @@ import com.infosung.atomic.storage.image.ImageService
 import com.infosung.atomic.storage.image.ImageThumbnailGenerator
 import com.infosung.atomic.storage.image.ValidatedImageInput
 import java.io.File
+import java.time.LocalDateTime
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -19,10 +20,33 @@ import org.mockito.Mockito.mock
 
 class AppImageDeleteRecoveryServiceTest {
   @Test
+  fun `inspectDeletePendingImages should return pending count and oldest createdAt`() {
+    val oldest =
+        newDeletePendingImageEntity(
+            fileName = "images/test/oldest.png",
+            createdAt = LocalDateTime.of(2024, 1, 1, 0, 0, 0),
+        )
+    val newest =
+        newDeletePendingImageEntity(
+            fileName = "images/test/newest.png",
+            createdAt = LocalDateTime.of(2024, 1, 2, 0, 0, 0),
+        )
+    val imageService =
+        createImageService(storageClient = CapturingStorageClient(), storageType = "S3")
+    val txService = FakeRecoveryImageEntityTxService(listOf(newest, oldest))
+    val recoveryService = AppImageDeleteRecoveryService(txService, imageService)
+
+    val snapshot = recoveryService.inspectDeletePendingImages()
+
+    assertEquals(2, snapshot.pendingCount)
+    assertEquals(LocalDateTime.of(2024, 1, 1, 0, 0, 0), snapshot.oldestPendingCreatedAt)
+  }
+
+  @Test
   fun `recoverDeletePendingImages should purge recovered rows up to limit`() {
-    val image1 = newDeletePendingImageEntity()
-    val image2 = newDeletePendingImageEntity()
-    val image3 = newDeletePendingImageEntity()
+    val image1 = newDeletePendingImageEntity(createdAt = LocalDateTime.of(2024, 1, 1, 0, 0, 0))
+    val image2 = newDeletePendingImageEntity(createdAt = LocalDateTime.of(2024, 1, 1, 0, 1, 0))
+    val image3 = newDeletePendingImageEntity(createdAt = LocalDateTime.of(2024, 1, 1, 0, 2, 0))
     val storageClient = CapturingStorageClient()
     val imageService = createImageService(storageClient = storageClient, storageType = "S3")
     val txService = FakeRecoveryImageEntityTxService(listOf(image1, image2, image3))
@@ -33,15 +57,29 @@ class AppImageDeleteRecoveryServiceTest {
     assertEquals(2, result.scannedCount)
     assertEquals(2, result.recoveredCount)
     assertEquals(0, result.failedCount)
+    assertEquals(1, result.remainingPendingCount)
+    assertEquals(LocalDateTime.of(2024, 1, 1, 0, 2, 0), result.oldestPendingCreatedAt)
     assertEquals(listOf(requireNotNull(image1.id), requireNotNull(image2.id)), txService.purgedIds)
     assertEquals(listOf(requireNotNull(image3.id)), txService.remainingIds())
   }
 
   @Test
   fun `recoverDeletePendingImages should continue after one item fails`() {
-    val image1 = newDeletePendingImageEntity(fileName = "images/test/success-1.png")
-    val image2 = newDeletePendingImageEntity(fileName = "images/test/fail.png")
-    val image3 = newDeletePendingImageEntity(fileName = "images/test/success-2.png")
+    val image1 =
+        newDeletePendingImageEntity(
+            fileName = "images/test/success-1.png",
+            createdAt = LocalDateTime.of(2024, 1, 1, 0, 0, 0),
+        )
+    val image2 =
+        newDeletePendingImageEntity(
+            fileName = "images/test/fail.png",
+            createdAt = LocalDateTime.of(2024, 1, 1, 0, 1, 0),
+        )
+    val image3 =
+        newDeletePendingImageEntity(
+            fileName = "images/test/success-2.png",
+            createdAt = LocalDateTime.of(2024, 1, 1, 0, 2, 0),
+        )
     val storageClient =
         CapturingStorageClient(
             failDeleteObject = { key -> key == "images/test/fail.png" },
@@ -55,6 +93,8 @@ class AppImageDeleteRecoveryServiceTest {
     assertEquals(3, result.scannedCount)
     assertEquals(2, result.recoveredCount)
     assertEquals(1, result.failedCount)
+    assertEquals(1, result.remainingPendingCount)
+    assertEquals(LocalDateTime.of(2024, 1, 1, 0, 1, 0), result.oldestPendingCreatedAt)
     assertEquals(
         listOf(requireNotNull(image1.id), requireNotNull(image3.id)),
         txService.purgedIds,
@@ -118,6 +158,7 @@ class AppImageDeleteRecoveryServiceTest {
   private fun newDeletePendingImageEntity(
       fileName: String = "images/test/original.png",
       thumbnailFileName: String = "images/test/original_thumb.webp",
+      createdAt: LocalDateTime = LocalDateTime.now(),
   ): ImageEntity {
     return ImageEntity(
         id = UUID.randomUUID(),
@@ -131,6 +172,7 @@ class AppImageDeleteRecoveryServiceTest {
         url = "https://cdn.example.com/$fileName",
         thumbnailUrl = "https://cdn.example.com/$thumbnailFileName",
         fileSize = 123,
+        createdAt = createdAt,
     )
   }
 
@@ -142,6 +184,14 @@ class AppImageDeleteRecoveryServiceTest {
 
     override fun findDeletePending(limit: Int): List<ImageEntity> =
         pendingEntities.take(limit).toList()
+
+    override fun inspectDeletePendingImages(): ImageDeletePendingSnapshot {
+      val oldestPendingCreatedAt = pendingEntities.minByOrNull { it.createdAt }?.createdAt
+      return ImageDeletePendingSnapshot(
+          pendingCount = pendingEntities.size.toLong(),
+          oldestPendingCreatedAt = oldestPendingCreatedAt,
+      )
+    }
 
     override fun purgeDeletePending(imageEntity: ImageEntity) {
       val imageId = requireNotNull(imageEntity.id)

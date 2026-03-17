@@ -1,5 +1,6 @@
 package com.infosung.atomic.app.storage
 
+import java.time.LocalDateTime
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -72,6 +73,30 @@ class AppImageMigrationAssetContractTest {
         )
 
     assertTrue(indexes.contains("idx_image_service_storage"))
+    assertTrue(indexes.contains("idx_image_status_created_at"))
+  }
+
+  @Test
+  fun `official image sql asset should support delete pending snapshot queries`() {
+    imageEntityTxService.save(
+        newEntity(
+            fileName = "images/older/original.png",
+            status = ImageEntity.STATUS_DELETE_PENDING,
+            createdAt = LocalDateTime.of(2024, 1, 1, 0, 0, 0),
+        ),
+    )
+    imageEntityTxService.save(
+        newEntity(
+            fileName = "images/newer/original.png",
+            status = ImageEntity.STATUS_DELETE_PENDING,
+            createdAt = LocalDateTime.of(2024, 1, 2, 0, 0, 0),
+        ),
+    )
+
+    val snapshot = imageEntityTxService.inspectDeletePendingImages()
+
+    assertEquals(2L, snapshot.pendingCount)
+    assertEquals(LocalDateTime.of(2024, 1, 1, 0, 0, 0), snapshot.oldestPendingCreatedAt)
   }
 
   @Test
@@ -100,6 +125,8 @@ class AppImageMigrationAssetContractTest {
       thumbnailFileName: String? = null,
       url: String? = null,
       thumbnailUrl: String? = null,
+      status: String = ImageEntity.STATUS_ACTIVE,
+      createdAt: LocalDateTime = LocalDateTime.now(),
   ): ImageEntity {
     val suffix = UUID.randomUUID().toString().take(8)
     val defaultObjectKey = "images/$suffix/original.png"
@@ -108,6 +135,7 @@ class AppImageMigrationAssetContractTest {
         bucket = "bucket",
         serviceName = "svc",
         storageService = "S3",
+        status = status,
         storageType = "S3",
         fileName = fileName ?: defaultObjectKey,
         thumbnailFileName = thumbnailFileName ?: defaultThumbnailKey,
@@ -115,6 +143,7 @@ class AppImageMigrationAssetContractTest {
         thumbnailUrl = thumbnailUrl ?: "https://cdn.example.com/$defaultThumbnailKey",
         fileSize = 123,
         thumbnailFileSize = 45,
+        createdAt = createdAt,
     )
   }
 

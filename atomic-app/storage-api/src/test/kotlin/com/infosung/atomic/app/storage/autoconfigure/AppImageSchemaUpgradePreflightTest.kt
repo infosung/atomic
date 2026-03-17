@@ -1,10 +1,12 @@
 package com.infosung.atomic.app.storage.autoconfigure
 
 import javax.sql.DataSource
-import kotlin.test.Test
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.SpringBootConfiguration
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase
 import org.springframework.core.io.ClassPathResource
@@ -56,6 +58,8 @@ class AppImageSchemaUpgradePreflightTest {
   private fun executeScript(path: String) {
     dataSource.connection.use { ScriptUtils.executeSqlScript(it, ClassPathResource(path)) }
   }
+
+  @SpringBootConfiguration @EnableAutoConfiguration class TestConfiguration
 
   companion object {
     @Container

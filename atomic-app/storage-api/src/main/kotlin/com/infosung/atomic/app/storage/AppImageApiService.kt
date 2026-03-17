@@ -224,6 +224,17 @@ class AppImageApiService(
             serviceName = serviceName,
             storageService = storageService,
         )
+    if (imageEntity.status == ImageEntity.STATUS_DELETE_PENDING) {
+      log.info(
+          "Delete requested for image metadata already marked delete-pending. Retrying storage cleanup: imageId={}, serviceName={}, storageService={}, storageType={}, fileName={}, thumbnailFileName={}",
+          imageId,
+          serviceName,
+          storageService,
+          resolvedStorageType,
+          imageEntity.fileName,
+          imageEntity.thumbnailFileName,
+      )
+    }
     val deleteReservedEntity = imageEntityTxService.markDeletePending(imageEntity)
 
     try {
@@ -241,7 +252,7 @@ class AppImageApiService(
       )
     } catch (e: Exception) {
       log.error(
-          "Storage delete failed while metadata remains delete-pending: imageId={}, storageType={}, fileName={}, thumbnailFileName={}",
+          "Storage delete failed while metadata remains delete-pending. Retry delete or run AppImageDeleteRecoveryService: imageId={}, storageType={}, fileName={}, thumbnailFileName={}",
           imageId,
           resolvedStorageType,
           deleteReservedEntity.fileName,
