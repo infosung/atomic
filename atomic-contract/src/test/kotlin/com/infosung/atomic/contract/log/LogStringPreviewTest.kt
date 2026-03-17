@@ -36,4 +36,9 @@ class LogStringPreviewTest {
   fun `summarize should clip to requested max length`() {
     assertEquals("abcde...", LogStringPreview.summarize("abcdefghijk", maxLength = 8))
   }
+
+  @Test
+  fun `summarize should hard clip when requested max length is three or less`() {
+    assertEquals("abc", LogStringPreview.summarize("abcdef", maxLength = 3))
+  }
 }
