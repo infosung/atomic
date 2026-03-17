@@ -121,10 +121,10 @@ open class AppImageEntityTxService(
   @Transactional
   open fun save(imageEntity: ImageEntity): ImageEntity {
     log.debug(
-        "Persisting image metadata: serviceName={}, storageService={}, objectKey={}",
+        "Persisting image metadata: serviceName={}, storageService={}, objectKeyPreview={}",
         imageEntity.serviceName,
         imageEntity.storageService,
-        imageEntity.fileName,
+        summarizeForLog(imageEntity.fileName),
     )
     return imageRepository.save(imageEntity)
   }
@@ -134,17 +134,17 @@ open class AppImageEntityTxService(
   open fun markDeletePending(imageEntity: ImageEntity): ImageEntity {
     if (imageEntity.status == ImageEntity.STATUS_DELETE_PENDING) {
       log.info(
-          "Image metadata already delete-pending: imageId={}, objectKey={}",
+          "Image metadata already delete-pending: imageId={}, objectKeyPreview={}",
           imageEntity.id,
-          imageEntity.fileName,
+          summarizeForLog(imageEntity.fileName),
       )
       return imageEntity
     }
     val pendingEntity = imageEntity.toDeletePending()
     log.info(
-        "Marking image metadata delete-pending: imageId={}, objectKey={}, previousStatus={}, nextStatus={}",
+        "Marking image metadata delete-pending: imageId={}, objectKeyPreview={}, previousStatus={}, nextStatus={}",
         imageEntity.id,
-        imageEntity.fileName,
+        summarizeForLog(imageEntity.fileName),
         imageEntity.status,
         pendingEntity.status,
     )
@@ -155,7 +155,10 @@ open class AppImageEntityTxService(
   @Transactional
   open fun delete(imageEntity: ImageEntity) {
     log.debug(
-        "Deleting image metadata: imageId={}, objectKey={}", imageEntity.id, imageEntity.fileName)
+        "Deleting image metadata: imageId={}, objectKeyPreview={}",
+        imageEntity.id,
+        summarizeForLog(imageEntity.fileName),
+    )
     imageRepository.delete(imageEntity)
   }
 
@@ -163,9 +166,9 @@ open class AppImageEntityTxService(
   @Transactional
   open fun purgeDeletePending(imageEntity: ImageEntity) {
     log.info(
-        "Purging delete-pending image metadata: imageId={}, objectKey={}, status={}",
+        "Purging delete-pending image metadata: imageId={}, objectKeyPreview={}, status={}",
         imageEntity.id,
-        imageEntity.fileName,
+        summarizeForLog(imageEntity.fileName),
         imageEntity.status,
     )
     delete(imageEntity)
@@ -206,6 +209,13 @@ open class AppImageEntityTxService(
     return requireNotNull(jdbcTemplate) {
       "AppImageEntityTxService requires JdbcTemplate for delete-pending claim operations."
     }
+  }
+
+  private fun summarizeForLog(value: String?): String? {
+    if (value == null) {
+      return null
+    }
+    return if (value.length <= 96) value else value.take(93) + "..."
   }
 
   private companion object {

@@ -320,6 +320,117 @@ class ImageServiceTest {
   }
 
   @Test
+  fun `uploadImage should fail before original upload when object key exceeds internal budget`() {
+    val storageClient = CapturingStorageClient()
+    val service =
+        createImageService(
+            storageClient = storageClient,
+            objectKeyGenerator = ImageObjectKeyGenerator { "images/${"a".repeat(520)}.png" },
+        )
+    val sourceFile = tempFile()
+
+    try {
+      val exception =
+          assertFailsWith<IllegalArgumentException> {
+            service.uploadImage(file = sourceFile, originFilename = "hello.png", storageType = "S3")
+          }
+      assertTrue(exception.message!!.contains("object key exceeds max length"))
+      assertTrue(storageClient.putRequests.isEmpty())
+    } finally {
+      sourceFile.delete()
+    }
+  }
+
+  @Test
+  fun `uploadImage should fail before original upload when public url exceeds internal budget`() {
+    val storageClient = CapturingStorageClient()
+    val service =
+        createImageService(
+            storageClient = storageClient,
+            storageProfiles =
+                mapOf(
+                    "S3" to
+                        StorageProfile(
+                            bucket = "bucket",
+                            cdn = "https://cdn.example.com/${"x".repeat(2100)}",
+                        ),
+                ),
+        )
+    val sourceFile = tempFile()
+
+    try {
+      val exception =
+          assertFailsWith<IllegalArgumentException> {
+            service.uploadImage(file = sourceFile, originFilename = "hello.png", storageType = "S3")
+          }
+      assertTrue(exception.message!!.contains("public url exceeds max length"))
+      assertTrue(storageClient.putRequests.isEmpty())
+    } finally {
+      sourceFile.delete()
+    }
+  }
+
+  @Test
+  fun `uploadImage should keep original upload when thumbnail key exceeds internal budget`() {
+    val storageClient = CapturingStorageClient()
+    val service =
+        createImageService(
+            storageClient = storageClient,
+            thumbnailGenerator =
+                ImageThumbnailGenerator { _, _, _, _ ->
+                  val temp = File.createTempFile("atomic-storage-thumb-", ".webp")
+                  temp.writeBytes(byteArrayOf(9, 9, 9))
+                  GeneratedThumbnail(
+                      objectKey = "images/${"t".repeat(520)}.webp",
+                      file = temp,
+                      metadata = ImageMetadata(width = 30, height = 20, size = temp.length()),
+                  )
+                },
+        )
+    val sourceFile = tempFile()
+
+    try {
+      val result =
+          service.uploadImage(file = sourceFile, originFilename = "hello.png", storageType = "S3")
+
+      assertEquals(
+          listOf("images/test/original.png"), storageClient.putRequests.map { it.objectKey })
+      assertTrue(result.thumbnailUploadFailed)
+      assertEquals(null, result.thumbnailFileName)
+      assertTrue(
+          result.thumbnailFailureReason!!.contains("thumbnail object key exceeds max length"))
+    } finally {
+      sourceFile.delete()
+    }
+  }
+
+  @Test
+  fun `uploadImage should bound thumbnail failure reason summary`() {
+    val storageClient = CapturingStorageClient()
+    val service =
+        createImageService(
+            storageClient = storageClient,
+            thumbnailGenerator =
+                ImageThumbnailGenerator { _, _, _, _ ->
+                  throw IllegalStateException("x".repeat(400))
+                },
+        )
+    val sourceFile = tempFile()
+
+    try {
+      val result =
+          service.uploadImage(file = sourceFile, originFilename = "hello.png", storageType = "S3")
+
+      assertTrue(result.thumbnailUploadFailed)
+      assertNotNull(result.thumbnailFailureReason)
+      assertTrue(result.thumbnailFailureReason.startsWith("IllegalStateException:"))
+      assertTrue(result.thumbnailFailureReason.length <= 160)
+    } finally {
+      sourceFile.delete()
+    }
+  }
+
+  @Test
   fun `uploadImage should fail when storage profile is missing`() {
     val service =
         createImageService(
@@ -413,6 +524,9 @@ class ImageServiceTest {
       storageClients: Map<String, StorageClient> = mapOf("S3" to storageClient),
       storageProfiles: Map<String, StorageProfile> =
           mapOf("S3" to StorageProfile(bucket = "bucket", cdn = "https://cdn")),
+      objectKeyGenerator: ImageObjectKeyGenerator = ImageObjectKeyGenerator {
+        "images/test/original.png"
+      },
       imageInputValidator: ImageInputValidator = defaultImageInputValidator(),
       metadataReader: ImageMetadataReader = ImageMetadataReader { ImageMetadata(100, 80, 10L) },
       thumbnailGenerator: ImageThumbnailGenerator = successfulThumbnailGenerator(),
@@ -420,7 +534,7 @@ class ImageServiceTest {
     return ImageService(
         storageClients = storageClients,
         storageProfiles = storageProfiles,
-        objectKeyGenerator = { "images/test/original.png" },
+        objectKeyGenerator = objectKeyGenerator,
         imageInputValidator = imageInputValidator,
         metadataReader = metadataReader,
         thumbnailGenerator = thumbnailGenerator,

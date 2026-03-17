@@ -63,12 +63,12 @@ class AppImageDeleteRecoveryService(
     pendingImages.forEach { imageEntity ->
       val imageId = imageEntity.id
       log.info(
-          "Recovering claimed delete-pending image metadata: imageId={}, claimToken={}, storageType={}, fileName={}, thumbnailFileName={}, status={}",
+          "Recovering claimed delete-pending image metadata: imageId={}, claimToken={}, storageType={}, fileNamePreview={}, thumbnailFileNamePreview={}, status={}",
           imageId,
           batchToken,
           imageEntity.storageType,
-          imageEntity.fileName,
-          imageEntity.thumbnailFileName,
+          summarizeForLog(imageEntity.fileName),
+          summarizeForLog(imageEntity.thumbnailFileName),
           imageEntity.status,
       )
       try {
@@ -78,12 +78,12 @@ class AppImageDeleteRecoveryService(
             thumbnailFileName = imageEntity.thumbnailFileName,
         )
         log.info(
-            "Recovered storage cleanup for claimed delete-pending image: imageId={}, claimToken={}, storageType={}, fileName={}, thumbnailFileName={}",
+            "Recovered storage cleanup for claimed delete-pending image: imageId={}, claimToken={}, storageType={}, fileNamePreview={}, thumbnailFileNamePreview={}",
             imageId,
             batchToken,
             imageEntity.storageType,
-            imageEntity.fileName,
-            imageEntity.thumbnailFileName,
+            summarizeForLog(imageEntity.fileName),
+            summarizeForLog(imageEntity.thumbnailFileName),
         )
         imageEntityTxService.purgeDeletePending(imageEntity)
         recoveredCount += 1
@@ -96,12 +96,12 @@ class AppImageDeleteRecoveryService(
           )
         }
         log.error(
-            "Delete-pending recovery failed and claim was released for retry: imageId={}, claimToken={}, storageType={}, fileName={}, thumbnailFileName={}, status={}",
+            "Delete-pending recovery failed and claim was released for retry: imageId={}, claimToken={}, storageType={}, fileNamePreview={}, thumbnailFileNamePreview={}, status={}",
             imageId,
             batchToken,
             imageEntity.storageType,
-            imageEntity.fileName,
-            imageEntity.thumbnailFileName,
+            summarizeForLog(imageEntity.fileName),
+            summarizeForLog(imageEntity.thumbnailFileName),
             imageEntity.status,
             e,
         )
@@ -148,6 +148,13 @@ class AppImageDeleteRecoveryService(
     }
     return ChronoUnit.SECONDS.between(oldestPendingCreatedAt, LocalDateTime.now(clock))
         .coerceAtLeast(0)
+  }
+
+  private fun summarizeForLog(value: String?): String? {
+    if (value == null) {
+      return null
+    }
+    return if (value.length <= 96) value else value.take(93) + "..."
   }
 
   companion object {

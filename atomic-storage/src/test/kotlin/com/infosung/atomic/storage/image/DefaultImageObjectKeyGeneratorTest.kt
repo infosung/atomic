@@ -5,6 +5,7 @@ import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class DefaultImageObjectKeyGeneratorTest {
@@ -55,5 +56,23 @@ class DefaultImageObjectKeyGeneratorTest {
 
     assertTrue(key.startsWith("uploads/2026/02/25/10/"))
     assertTrue(key.endsWith("_fixedsuffix_sample.png"))
+  }
+
+  @Test
+  fun `generate should bound long filenames while preserving extension`() {
+    val fixedClock = Clock.fixed(Instant.parse("2026-02-25T10:00:00Z"), ZoneOffset.UTC)
+    val timeProvider = TimeProvider(defaultClock = fixedClock)
+    val generator =
+        DefaultImageObjectKeyGenerator(
+            timeProvider = timeProvider,
+            randomSuffixGenerator = { "fixedsuffix" },
+        )
+
+    val key = generator.generate("${"a".repeat(800)}.png")
+
+    assertTrue(key.startsWith("images/2026/02/25/10/"))
+    assertTrue(key.endsWith(".png"))
+    assertTrue(key.length <= 512)
+    assertEquals(512, key.length)
   }
 }

@@ -226,6 +226,10 @@ POST response:
 - nullable fields are normal:
   - `uploaderId`: null when uploader tracking is disabled or omitted
   - `thumbnailFileName`, `thumbnailUrl`, `thumbnailWidth`, `thumbnailHeight`, `thumbnailFileSize`: null when thumbnail generation is disabled or unavailable
+- built-in storage safety budgets still apply under the hood:
+  - overly long original object keys or final public URLs fail before the original storage write begins
+  - overly long thumbnail keys or thumbnail URLs are downgraded to `thumbnailUploadFailed=true` instead of failing the original upload
+  - these budgets do not replace multipart/body-size limits; keep upload-size and temp-disk policy in the host app
 
 DELETE behavior:
 
@@ -294,9 +298,11 @@ Image API exception semantics:
 
 - `400` invalid quality / unknown storage key / invalid UUID / path mismatch / unavailable persisted delete storage mapping
 - `400` uploader parameter missing when uploader tracking is enabled
+- `400` original image object key / public URL budget violation before storage write
 - `404` image row not found
 - `403` uploader mismatch when uploader tracking is enabled
 - other upload/delete exceptions can propagate from underlying storage client or image processing layer
+- thumbnail key / thumbnail URL budget violations remain non-fatal original uploads and surface through nullable thumbnail fields plus `thumbnailUploadFailed=true`
 
 ## OAuth Redirect API
 
