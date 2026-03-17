@@ -50,6 +50,14 @@ import tools.jackson.databind.ObjectMapper
 class AtomicAppOauthRedirectAutoConfiguration {
   private val log = LoggerFactory.getLogger(this::class.java)
 
+  private enum class StateStoreSummaryType {
+    ABSENT,
+    OPAQUE_REPLAY_PROTECTED,
+    MULTIPLE_CANDIDATES,
+    IN_MEMORY,
+    CUSTOM_OR_SHARED,
+  }
+
   @Bean
   fun appOauthRedirectPropertiesValidator(
       properties: AtomicAppOauthRedirectProperties,
@@ -355,7 +363,7 @@ class AtomicAppOauthRedirectAutoConfiguration {
         properties.store.failFast,
         callbackBindingMode,
         oauthStateManager.isReplayProtectionEnabled(),
-        stateStoreType,
+        stateStoreType.name,
     )
 
     if (properties.store.type == AtomicAppOauthRedirectProperties.StoreType.IN_MEMORY) {
@@ -369,7 +377,7 @@ class AtomicAppOauthRedirectAutoConfiguration {
           properties.store.type,
       )
     }
-    if (stateStoreType == "IN_MEMORY") {
+    if (stateStoreType == StateStoreSummaryType.IN_MEMORY) {
       log.warn(
           "OAuth state replay protection uses the in-memory state store. It is process-local per instance and is not suitable for multi-instance deployments.")
     }
@@ -389,16 +397,16 @@ class AtomicAppOauthRedirectAutoConfiguration {
   private fun resolveStateStoreType(
       oauthStateManager: OauthStateManager,
       oauthStateStoreProvider: ObjectProvider<OauthStateStore>,
-  ): String {
+  ): StateStoreSummaryType {
     if (!oauthStateManager.isReplayProtectionEnabled()) {
-      return "ABSENT"
+      return StateStoreSummaryType.ABSENT
     }
     val stateStores = oauthStateStoreProvider.orderedStream().limit(2).toList()
     return when {
-      stateStores.isEmpty() -> "OPAQUE_REPLAY_PROTECTED"
-      stateStores.size > 1 -> "MULTIPLE_CANDIDATES"
-      stateStores.first() is InMemoryOauthStateStore -> "IN_MEMORY"
-      else -> "CUSTOM_OR_SHARED"
+      stateStores.isEmpty() -> StateStoreSummaryType.OPAQUE_REPLAY_PROTECTED
+      stateStores.size > 1 -> StateStoreSummaryType.MULTIPLE_CANDIDATES
+      stateStores.first() is InMemoryOauthStateStore -> StateStoreSummaryType.IN_MEMORY
+      else -> StateStoreSummaryType.CUSTOM_OR_SHARED
     }
   }
 }
