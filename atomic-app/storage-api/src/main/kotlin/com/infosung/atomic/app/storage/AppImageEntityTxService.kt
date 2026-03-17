@@ -1,5 +1,6 @@
 package com.infosung.atomic.app.storage
 
+import com.infosung.atomic.contract.log.LogStringPreview
 import java.sql.Timestamp
 import java.time.LocalDateTime
 import java.util.UUID
@@ -126,7 +127,7 @@ open class AppImageEntityTxService(
         "Persisting image metadata: serviceName={}, storageService={}, objectKeyPreview={}",
         imageEntity.serviceName,
         imageEntity.storageService,
-        summarizeForLog(imageEntity.fileName),
+        LogStringPreview.summarize(imageEntity.fileName),
     )
     return imageRepository.save(imageEntity)
   }
@@ -138,7 +139,7 @@ open class AppImageEntityTxService(
       log.info(
           "Image metadata already delete-pending: imageId={}, objectKeyPreview={}",
           imageEntity.id,
-          summarizeForLog(imageEntity.fileName),
+          LogStringPreview.summarize(imageEntity.fileName),
       )
       return imageEntity
     }
@@ -146,7 +147,7 @@ open class AppImageEntityTxService(
     log.info(
         "Marking image metadata delete-pending: imageId={}, objectKeyPreview={}, previousStatus={}, nextStatus={}",
         imageEntity.id,
-        summarizeForLog(imageEntity.fileName),
+        LogStringPreview.summarize(imageEntity.fileName),
         imageEntity.status,
         pendingEntity.status,
     )
@@ -159,7 +160,7 @@ open class AppImageEntityTxService(
     log.debug(
         "Deleting image metadata: imageId={}, objectKeyPreview={}",
         imageEntity.id,
-        summarizeForLog(imageEntity.fileName),
+        LogStringPreview.summarize(imageEntity.fileName),
     )
     imageRepository.delete(imageEntity)
   }
@@ -170,7 +171,7 @@ open class AppImageEntityTxService(
     log.info(
         "Purging delete-pending image metadata: imageId={}, objectKeyPreview={}, status={}",
         imageEntity.id,
-        summarizeForLog(imageEntity.fileName),
+        LogStringPreview.summarize(imageEntity.fileName),
         imageEntity.status,
     )
     delete(imageEntity)
@@ -211,13 +212,6 @@ open class AppImageEntityTxService(
     return requireNotNull(jdbcTemplate) {
       "AppImageEntityTxService requires JdbcTemplate for delete-pending claim operations."
     }
-  }
-
-  private fun summarizeForLog(value: String?): String? {
-    if (value == null) {
-      return null
-    }
-    return if (value.length <= 96) value else value.take(93) + "..."
   }
 
   private companion object {

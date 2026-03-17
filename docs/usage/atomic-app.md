@@ -33,7 +33,7 @@ Internally, `atomic.app` is a bundle of:
 - `atomic.app.storage.api` requires storage beans, so starter-based setups usually add both.
 - `atomic.app.oauth.redirect` usually pairs with `atomic.starter` + `atomic.spring.oauth2`.
 
-Published artifact set (`v0.0.2`):
+Published artifact set (`v0.0.3`):
 
 - `atomic-contract`
 - `atomic-storage`
@@ -68,6 +68,16 @@ dependencies {
   implementation(project(":atomic-app:app-version"))
   implementation(project(":atomic-app:storage-api"))
   implementation(project(":atomic-app:oauth-redirect"))
+}
+```
+
+Published-artifact narrow-module setup:
+
+```kotlin
+dependencies {
+  implementation("com.infosung:atomic.app.version:0.0.3")
+  implementation("com.infosung:atomic.app.storage.api:0.0.3")
+  implementation("com.infosung:atomic.app.oauth.redirect:0.0.3")
 }
 ```
 
@@ -434,7 +444,7 @@ The authoritative PostgreSQL starting-point assets now ship in module resources:
 - `atomic-app/storage-api`: `META-INF/atomic/sql/postgresql/image.sql`
 - `atomic-app/oauth-redirect`: `META-INF/atomic/sql/postgresql/atomic_oauth_relay_code.sql`
 
-For `service_version` and `image`, these assets now match explicit JPA table/column mappings in code. The SQL below mirrors the shipped assets.
+For `service_version` and `image`, these assets now match explicit JPA table/column mappings in code. The SQL below mirrors the shipped assets, including the `v0.0.3` recovery-claim columns and supporting indexes.
 
 - Identifier-like columns (`service`, `platform`, `bucket`, `service_name`, `storage_service`, `storage_type`) keep a bounded `VARCHAR(255)` contract.
 - Columns affected by external lengths (`store_url`, `file_name`, `thumbnail_file_name`, `url`, `thumbnail_url`) are shipped as `TEXT`.
@@ -457,6 +467,16 @@ CREATE TABLE IF NOT EXISTS service_version (
 
 CREATE INDEX IF NOT EXISTS idx_service_version_service_platform_version
   ON service_version (service, platform, main_version DESC, minor_version DESC, patch_number DESC);
+
+CREATE INDEX IF NOT EXISTS idx_service_version_service_platform_required_update
+  ON service_version (
+    service,
+    platform,
+    require_update,
+    main_version DESC,
+    minor_version DESC,
+    patch_number DESC
+  );
 ```
 
 ```sql
@@ -478,11 +498,19 @@ CREATE TABLE IF NOT EXISTS image (
   thumbnail_width INTEGER NULL,
   thumbnail_height INTEGER NULL,
   thumbnail_file_size BIGINT NULL,
+  delete_recovery_claim_token VARCHAR(255) NULL,
+  delete_recovery_claimed_at TIMESTAMP WITHOUT TIME ZONE NULL,
   created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_image_service_storage
   ON image (service_name, storage_service);
+
+CREATE INDEX IF NOT EXISTS idx_image_status_created_at
+  ON image (status, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_image_status_claim_created_at
+  ON image (status, delete_recovery_claim_token, created_at);
 ```
 
 ```sql
@@ -501,10 +529,13 @@ CREATE INDEX IF NOT EXISTS idx_atomic_oauth_relay_code_expires_at
 
 If your database already has the older `VARCHAR(255)` shape for externally sized fields, `CREATE TABLE IF NOT EXISTS`
 alone will not widen those columns. Apply an explicit migration before rolling out builds that can persist longer values.
+If you maintain a custom `image` schema, also add the `v0.0.3` delete-recovery claim columns/index before enabling
+`atomic.app.image`.
 
 When `atomic.app.version.enabled=true` or `atomic.app.image.enabled=true`, startup now validates these externally sized
 columns and fails fast if the old narrow shape is still present. The shipped baseline is `TEXT`, but custom schemas are
-also accepted when they use a sufficiently wide `VARCHAR(>=1024)` equivalent.
+also accepted when they use a sufficiently wide `VARCHAR(>=1024)` equivalent. For `atomic.app.image`, startup also
+checks that `delete_recovery_claim_token` and `delete_recovery_claimed_at` exist.
 
 PostgreSQL example:
 
@@ -517,13 +548,22 @@ ALTER TABLE image
   ALTER COLUMN thumbnail_file_name TYPE TEXT,
   ALTER COLUMN url TYPE TEXT,
   ALTER COLUMN thumbnail_url TYPE TEXT;
+
+ALTER TABLE image
+  ADD COLUMN IF NOT EXISTS delete_recovery_claim_token VARCHAR(255) NULL,
+  ADD COLUMN IF NOT EXISTS delete_recovery_claimed_at TIMESTAMP WITHOUT TIME ZONE NULL;
+
+CREATE INDEX IF NOT EXISTS idx_image_status_claim_created_at
+  ON image (status, delete_recovery_claim_token, created_at);
 ```
 
 ## Operational Checklist
 
 - Prepare database schema for `service_version` and `image` tables before enabling APIs.
 - Prefer the shipped module SQL assets as your initial migration baseline instead of copying stale inline snippets.
-- If you already run older `service_version` / `image` tables, widen the documented `TEXT` columns explicitly before deploying new builds.
+- If you already run older `service_version` / `image` tables, either widen the documented columns to `TEXT` or use an equivalent `VARCHAR(>=1024)` width before deploying new builds.
+- If you maintain a custom `image` schema, add `delete_recovery_claim_token`, `delete_recovery_claimed_at`, and `idx_image_status_claim_created_at` before enabling the image API.
+- If you maintain custom `service_version` / `image` SQL, keep the shipped supporting indexes as well (`idx_service_version_service_platform_required_update`, `idx_image_status_created_at`, `idx_image_status_claim_created_at`) so rollout checks and recovery queries keep the tested access paths.
 - If startup now fails with a schema-upgrade preflight error, treat it as a migration problem first, not as an API runtime bug.
 - if uploader tracking is enabled, add nullable `uploader_id` column to `image` table (or rely on JPA schema generation in non-production environments).
 - use `atomic.app.image.thumbnail-enabled=false` only when you intentionally want original-only uploads by default.
