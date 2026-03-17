@@ -1,0 +1,20 @@
+CREATE TABLE image (
+  id VARCHAR(255) PRIMARY KEY,
+  bucket VARCHAR(255) NOT NULL,
+  service_name VARCHAR(255) NOT NULL,
+  storage_service VARCHAR(255) NOT NULL,
+  status VARCHAR(255) NOT NULL DEFAULT 'ACTIVE',
+  uploader_id VARCHAR(255) NULL,
+  storage_type VARCHAR(255) NOT NULL,
+  file_name VARCHAR(255) NULL,
+  thumbnail_file_name VARCHAR(255) NULL,
+  url VARCHAR(255) NOT NULL,
+  thumbnail_url VARCHAR(255) NULL,
+  width INTEGER NULL,
+  height INTEGER NULL,
+  file_size BIGINT NOT NULL,
+  thumbnail_width INTEGER NULL,
+  thumbnail_height INTEGER NULL,
+  thumbnail_file_size BIGINT NULL,
+  created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

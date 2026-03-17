@@ -13,6 +13,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.persistence.autoconfigure.EntityScan
 import org.springframework.context.annotation.Bean
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories
+import org.springframework.jdbc.core.JdbcTemplate
 
 /** Auto-configuration for common app version API. */
 @AutoConfiguration
@@ -43,6 +44,14 @@ class AtomicAppVersionAutoConfiguration {
         serviceVersionRepository = serviceVersionRepository,
         defaultStoreUrl = properties.defaultStoreUrl,
     )
+  }
+
+  @Bean
+  @ConditionalOnMissingBean
+  fun appVersionSchemaUpgradePreflight(
+      jdbcTemplate: JdbcTemplate,
+  ): AppVersionSchemaUpgradePreflight {
+    return AppVersionSchemaUpgradePreflight(jdbcTemplate = jdbcTemplate)
   }
 
   @Bean

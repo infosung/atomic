@@ -13,6 +13,7 @@ import kotlin.test.assertTrue
 import org.mockito.Mockito.mock
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.support.DefaultListableBeanFactory
+import org.springframework.jdbc.core.JdbcTemplate
 
 class AtomicAppImageAutoConfigurationTest {
   private val autoConfiguration = AtomicAppImageAutoConfiguration()
@@ -61,6 +62,13 @@ class AtomicAppImageAutoConfigurationTest {
         )
 
     assertIs<AppImageDeleteRecoveryService>(recoveryService)
+  }
+
+  @Test
+  fun `app image schema upgrade preflight should be created`() {
+    val preflight = autoConfiguration.appImageSchemaUpgradePreflight(mock(JdbcTemplate::class.java))
+
+    assertIs<AppImageSchemaUpgradePreflight>(preflight)
   }
 
   private fun <T : Any> provider(

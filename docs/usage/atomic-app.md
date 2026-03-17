@@ -155,8 +155,12 @@ Response fields:
 
 - `currentVersion`: latest registered version for `(service, platform)`
 - `userVersion`: matched client version, or the normalized client semver when that version is not explicitly registered
-- `requiredUpdate`: whether any higher `requireUpdate=true` and `storeAvailable=true` policy exists
-- `storeUrl`: forced-update target URL or `default-store-url`
+- `requiredUpdate`: the only signal that a force-update target exists for this client version
+- `storeUrl`: URL value returned with the response; when no policy URL exists, `default-store-url` can still be used as a fallback
+
+Client contract note:
+
+- decide force-update UX from `requiredUpdate`, not from `storeUrl` presence alone
 
 Expected version policy table:
 
@@ -219,6 +223,9 @@ POST parameters:
 POST response:
 
 - persisted image metadata response (`ImageResponse`) with the same JSON fields as before (id, bucket, file names, urls, dimensions, sizes, status)
+- nullable fields are normal:
+  - `uploaderId`: null when uploader tracking is disabled or omitted
+  - `thumbnailFileName`, `thumbnailUrl`, `thumbnailWidth`, `thumbnailHeight`, `thumbnailFileSize`: null when thumbnail generation is disabled or unavailable
 
 DELETE behavior:
 
@@ -418,6 +425,10 @@ CREATE INDEX IF NOT EXISTS idx_atomic_oauth_relay_code_expires_at
 If your database already has the older `VARCHAR(255)` shape for externally sized fields, `CREATE TABLE IF NOT EXISTS`
 alone will not widen those columns. Apply an explicit migration before rolling out builds that can persist longer values.
 
+When `atomic.app.version.enabled=true` or `atomic.app.image.enabled=true`, startup now validates these externally sized
+columns and fails fast if the old narrow shape is still present. The shipped baseline is `TEXT`, but custom schemas are
+also accepted when they use a sufficiently wide `VARCHAR(>=1024)` equivalent.
+
 PostgreSQL example:
 
 ```sql
@@ -436,6 +447,7 @@ ALTER TABLE image
 - Prepare database schema for `service_version` and `image` tables before enabling APIs.
 - Prefer the shipped module SQL assets as your initial migration baseline instead of copying stale inline snippets.
 - If you already run older `service_version` / `image` tables, widen the documented `TEXT` columns explicitly before deploying new builds.
+- If startup now fails with a schema-upgrade preflight error, treat it as a migration problem first, not as an API runtime bug.
 - if uploader tracking is enabled, add nullable `uploader_id` column to `image` table (or rely on JPA schema generation in non-production environments).
 - use `atomic.app.image.thumbnail-enabled=false` only when you intentionally want original-only uploads by default.
 - when image delete fails after reservation, treat remaining `DELETE_PENDING` rows as retryable cleanup work.
