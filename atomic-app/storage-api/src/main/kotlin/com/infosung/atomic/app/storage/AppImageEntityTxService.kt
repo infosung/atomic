@@ -44,6 +44,8 @@ open class AppImageEntityTxService(
       claimToken: String,
       claimedAt: LocalDateTime,
   ): List<ImageEntity> {
+    // Flush pending JPA writes before the JDBC claim query so the batch sees newly-saved rows.
+    imageRepository.flush()
     val staleClaimBefore = claimedAt.minusSeconds(DEFAULT_DELETE_RECOVERY_CLAIM_TIMEOUT_SECONDS)
     log.info(
         "Claiming delete-pending image metadata batch: limit={}, claimToken={}, claimedAt={}, staleClaimBefore={}",
