@@ -352,6 +352,9 @@ The authoritative PostgreSQL starting-point assets now ship in module resources:
 
 For `service_version` and `image`, these assets now match explicit JPA table/column mappings in code. The SQL below mirrors the shipped assets.
 
+- identifier 성격 컬럼 (`service`, `platform`, `bucket`, `service_name`, `storage_service`, `storage_type`)은 `VARCHAR(255)` bounded 계약을 유지합니다.
+- 외부 길이 영향을 받는 컬럼 (`store_url`, `file_name`, `thumbnail_file_name`, `url`, `thumbnail_url`)은 `TEXT`로 shipped 됩니다.
+
 ```sql
 CREATE TABLE IF NOT EXISTS service_version (
   id BIGSERIAL PRIMARY KEY,
@@ -362,7 +365,7 @@ CREATE TABLE IF NOT EXISTS service_version (
   store_available BOOLEAN NOT NULL DEFAULT TRUE,
   platform VARCHAR(255) NOT NULL,
   service VARCHAR(255) NOT NULL,
-  store_url VARCHAR(255) NULL,
+  store_url TEXT NULL,
   created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT uq_service_version_service_platform_semver
     UNIQUE (service, platform, main_version, minor_version, patch_number)
@@ -381,10 +384,10 @@ CREATE TABLE IF NOT EXISTS image (
   status VARCHAR(255) NOT NULL DEFAULT 'ACTIVE',
   uploader_id VARCHAR(255) NULL,
   storage_type VARCHAR(255) NOT NULL,
-  file_name VARCHAR(255) NULL,
-  thumbnail_file_name VARCHAR(255) NULL,
-  url VARCHAR(255) NOT NULL,
-  thumbnail_url VARCHAR(255) NULL,
+  file_name TEXT NULL,
+  thumbnail_file_name TEXT NULL,
+  url TEXT NOT NULL,
+  thumbnail_url TEXT NULL,
   width INTEGER NULL,
   height INTEGER NULL,
   file_size BIGINT NOT NULL,
@@ -410,10 +413,29 @@ CREATE INDEX IF NOT EXISTS idx_atomic_oauth_relay_code_expires_at
   ON atomic_oauth_relay_code (expires_at);
 ```
 
+### Upgrade Note for Existing Tables
+
+If your database already has the older `VARCHAR(255)` shape for externally sized fields, `CREATE TABLE IF NOT EXISTS`
+alone will not widen those columns. Apply an explicit migration before rolling out builds that can persist longer values.
+
+PostgreSQL example:
+
+```sql
+ALTER TABLE service_version
+  ALTER COLUMN store_url TYPE TEXT;
+
+ALTER TABLE image
+  ALTER COLUMN file_name TYPE TEXT,
+  ALTER COLUMN thumbnail_file_name TYPE TEXT,
+  ALTER COLUMN url TYPE TEXT,
+  ALTER COLUMN thumbnail_url TYPE TEXT;
+```
+
 ## Operational Checklist
 
 - Prepare database schema for `service_version` and `image` tables before enabling APIs.
 - Prefer the shipped module SQL assets as your initial migration baseline instead of copying stale inline snippets.
+- If you already run older `service_version` / `image` tables, widen the documented `TEXT` columns explicitly before deploying new builds.
 - if uploader tracking is enabled, add nullable `uploader_id` column to `image` table (or rely on JPA schema generation in non-production environments).
 - use `atomic.app.image.thumbnail-enabled=false` only when you intentionally want original-only uploads by default.
 - when image delete fails after reservation, treat remaining `DELETE_PENDING` rows as retryable cleanup work.

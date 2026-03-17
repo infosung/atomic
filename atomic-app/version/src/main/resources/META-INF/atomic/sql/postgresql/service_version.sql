@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS service_version (
   store_available BOOLEAN NOT NULL DEFAULT TRUE,
   platform VARCHAR(255) NOT NULL,
   service VARCHAR(255) NOT NULL,
-  store_url VARCHAR(255) NULL,
+  store_url TEXT NULL,
   created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT uq_service_version_service_platform_semver
     UNIQUE (service, platform, main_version, minor_version, patch_number)

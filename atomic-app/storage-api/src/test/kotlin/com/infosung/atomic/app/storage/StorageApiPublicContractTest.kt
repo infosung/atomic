@@ -93,9 +93,13 @@ class StorageApiPublicContractTest {
     val table = ImageEntity::class.java.getAnnotation(Table::class.java)
     val idField = ImageEntity::class.java.getDeclaredField("id")
     val jdbcTypeCode = idField.getAnnotation(JdbcTypeCode::class.java)
+    val bucketField = ImageEntity::class.java.getDeclaredField("bucket")
     val serviceNameField = ImageEntity::class.java.getDeclaredField("serviceName")
     val storageServiceField = ImageEntity::class.java.getDeclaredField("storageService")
     val storageTypeField = ImageEntity::class.java.getDeclaredField("storageType")
+    val fileNameField = ImageEntity::class.java.getDeclaredField("fileName")
+    val thumbnailFileNameField = ImageEntity::class.java.getDeclaredField("thumbnailFileName")
+    val urlField = ImageEntity::class.java.getDeclaredField("url")
     val thumbnailUrlField = ImageEntity::class.java.getDeclaredField("thumbnailUrl")
 
     assertEquals("image", entity.name)
@@ -104,10 +108,23 @@ class StorageApiPublicContractTest {
     assertNotNull(idField.getAnnotation(UuidGenerator::class.java))
     assertEquals(SqlTypes.VARCHAR, jdbcTypeCode.value)
     assertEquals("id", idField.getAnnotation(Column::class.java).name)
+    assertEquals("bucket", bucketField.getAnnotation(Column::class.java).name)
+    assertEquals(255, bucketField.getAnnotation(Column::class.java).length)
     assertEquals("service_name", serviceNameField.getAnnotation(Column::class.java).name)
+    assertEquals(255, serviceNameField.getAnnotation(Column::class.java).length)
     assertEquals("storage_service", storageServiceField.getAnnotation(Column::class.java).name)
+    assertEquals(255, storageServiceField.getAnnotation(Column::class.java).length)
     assertEquals("storage_type", storageTypeField.getAnnotation(Column::class.java).name)
+    assertEquals(255, storageTypeField.getAnnotation(Column::class.java).length)
+    assertEquals("file_name", fileNameField.getAnnotation(Column::class.java).name)
+    assertEquals("TEXT", fileNameField.getAnnotation(Column::class.java).columnDefinition)
+    assertEquals(
+        "TEXT",
+        thumbnailFileNameField.getAnnotation(Column::class.java).columnDefinition,
+    )
+    assertEquals("TEXT", urlField.getAnnotation(Column::class.java).columnDefinition)
     assertEquals("thumbnail_url", thumbnailUrlField.getAnnotation(Column::class.java).name)
+    assertEquals("TEXT", thumbnailUrlField.getAnnotation(Column::class.java).columnDefinition)
   }
 
   @Test

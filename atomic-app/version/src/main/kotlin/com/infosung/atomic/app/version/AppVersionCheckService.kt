@@ -141,11 +141,21 @@ class AppVersionCheckService(
       )
     }
 
+    val resolvedStoreUrl = requiredTarget?.storeUrl?.takeIf { it.isNotBlank() } ?: defaultStoreUrl
+    log.debug(
+        "Resolved store url for version response: service={}, platform={}, requiredUpdate={}, storeUrlSource={}, storeUrlLength={}",
+        service,
+        platform,
+        requiredTarget != null,
+        if (requiredTarget?.storeUrl?.isNotBlank() == true) "policy" else "default",
+        resolvedStoreUrl.length,
+    )
+
     return VersionCheckResult(
         currentVersion = toVersionString(current),
         userVersion = userVersionPolicy?.let(::toVersionString) ?: toVersionString(parsedVersion),
         requiredUpdate = requiredTarget != null,
-        storeUrl = requiredTarget?.storeUrl?.takeIf { it.isNotBlank() } ?: defaultStoreUrl,
+        storeUrl = resolvedStoreUrl,
     )
   }
 

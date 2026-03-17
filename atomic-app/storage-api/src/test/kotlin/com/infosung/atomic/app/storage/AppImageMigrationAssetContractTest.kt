@@ -74,22 +74,52 @@ class AppImageMigrationAssetContractTest {
     assertTrue(indexes.contains("idx_image_service_storage"))
   }
 
-  private fun newEntity(): ImageEntity {
+  @Test
+  fun `official image sql asset should support long external strings`() {
+    val saved =
+        imageEntityTxService.save(
+            newEntity(
+                fileName = longValue("original-", 640),
+                thumbnailFileName = longValue("thumbnail-", 620),
+                url = "https://cdn.example.com/${longValue("path-", 900)}",
+                thumbnailUrl = "https://cdn.example.com/${longValue("thumb-", 880)}",
+            ),
+        )
+
+    val imageId = requireNotNull(saved.id)
+    val loaded = imageEntityTxService.findByIdOrThrow(imageId, imageId.toString())
+
+    assertEquals(saved.fileName, loaded.fileName)
+    assertEquals(saved.thumbnailFileName, loaded.thumbnailFileName)
+    assertEquals(saved.url, loaded.url)
+    assertEquals(saved.thumbnailUrl, loaded.thumbnailUrl)
+  }
+
+  private fun newEntity(
+      fileName: String? = null,
+      thumbnailFileName: String? = null,
+      url: String? = null,
+      thumbnailUrl: String? = null,
+  ): ImageEntity {
     val suffix = UUID.randomUUID().toString().take(8)
-    val objectKey = "images/$suffix/original.png"
-    val thumbnailKey = "images/$suffix/original_thumb.webp"
+    val defaultObjectKey = "images/$suffix/original.png"
+    val defaultThumbnailKey = "images/$suffix/original_thumb.webp"
     return ImageEntity(
         bucket = "bucket",
         serviceName = "svc",
         storageService = "S3",
         storageType = "S3",
-        fileName = objectKey,
-        thumbnailFileName = thumbnailKey,
-        url = "https://cdn.example.com/$objectKey",
-        thumbnailUrl = "https://cdn.example.com/$thumbnailKey",
+        fileName = fileName ?: defaultObjectKey,
+        thumbnailFileName = thumbnailFileName ?: defaultThumbnailKey,
+        url = url ?: "https://cdn.example.com/$defaultObjectKey",
+        thumbnailUrl = thumbnailUrl ?: "https://cdn.example.com/$defaultThumbnailKey",
         fileSize = 123,
         thumbnailFileSize = 45,
     )
+  }
+
+  private fun longValue(prefix: String, totalLength: Int): String {
+    return prefix + "x".repeat((totalLength - prefix.length).coerceAtLeast(0))
   }
 
   @SpringBootConfiguration

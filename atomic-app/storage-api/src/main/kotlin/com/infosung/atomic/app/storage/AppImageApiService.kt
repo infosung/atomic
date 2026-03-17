@@ -64,11 +64,12 @@ class AppImageApiService(
         resolveStorageType(serviceName = serviceName, storageService = storageService)
     val resolvedUploaderId = resolveUploaderIdForUpload(uploaderId)
     log.debug(
-        "Uploading image: serviceName={}, storageService={}, resolvedStorageType={}, originalFilename={}, uploaderTracked={}, thumbnailEnabled={}",
+        "Uploading image: serviceName={}, storageService={}, resolvedStorageType={}, originalFilename={}, originalFilenameLength={}, uploaderTracked={}, thumbnailEnabled={}",
         serviceName,
         storageService,
         resolvedStorageType,
         originalFilename,
+        originalFilename.length,
         resolvedUploaderId != null,
         thumbnailEnabled,
     )
@@ -86,11 +87,15 @@ class AppImageApiService(
               generateThumbnail = thumbnailEnabled,
           )
       log.debug(
-          "Storage upload completed: serviceName={}, storageService={}, objectKey={}, thumbnailKey={}, thumbnailEnabled={}",
+          "Storage upload completed: serviceName={}, storageService={}, objectKey={}, objectKeyLength={}, thumbnailKey={}, thumbnailKeyLength={}, urlLength={}, thumbnailUrlLength={}, thumbnailEnabled={}",
           serviceName,
           storageService,
           uploaded.fileName,
+          uploaded.fileName.length,
           uploaded.thumbnailFileName,
+          uploaded.thumbnailFileName?.length ?: 0,
+          uploaded.url.length,
+          uploaded.thumbnailUrl?.length ?: 0,
           thumbnailEnabled,
       )
       val entity =
@@ -116,11 +121,14 @@ class AppImageApiService(
       return try {
         val saved = imageEntityTxService.save(entity)
         log.info(
-            "Image metadata saved: serviceName={}, storageService={}, imageId={}, objectKey={}",
+            "Image metadata saved: serviceName={}, storageService={}, imageId={}, objectKey={}, objectKeyLength={}, urlLength={}, thumbnailUrlLength={}",
             serviceName,
             storageService,
             saved.id,
             saved.fileName,
+            saved.fileName?.length ?: 0,
+            saved.url.length,
+            saved.thumbnailUrl?.length ?: 0,
         )
         saved
       } catch (e: Exception) {

@@ -19,4 +19,22 @@ class ImageSqlAssetResourceContractTest {
     assertTrue(sql.contains("storage_type"))
     assertTrue(sql.contains("CREATE INDEX IF NOT EXISTS idx_image_service_storage"))
   }
+
+  @Test
+  fun `official image sql asset should widen externally sized fields and keep identifiers bounded`() {
+    val sql =
+        ClassPathResource("META-INF/atomic/sql/postgresql/image.sql")
+            .inputStream
+            .bufferedReader()
+            .use { it.readText() }
+
+    assertTrue(sql.contains("bucket VARCHAR(255) NOT NULL"))
+    assertTrue(sql.contains("service_name VARCHAR(255) NOT NULL"))
+    assertTrue(sql.contains("storage_service VARCHAR(255) NOT NULL"))
+    assertTrue(sql.contains("storage_type VARCHAR(255) NOT NULL"))
+    assertTrue(sql.contains("file_name TEXT NULL"))
+    assertTrue(sql.contains("thumbnail_file_name TEXT NULL"))
+    assertTrue(sql.contains("url TEXT NOT NULL"))
+    assertTrue(sql.contains("thumbnail_url TEXT NULL"))
+  }
 }

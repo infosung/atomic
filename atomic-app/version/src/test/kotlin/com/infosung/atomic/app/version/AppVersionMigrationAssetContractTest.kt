@@ -123,6 +123,26 @@ class AppVersionMigrationAssetContractTest {
     }
   }
 
+  @Test
+  fun `official service version sql asset should support long store urls`() {
+    val policy =
+        serviceVersionRepository.saveAndFlush(
+            policy(
+                main = 3,
+                minor = 0,
+                patch = 0,
+                requireUpdate = false,
+                storeUrl = "https://play.example.com/${longValue("store-", 900)}",
+                storeAvailable = true,
+            ),
+        )
+
+    assertEquals(
+        policy.storeUrl,
+        serviceVersionRepository.findById(requireNotNull(policy.id)).orElseThrow().storeUrl,
+    )
+  }
+
   private fun policy(
       main: Int,
       minor: Int,
@@ -141,6 +161,10 @@ class AppVersionMigrationAssetContractTest {
             storeUrl = storeUrl,
         )
         .also { it.storeAvailable = storeAvailable }
+  }
+
+  private fun longValue(prefix: String, totalLength: Int): String {
+    return prefix + "x".repeat((totalLength - prefix.length).coerceAtLeast(0))
   }
 
   @SpringBootConfiguration
