@@ -35,7 +35,10 @@ object RequestHeaderReader {
           ApiHeaderNames.HEADER_ACCEPT_LANGUAGE,
       )
 
-  /** Returns parsed request language hint (`X-Custom-Language` first, else first Servlet-preferred locale tag). */
+  /**
+   * Returns parsed request language hint (`X-Custom-Language` first, else first Servlet-preferred
+   * locale tag).
+   */
   fun getPreferredLanguageTag(request: HttpServletRequest): String? =
       RequestLanguageResolver.resolvePreferredLanguageTag(request)
 

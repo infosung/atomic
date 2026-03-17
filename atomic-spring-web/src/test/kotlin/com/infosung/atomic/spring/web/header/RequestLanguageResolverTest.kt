@@ -24,9 +24,7 @@ class RequestLanguageResolverTest {
   @Test
   fun `resolvePreferredLanguageTag should fallback to servlet preferred locale`() {
     val request =
-        MockHttpServletRequest("GET", "/v1/test").apply {
-          addPreferredLocale(Locale.KOREA)
-        }
+        MockHttpServletRequest("GET", "/v1/test").apply { addPreferredLocale(Locale.KOREA) }
 
     val resolved = RequestLanguageResolver.resolvePreferredLanguageTag(request)
 
@@ -76,8 +74,10 @@ class RequestLanguageResolverTest {
   fun `resolvePreferredLanguageTag should return null when all candidates are unusable`() {
     val request =
         object : MockHttpServletRequest("GET", "/v1/test") {
-          override fun getLocales(): java.util.Enumeration<Locale> = Collections.emptyEnumeration()
-        }.apply { addHeader("X-Custom-Language", "   ") }
+              override fun getLocales(): java.util.Enumeration<Locale> =
+                  Collections.emptyEnumeration()
+            }
+            .apply { addHeader("X-Custom-Language", "   ") }
 
     val resolved = RequestLanguageResolver.resolvePreferredLanguageTag(request)
 
@@ -88,8 +88,10 @@ class RequestLanguageResolverTest {
   fun `resolvePreferredLanguageTag should return null when custom header and servlet locales are unusable`() {
     val request =
         object : MockHttpServletRequest("GET", "/v1/test") {
-          override fun getLocales(): java.util.Enumeration<Locale> = Collections.emptyEnumeration()
-        }.apply { addHeader("X-Custom-Language", "*") }
+              override fun getLocales(): java.util.Enumeration<Locale> =
+                  Collections.emptyEnumeration()
+            }
+            .apply { addHeader("X-Custom-Language", "*") }
 
     val resolved = RequestLanguageResolver.resolvePreferredLanguageTag(request)
 

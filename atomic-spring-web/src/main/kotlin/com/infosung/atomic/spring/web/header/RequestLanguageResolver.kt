@@ -17,7 +17,9 @@ object RequestLanguageResolver {
 
   fun resolvePreferredLanguageTag(request: HttpServletRequest): String? {
     val customLanguage =
-        request.getHeader(ApiHeaderNames.HEADER_X_CUSTOM_LANGUAGE)?.trim()?.takeIf { it.isNotBlank() }
+        request.getHeader(ApiHeaderNames.HEADER_X_CUSTOM_LANGUAGE)?.trim()?.takeIf {
+          it.isNotBlank()
+        }
     if (customLanguage != null) {
       val resolved = canonicalizeLanguageTag(customLanguage)
       if (resolved != null) {
@@ -52,7 +54,8 @@ object RequestLanguageResolver {
       )
     }
 
-    log.trace("No usable request language hint found from custom header or servlet preferred locales. Returning null.")
+    log.trace(
+        "No usable request language hint found from custom header or servlet preferred locales. Returning null.")
     return null
   }
 
