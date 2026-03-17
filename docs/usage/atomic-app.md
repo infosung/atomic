@@ -204,6 +204,10 @@ Version API rollout-safe semantics:
 - if no row is marked `storeAvailable=true`, the API falls back to the latest registered row and logs a warning
 - use `storeAvailable=false` for app-review, internal-distribution, or not-yet-downloadable rows
 
+Version API customization note:
+
+- in `0.0.4`, internal version evaluation is layered behind application ports/use-cases, but the supported host override point remains the exported `AppVersionCheckService` bean
+
 ## Image API
 
 Default base endpoint:

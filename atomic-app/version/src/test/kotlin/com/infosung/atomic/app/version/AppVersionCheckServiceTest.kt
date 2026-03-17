@@ -8,7 +8,9 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.never
+import org.mockito.Mockito.times
 import org.mockito.Mockito.verify
+import org.mockito.Mockito.verifyNoMoreInteractions
 import org.mockito.Mockito.`when`
 import org.springframework.data.domain.PageRequest
 
@@ -77,11 +79,39 @@ class AppVersionCheckServiceTest {
     assertEquals("1.2.3", result.userVersion)
     assertTrue(result.requiredUpdate)
     assertEquals("https://force.update", result.storeUrl)
+    verify(repository, times(1))
+        .findFirstByServiceAndPlatformOrderByMainVersionDescMinorVersionDescPatchNumberDesc(
+            "MY_SERVICE",
+            "ANDROID",
+        )
+    verify(repository, times(1))
+        .findFirstByServiceAndPlatformAndStoreAvailableTrueOrderByMainVersionDescMinorVersionDescPatchNumberDesc(
+            "MY_SERVICE",
+            "ANDROID",
+        )
+    verify(repository, times(1))
+        .findFirstByServiceAndPlatformAndMainVersionAndMinorVersionAndPatchNumber(
+            "MY_SERVICE",
+            "ANDROID",
+            1,
+            2,
+            3,
+        )
+    verify(repository, times(1))
+        .findRequiredUpdateTargetsHigherThan(
+            "MY_SERVICE",
+            "ANDROID",
+            1,
+            2,
+            3,
+            PageRequest.of(0, 1),
+        )
     verify(repository, never())
         .findAllByServiceAndPlatformOrderByMainVersionDescMinorVersionDescPatchNumberDesc(
             "MY_SERVICE",
             "ANDROID",
         )
+    verifyNoMoreInteractions(repository)
   }
 
   @Test
