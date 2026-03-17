@@ -15,15 +15,15 @@ class AppImageSchemaUpgradePreflight(
   }
 
   fun verifyOrThrow() {
+    val columnsToValidate = listOf("file_name", "thumbnail_file_name", "url", "thumbnail_url")
     val columns = loadColumns(tableName = TABLE_NAME)
-    validateExternallySizedColumn(columns, columnName = "file_name")
-    validateExternallySizedColumn(columns, columnName = "thumbnail_file_name")
-    validateExternallySizedColumn(columns, columnName = "url")
-    validateExternallySizedColumn(columns, columnName = "thumbnail_url")
+    columnsToValidate.forEach { columnName ->
+      validateExternallySizedColumn(columns, columnName = columnName)
+    }
     log.info(
         "Validated image schema upgrade preflight: table={}, checkedColumns={}",
         TABLE_NAME,
-        listOf("file_name", "thumbnail_file_name", "url", "thumbnail_url"),
+        columnsToValidate,
     )
   }
 
