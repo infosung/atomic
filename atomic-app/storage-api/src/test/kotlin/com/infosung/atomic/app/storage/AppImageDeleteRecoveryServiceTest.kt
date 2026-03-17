@@ -1,5 +1,9 @@
 package com.infosung.atomic.app.storage
 
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import com.infosung.atomic.storage.PutObjectRequest
 import com.infosung.atomic.storage.StorageClient
 import com.infosung.atomic.storage.StorageProfile
@@ -11,12 +15,17 @@ import com.infosung.atomic.storage.image.ImageService
 import com.infosung.atomic.storage.image.ImageThumbnailGenerator
 import com.infosung.atomic.storage.image.ValidatedImageInput
 import java.io.File
+import java.time.Clock
+import java.time.Instant
 import java.time.LocalDateTime
+import java.time.ZoneOffset
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 import org.mockito.Mockito.mock
+import org.slf4j.LoggerFactory
 
 class AppImageDeleteRecoveryServiceTest {
   @Test
@@ -40,6 +49,31 @@ class AppImageDeleteRecoveryServiceTest {
 
     assertEquals(2, snapshot.pendingCount)
     assertEquals(LocalDateTime.of(2024, 1, 1, 0, 0, 0), snapshot.oldestPendingCreatedAt)
+  }
+
+  @Test
+  fun `inspectDeletePendingImages should log deterministic oldest pending age with fixed clock`() {
+    val oldest =
+        newDeletePendingImageEntity(
+            fileName = "images/test/oldest.png",
+            createdAt = LocalDateTime.of(2024, 1, 1, 0, 0, 0),
+        )
+    val imageService =
+        createImageService(storageClient = CapturingStorageClient(), storageType = "S3")
+    val txService = FakeRecoveryImageEntityTxService(listOf(oldest))
+    val recoveryService =
+        AppImageDeleteRecoveryService(
+            imageEntityTxService = txService,
+            imageService = imageService,
+            clock = Clock.fixed(Instant.parse("2024-01-01T00:00:10Z"), ZoneOffset.UTC),
+        )
+
+    withListAppender(AppImageDeleteRecoveryService::class.java, Level.DEBUG) { events ->
+      recoveryService.inspectDeletePendingImages()
+
+      val logs = events.map { it.formattedMessage }
+      assertTrue(logs.any { it.contains("oldestPendingAgeSeconds=10") })
+    }
   }
 
   @Test
@@ -214,6 +248,25 @@ class AppImageDeleteRecoveryServiceTest {
         throw IllegalStateException("delete failed for $objectKey")
       }
       deletedObjectKeys += objectKey
+    }
+  }
+
+  private fun <T> withListAppender(
+      loggerClass: Class<*>,
+      level: Level,
+      block: (events: List<ILoggingEvent>) -> T,
+  ): T {
+    val logger = LoggerFactory.getLogger(loggerClass) as Logger
+    val previousLevel = logger.level
+    val appender = ListAppender<ILoggingEvent>()
+    appender.start()
+    logger.addAppender(appender)
+    logger.level = level
+    try {
+      return block(appender.list)
+    } finally {
+      logger.detachAppender(appender)
+      logger.level = previousLevel
     }
   }
 }

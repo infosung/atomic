@@ -1,6 +1,7 @@
 package com.infosung.atomic.app.storage
 
 import com.infosung.atomic.storage.image.ImageService
+import java.time.Clock
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 import org.slf4j.LoggerFactory
@@ -9,6 +10,7 @@ import org.slf4j.LoggerFactory
 class AppImageDeleteRecoveryService(
     private val imageEntityTxService: AppImageEntityTxService,
     private val imageService: ImageService,
+    private val clock: Clock = Clock.systemUTC(),
 ) {
   private val log = LoggerFactory.getLogger(this::class.java)
 
@@ -114,7 +116,8 @@ class AppImageDeleteRecoveryService(
     if (oldestPendingCreatedAt == null) {
       return null
     }
-    return ChronoUnit.SECONDS.between(oldestPendingCreatedAt, LocalDateTime.now()).coerceAtLeast(0)
+    return ChronoUnit.SECONDS.between(oldestPendingCreatedAt, LocalDateTime.now(clock))
+        .coerceAtLeast(0)
   }
 
   companion object {

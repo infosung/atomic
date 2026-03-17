@@ -9,6 +9,7 @@ import com.infosung.atomic.app.storage.ImageEntity
 import com.infosung.atomic.app.storage.ImageRepository
 import com.infosung.atomic.storage.StorageClient
 import com.infosung.atomic.storage.image.ImageService
+import java.time.Clock
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.annotation.Qualifier
@@ -78,10 +79,12 @@ class AtomicAppImageAutoConfiguration {
   fun appImageDeleteRecoveryService(
       appImageEntityTxService: AppImageEntityTxService,
       imageService: ImageService,
+      clockProvider: ObjectProvider<Clock>,
   ): AppImageDeleteRecoveryService {
     return AppImageDeleteRecoveryService(
         imageEntityTxService = appImageEntityTxService,
         imageService = imageService,
+        clock = clockProvider.getIfAvailable { Clock.systemUTC() },
     )
   }
 

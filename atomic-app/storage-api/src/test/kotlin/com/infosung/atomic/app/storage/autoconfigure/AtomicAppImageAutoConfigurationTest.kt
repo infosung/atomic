@@ -5,6 +5,7 @@ import com.infosung.atomic.app.storage.AppImageDeleteRecoveryService
 import com.infosung.atomic.app.storage.AppStorageController
 import com.infosung.atomic.app.storage.AppStorageHttpExceptionHandler
 import com.infosung.atomic.storage.image.ImageService
+import java.time.Clock
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
@@ -59,6 +60,7 @@ class AtomicAppImageAutoConfigurationTest {
             appImageEntityTxService =
                 mock(com.infosung.atomic.app.storage.AppImageEntityTxService::class.java),
             imageService = mock(ImageService::class.java),
+            clockProvider = provider(Clock::class.java, Clock.systemUTC()),
         )
 
     assertIs<AppImageDeleteRecoveryService>(recoveryService)

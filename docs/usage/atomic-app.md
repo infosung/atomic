@@ -402,7 +402,7 @@ Startup summary:
   - configured relay store type
   - relay store fail-fast policy
   - effective callback-binding mode
-  - replay protection enabled 여부
+  - whether replay protection is enabled
   - state store type (`IN_MEMORY`, `CUSTOM_OR_SHARED`, `OPAQUE_REPLAY_PROTECTED`)
 - follow-up warnings mean:
   - `process-local per instance`
@@ -422,8 +422,8 @@ The authoritative PostgreSQL starting-point assets now ship in module resources:
 
 For `service_version` and `image`, these assets now match explicit JPA table/column mappings in code. The SQL below mirrors the shipped assets.
 
-- identifier 성격 컬럼 (`service`, `platform`, `bucket`, `service_name`, `storage_service`, `storage_type`)은 `VARCHAR(255)` bounded 계약을 유지합니다.
-- 외부 길이 영향을 받는 컬럼 (`store_url`, `file_name`, `thumbnail_file_name`, `url`, `thumbnail_url`)은 `TEXT`로 shipped 됩니다.
+- Identifier-like columns (`service`, `platform`, `bucket`, `service_name`, `storage_service`, `storage_type`) keep a bounded `VARCHAR(255)` contract.
+- Columns affected by external lengths (`store_url`, `file_name`, `thumbnail_file_name`, `url`, `thumbnail_url`) are shipped as `TEXT`.
 
 ```sql
 CREATE TABLE IF NOT EXISTS service_version (
