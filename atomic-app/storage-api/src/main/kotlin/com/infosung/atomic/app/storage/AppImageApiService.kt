@@ -64,11 +64,11 @@ class AppImageApiService(
         resolveStorageType(serviceName = serviceName, storageService = storageService)
     val resolvedUploaderId = resolveUploaderIdForUpload(uploaderId)
     log.debug(
-        "Uploading image: serviceName={}, storageService={}, resolvedStorageType={}, originalFilename={}, originalFilenameLength={}, uploaderTracked={}, thumbnailEnabled={}",
+        "Uploading image: serviceName={}, storageService={}, resolvedStorageType={}, originalFilenamePreview={}, originalFilenameLength={}, uploaderTracked={}, thumbnailEnabled={}",
         serviceName,
         storageService,
         resolvedStorageType,
-        originalFilename,
+        summarizeForLog(originalFilename),
         originalFilename.length,
         resolvedUploaderId != null,
         thumbnailEnabled,
@@ -87,12 +87,12 @@ class AppImageApiService(
               generateThumbnail = thumbnailEnabled,
           )
       log.debug(
-          "Storage upload completed: serviceName={}, storageService={}, objectKey={}, objectKeyLength={}, thumbnailKey={}, thumbnailKeyLength={}, urlLength={}, thumbnailUrlLength={}, thumbnailEnabled={}",
+          "Storage upload completed: serviceName={}, storageService={}, objectKeyPreview={}, objectKeyLength={}, thumbnailKeyPreview={}, thumbnailKeyLength={}, urlLength={}, thumbnailUrlLength={}, thumbnailEnabled={}",
           serviceName,
           storageService,
-          uploaded.fileName,
+          summarizeForLog(uploaded.fileName),
           uploaded.fileName.length,
-          uploaded.thumbnailFileName,
+          summarizeForLog(uploaded.thumbnailFileName),
           uploaded.thumbnailFileName?.length ?: 0,
           uploaded.url.length,
           uploaded.thumbnailUrl?.length ?: 0,
@@ -121,11 +121,11 @@ class AppImageApiService(
       return try {
         val saved = imageEntityTxService.save(entity)
         log.info(
-            "Image metadata saved: serviceName={}, storageService={}, imageId={}, objectKey={}, objectKeyLength={}, urlLength={}, thumbnailUrlLength={}",
+            "Image metadata saved: serviceName={}, storageService={}, imageId={}, objectKeyPreview={}, objectKeyLength={}, urlLength={}, thumbnailUrlLength={}",
             serviceName,
             storageService,
             saved.id,
-            saved.fileName,
+            summarizeForLog(saved.fileName),
             saved.fileName?.length ?: 0,
             saved.url.length,
             saved.thumbnailUrl?.length ?: 0,
@@ -135,11 +135,11 @@ class AppImageApiService(
         // Storage upload succeeded but metadata save failed. Try compensating cleanup.
         log.error(
             "Image metadata save failed after storage upload. Trying compensating delete: serviceName={}, " +
-                "storageService={}, storageType={}, objectKey={}",
+                "storageService={}, storageType={}, objectKeyPreview={}",
             serviceName,
             storageService,
             resolvedStorageType,
-            uploaded.fileName,
+            summarizeForLog(uploaded.fileName),
             e,
         )
         runCatching {
@@ -151,11 +151,11 @@ class AppImageApiService(
             }
             .onFailure { cleanupError ->
               log.error(
-                  "Compensating storage delete failed: serviceName={}, storageService={}, storageType={}, objectKey={}",
+                  "Compensating storage delete failed: serviceName={}, storageService={}, storageType={}, objectKeyPreview={}",
                   serviceName,
                   storageService,
                   resolvedStorageType,
-                  uploaded.fileName,
+                  summarizeForLog(uploaded.fileName),
                   cleanupError,
               )
             }
@@ -226,13 +226,13 @@ class AppImageApiService(
         )
     if (imageEntity.status == ImageEntity.STATUS_DELETE_PENDING) {
       log.info(
-          "Delete requested for image metadata already marked delete-pending. Retrying storage cleanup: imageId={}, serviceName={}, storageService={}, storageType={}, fileName={}, thumbnailFileName={}",
+          "Delete requested for image metadata already marked delete-pending. Retrying storage cleanup: imageId={}, serviceName={}, storageService={}, storageType={}, fileNamePreview={}, thumbnailFileNamePreview={}",
           imageId,
           serviceName,
           storageService,
           resolvedStorageType,
-          imageEntity.fileName,
-          imageEntity.thumbnailFileName,
+          summarizeForLog(imageEntity.fileName),
+          summarizeForLog(imageEntity.thumbnailFileName),
       )
     }
     val deleteReservedEntity = imageEntityTxService.markDeletePending(imageEntity)
@@ -244,19 +244,19 @@ class AppImageApiService(
           thumbnailFileName = deleteReservedEntity.thumbnailFileName,
       )
       log.info(
-          "Storage objects deleted for image delete workflow: imageId={}, storageType={}, fileName={}, thumbnailFileName={}",
+          "Storage objects deleted for image delete workflow: imageId={}, storageType={}, fileNamePreview={}, thumbnailFileNamePreview={}",
           imageId,
           resolvedStorageType,
-          deleteReservedEntity.fileName,
-          deleteReservedEntity.thumbnailFileName,
+          summarizeForLog(deleteReservedEntity.fileName),
+          summarizeForLog(deleteReservedEntity.thumbnailFileName),
       )
     } catch (e: Exception) {
       log.error(
-          "Storage delete failed while metadata remains delete-pending. Retry delete or run AppImageDeleteRecoveryService: imageId={}, storageType={}, fileName={}, thumbnailFileName={}",
+          "Storage delete failed while metadata remains delete-pending. Retry delete or run AppImageDeleteRecoveryService: imageId={}, storageType={}, fileNamePreview={}, thumbnailFileNamePreview={}",
           imageId,
           resolvedStorageType,
-          deleteReservedEntity.fileName,
-          deleteReservedEntity.thumbnailFileName,
+          summarizeForLog(deleteReservedEntity.fileName),
+          summarizeForLog(deleteReservedEntity.thumbnailFileName),
           e,
       )
       throw e
@@ -265,10 +265,10 @@ class AppImageApiService(
       imageEntityTxService.purgeDeletePending(deleteReservedEntity)
     } catch (e: Exception) {
       log.error(
-          "Image metadata purge failed after storage delete: imageId={}, storageType={}, fileName={}, status={}",
+          "Image metadata purge failed after storage delete: imageId={}, storageType={}, fileNamePreview={}, status={}",
           imageId,
           resolvedStorageType,
-          deleteReservedEntity.fileName,
+          summarizeForLog(deleteReservedEntity.fileName),
           deleteReservedEntity.status,
           e,
       )
@@ -391,5 +391,12 @@ class AppImageApiService(
                 "Unknown storageType for service=$serviceName, storageService=$storageService. " +
                     "Tried candidates=$candidates",
         )
+  }
+
+  private fun summarizeForLog(value: String?): String? {
+    if (value == null) {
+      return null
+    }
+    return if (value.length <= 96) value else value.take(93) + "..."
   }
 }

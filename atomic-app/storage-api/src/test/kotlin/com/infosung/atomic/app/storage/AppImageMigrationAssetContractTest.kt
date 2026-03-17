@@ -74,6 +74,7 @@ class AppImageMigrationAssetContractTest {
 
     assertTrue(indexes.contains("idx_image_service_storage"))
     assertTrue(indexes.contains("idx_image_status_created_at"))
+    assertTrue(indexes.contains("idx_image_status_claim_created_at"))
   }
 
   @Test
@@ -97,6 +98,93 @@ class AppImageMigrationAssetContractTest {
 
     assertEquals(2L, snapshot.pendingCount)
     assertEquals(LocalDateTime.of(2024, 1, 1, 0, 0, 0), snapshot.oldestPendingCreatedAt)
+  }
+
+  @Test
+  fun `official image sql asset should support delete pending claim query`() {
+    val oldest =
+        imageEntityTxService.save(
+            newEntity(
+                fileName = "images/claim/oldest.png",
+                status = ImageEntity.STATUS_DELETE_PENDING,
+                createdAt = LocalDateTime.of(2024, 1, 1, 0, 0, 0),
+            ),
+        )
+    val newest =
+        imageEntityTxService.save(
+            newEntity(
+                fileName = "images/claim/newest.png",
+                status = ImageEntity.STATUS_DELETE_PENDING,
+                createdAt = LocalDateTime.of(2024, 1, 2, 0, 0, 0),
+            ),
+        )
+
+    val firstClaim =
+        imageEntityTxService.claimDeletePending(
+            limit = 1,
+            claimToken = "batch-1",
+            claimedAt = LocalDateTime.of(2024, 1, 3, 0, 0, 0),
+        )
+    val secondClaim =
+        imageEntityTxService.claimDeletePending(
+            limit = 2,
+            claimToken = "batch-2",
+            claimedAt = LocalDateTime.of(2024, 1, 3, 0, 1, 0),
+        )
+
+    assertEquals(listOf(requireNotNull(oldest.id)), firstClaim.mapNotNull { it.id })
+    assertEquals(listOf(requireNotNull(newest.id)), secondClaim.mapNotNull { it.id })
+  }
+
+  @Test
+  fun `official image sql asset should reclaim stale delete pending claim`() {
+    val image =
+        imageEntityTxService.save(
+            newEntity(
+                fileName = "images/claim/stale.png",
+                status = ImageEntity.STATUS_DELETE_PENDING,
+                createdAt = LocalDateTime.of(2024, 1, 1, 0, 0, 0),
+            ),
+        )
+    jdbcTemplate.update(
+        """
+        UPDATE image
+        SET delete_recovery_claim_token = ?,
+            delete_recovery_claimed_at = ?
+        WHERE id = ?
+        """
+            .trimIndent(),
+        "stale-batch",
+        LocalDateTime.of(2024, 1, 1, 0, 0, 0),
+        requireNotNull(image.id).toString(),
+    )
+
+    val reclaimed =
+        imageEntityTxService.claimDeletePending(
+            limit = 1,
+            claimToken = "fresh-batch",
+            claimedAt = LocalDateTime.of(2024, 1, 1, 0, 16, 0),
+        )
+
+    assertEquals(listOf(requireNotNull(image.id)), reclaimed.mapNotNull { it.id })
+  }
+
+  @Test
+  fun `official image sql asset should support delete pending claim columns`() {
+    val columns =
+        jdbcTemplate.queryForList(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'image'
+            """
+                .trimIndent(),
+            String::class.java,
+        )
+
+    assertTrue(columns.contains("delete_recovery_claim_token"))
+    assertTrue(columns.contains("delete_recovery_claimed_at"))
   }
 
   @Test

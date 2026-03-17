@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS image (
   thumbnail_width INTEGER NULL,
   thumbnail_height INTEGER NULL,
   thumbnail_file_size BIGINT NULL,
+  delete_recovery_claim_token VARCHAR(255) NULL,
+  delete_recovery_claimed_at TIMESTAMP WITHOUT TIME ZONE NULL,
   created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -24,3 +26,6 @@ CREATE INDEX IF NOT EXISTS idx_image_service_storage
 
 CREATE INDEX IF NOT EXISTS idx_image_status_created_at
   ON image (status, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_image_status_claim_created_at
+  ON image (status, delete_recovery_claim_token, created_at);

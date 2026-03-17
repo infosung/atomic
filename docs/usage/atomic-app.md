@@ -226,6 +226,10 @@ POST response:
 - nullable fields are normal:
   - `uploaderId`: null when uploader tracking is disabled or omitted
   - `thumbnailFileName`, `thumbnailUrl`, `thumbnailWidth`, `thumbnailHeight`, `thumbnailFileSize`: null when thumbnail generation is disabled or unavailable
+- built-in storage safety budgets still apply under the hood:
+  - overly long original object keys or final public URLs fail before the original storage write begins
+  - overly long thumbnail keys or thumbnail URLs are downgraded to `thumbnailUploadFailed=true` instead of failing the original upload
+  - these budgets do not replace multipart/body-size limits; keep upload-size and temp-disk policy in the host app
 
 DELETE behavior:
 
@@ -240,6 +244,8 @@ DELETE behavior:
 - keeps metadata in `DELETE_PENDING` when storage delete fails so a later delete can retry cleanup safely
 - host apps can inspect lingering `DELETE_PENDING` rows with `AppImageDeleteRecoveryService.inspectDeletePendingImages()`
 - host apps can recover lingering `DELETE_PENDING` rows with `AppImageDeleteRecoveryService.recoverDeletePendingImages(limit)` from their own admin job or scheduler; this library does not ship a built-in reaper
+- recovery batches claim eligible `DELETE_PENDING` rows before cleanup so overlapping admin/scheduler triggers do not keep retrying the same row in the same batch window
+- stale claims are reclaimable after the built-in 15-minute recovery claim timeout
 
 Recovery operator entrypoints:
 
@@ -249,6 +255,8 @@ Recovery operator entrypoints:
 - `recoverDeletePendingImages(limit)`
   - returns `scannedCount`, `recoveredCount`, `failedCount`
   - also returns `remainingPendingCount` and `oldestPendingCreatedAt` after the batch
+  - claims eligible pending rows before storage cleanup and releases the claim again when cleanup fails
+  - can reclaim stale claims after the built-in 15-minute recovery claim timeout
 
 Example host-owned scheduler:
 
@@ -290,9 +298,11 @@ Image API exception semantics:
 
 - `400` invalid quality / unknown storage key / invalid UUID / path mismatch / unavailable persisted delete storage mapping
 - `400` uploader parameter missing when uploader tracking is enabled
+- `400` original image object key / public URL budget violation before storage write
 - `404` image row not found
 - `403` uploader mismatch when uploader tracking is enabled
 - other upload/delete exceptions can propagate from underlying storage client or image processing layer
+- thumbnail key / thumbnail URL budget violations remain non-fatal original uploads and surface through nullable thumbnail fields plus `thumbnailUploadFailed=true`
 
 ## OAuth Redirect API
 
@@ -519,6 +529,8 @@ ALTER TABLE image
 - use `atomic.app.image.thumbnail-enabled=false` only when you intentionally want original-only uploads by default.
 - when image delete fails after reservation, treat remaining `DELETE_PENDING` rows as retryable cleanup work.
 - if you want proactive cleanup, call `AppImageDeleteRecoveryService.inspectDeletePendingImages()` and `AppImageDeleteRecoveryService.recoverDeletePendingImages(limit)` from your own scheduler or admin command path; a built-in scheduler is intentionally out of scope.
+- recovery is still host-owned. The library reduces overlapping retries by claiming rows per batch, but it does not become a distributed job system or built-in reaper.
+- recovery claims are reclaimable after a built-in 15-minute timeout. If your scheduler interval is longer, document that expectation in your runbook.
 - choose uploader parameter name per service (for example `memberId`, `userKey`, `ownerId`) and configure `atomic.app.image.uploader-parameter-name`.
 - for OAuth relay, set `atomic.app.oauth.redirect.allowed-redirect-uri-prefixes` in every environment where `atomic.app.oauth.redirect.enabled=true`.
 - if `store.type=entity` (default), create relay table (`atomic_oauth_relay_code` or configured table-name) before rollout.

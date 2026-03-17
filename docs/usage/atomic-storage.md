@@ -125,6 +125,16 @@ val staticCredentialClient =
 - `quality` must be in range `0.1..1.0`.
 - `quality` is a requested scale. Actual thumbnail scale can be reduced by internal caps (`maxOutputPixels`, `maxOutputEdge`).
 
+## Internal Safety Budgets
+
+- generated original object keys are bounded to `512` characters.
+- the default object key generator truncates the sanitized filename portion to stay within that budget.
+- if the original object key or the final public URL would exceed the built-in budget, upload fails before the original storage write starts.
+- thumbnail object key / thumbnail URL budget violations do not fail the original upload; they are reported as `thumbnailUploadFailed=true` with a bounded `thumbnailFailureReason`.
+- logs summarize long filename/object key values and log their lengths separately instead of emitting the full raw payload.
+- these budgets apply to the `ImageService` upload path; direct low-level `StorageClient` usage still remains caller-owned.
+- these budgets do not replace multipart/body-size limits or temp-disk policies; application-level upload limits are still mandatory.
+
 ## Upload Example
 
 ```kotlin
@@ -233,6 +243,8 @@ The list below is not exhaustive. It summarizes common integration-time failure 
 - Thumbnail output format is WebP (`*_thumb.webp`).
 - Thumbnail generation is enabled by default; callers can skip it with `generateThumbnail=false`.
 - Thumbnail failure does not roll back original upload.
+- Original object key / URL budget failures stop the upload before the original storage write.
+- Thumbnail key / URL budget failures are treated as thumbnail-only failures and keep the original upload successful.
 - Upload path uses temp files (`source copy`, `raster`, `thumbnail`) in `java.io.tmpdir`.
 - Ensure temp directory is writable and sized for peak concurrent uploads.
 - Apply upload size/time/concurrency policies in your application layer (for example Spring multipart settings).

@@ -16,7 +16,5 @@ CREATE TABLE image (
   thumbnail_width INTEGER NULL,
   thumbnail_height INTEGER NULL,
   thumbnail_file_size BIGINT NULL,
-  delete_recovery_claim_token VARCHAR(255) NULL,
-  delete_recovery_claimed_at TIMESTAMP WITHOUT TIME ZONE NULL,
   created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

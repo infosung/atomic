@@ -55,6 +55,20 @@ class AppImageSchemaUpgradePreflightTest {
     AppImageSchemaUpgradePreflight(jdbcTemplate).verifyOrThrow()
   }
 
+  @Test
+  fun `preflight should reject image schema missing delete recovery claim columns`() {
+    executeScript("META-INF/atomic/sql/postgresql/test/drop_image.sql")
+    executeScript(
+        "META-INF/atomic/sql/postgresql/test/image_missing_delete_recovery_claim_columns.sql")
+
+    val exception =
+        assertFailsWith<IllegalStateException> {
+          AppImageSchemaUpgradePreflight(jdbcTemplate).verifyOrThrow()
+        }
+
+    assertTrue(exception.message!!.contains("image.delete_recovery_claim_token"))
+  }
+
   private fun executeScript(path: String) {
     dataSource.connection.use { ScriptUtils.executeSqlScript(it, ClassPathResource(path)) }
   }
