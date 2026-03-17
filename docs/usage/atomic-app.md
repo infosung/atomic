@@ -388,6 +388,30 @@ Relay store notes:
 - for entity store, run periodic cleanup (for example `DELETE FROM atomic_oauth_relay_code WHERE expires_at <= NOW()`) to remove unconsumed expired rows.
 - `in-memory.cleanup-interval <= 0` disables periodic expired-entry cleanup.
 
+OAuth redirect deployment presets:
+
+| Preset | State replay protection | Relay store | `store.fail-fast` | Callback binding | Notes |
+|---|---|---|---|---|---|
+| `local-development` | `in-memory-store.enabled=true` is acceptable | `in-memory` is acceptable | `false` or `true` depending on convenience | `strict` by default, `disabled` only for local HTTP callback testing | expect startup warnings about process-local behavior |
+| `single-node-production` | in-memory can be acceptable only when the deployment is intentionally single-node | prefer `entity` or verified `cache` | keep `true` | `strict` by default; `relaxed` only intentionally | do not silently rely on fallback semantics |
+| `multi-instance-production` | use shared/custom `OauthStateStore` | prefer `entity` or verified `cache` | keep `true` | `strict` by default; `relaxed` only after UX/security review | do not use process-local relay/state storage |
+
+Startup summary:
+
+- oauth redirect startup now logs one summary line with:
+  - configured relay store type
+  - relay store fail-fast policy
+  - effective callback-binding mode
+  - replay protection enabled 여부
+  - state store type (`IN_MEMORY`, `CUSTOM_OR_SHARED`, `OPAQUE_REPLAY_PROTECTED`)
+- follow-up warnings mean:
+  - `process-local per instance`
+    - one-time semantics depend on local memory; treat as local-only or intentionally single-node
+  - `callback binding mode is disabled`
+    - only appropriate for local HTTP-only testing or explicitly trusted environments
+  - `callback binding mode is relaxed`
+    - intentional UX tradeoff; cookie reuse after success remains possible
+
 ## DDL Examples (PostgreSQL)
 
 The authoritative PostgreSQL starting-point assets now ship in module resources:

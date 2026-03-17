@@ -143,15 +143,19 @@ Recommended ownership:
 
 ## 5) OAuth Redirect Deployment Rules
 
-- For `single-node/local`, convenience settings are acceptable when they are clearly isolated from production:
-  - `atomic.oauth2.state.in-memory-store.enabled=true`
-  - `atomic.app.oauth.redirect.store.type=in-memory`
-  - `atomic.app.oauth.redirect.callback-binding.mode=disabled` only for local HTTP-only callback testing
-- For `multi-instance/production`:
-  - keep `atomic.app.oauth.redirect.store.fail-fast=true`
-  - do not rely on process-local fallback when a selected store fails
-  - use a shared/custom `OauthStateStore`
-  - use `strict` callback-binding by default, and move to `relaxed` only when the browser UX tradeoff is intentional and verified
+| Deployment model | State replay protection | Relay store | Callback binding | Operational note |
+|---|---|---|---|---|
+| `local-development` | `atomic.oauth2.state.in-memory-store.enabled=true` is acceptable | `in-memory` is acceptable | `strict` by default, `disabled` only for local HTTP callback testing | startup warnings about `process-local per instance` are expected |
+| `single-node-production` | in-memory can be acceptable only when single-node is intentional and documented | prefer `entity` or verified `cache` | `strict` by default; `relaxed` only when the UX tradeoff is intentional | keep `store.fail-fast=true` unless you explicitly accept local fallback behavior |
+| `multi-instance-production` | use a shared/custom `OauthStateStore` | prefer `entity` or verified `cache` | `strict` by default; `relaxed` only after review | do not rely on process-local fallback or in-memory replay protection |
+
+Interpret the startup logs literally:
+- `OAuth redirect deployment summary`
+  - quick snapshot of relay store, fail-fast, callback-binding mode, and replay protection shape
+- warning contains `process-local per instance`
+  - current relay/state path is not multi-instance safe
+- warning contains `callback binding mode is disabled`
+  - treat the config as local-only unless you have an explicit exception
 
 ## 6) Synchronous Image Processing Envelope
 

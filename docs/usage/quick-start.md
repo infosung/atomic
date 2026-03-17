@@ -124,6 +124,23 @@ Notes:
 - If your UX prefers multi-tab/back-navigation tolerance, set `atomic.app.oauth.redirect.callback-binding.mode=relaxed`.
 - `spring.autoconfigure.exclude` is a temporary quick-start shortcut for non-DB environments. For production, configure DataSource/store policy explicitly (`entity/cache/custom`).
 - If Spring Security is enabled, explicitly configure `permitAll` for redirect/callback endpoints and CSRF policy for Apple `POST` callback path.
+- startup now logs an oauth redirect deployment summary (`relayStoreType`, `relayStoreFailFast`, `callbackBindingMode`, `replayProtectionEnabled`, `stateStoreType`).
+  - if you see warnings about `process-local per instance`, `callback binding mode is disabled`, or in-memory state replay protection, treat that configuration as local-only or intentionally single-node.
+
+Preset shortcut:
+- `local-development`
+  - `atomic.oauth2.state.in-memory-store.enabled=true`
+  - `atomic.app.oauth.redirect.store.type=in-memory`
+  - optional `atomic.app.oauth.redirect.callback-binding.mode=disabled` only for local HTTP callback testing
+- `single-node-production`
+  - prefer `atomic.app.oauth.redirect.store.type=entity` or verified `cache`
+  - keep `atomic.app.oauth.redirect.store.fail-fast=true`
+  - keep `callback-binding.mode=strict` by default
+- `multi-instance-production`
+  - use shared/custom `OauthStateStore` instead of in-memory replay protection
+  - prefer `entity` or verified `cache` relay store
+  - keep `store.fail-fast=true`
+  - do not rely on process-local fallback
 
 ---
 

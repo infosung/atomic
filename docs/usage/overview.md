@@ -176,6 +176,7 @@ infrastructure your team does not want to own yet, stay on the narrower feature 
 - App oauth redirect setup now fails fast when enabled but required prerequisites are missing; check selected relay store dependencies, `OauthServiceProvider`, and replay-protected `OauthStateManager` together.
 - OAuth callback errors: check state and redirect URI mapping, effective callback-binding mode (`strict`, `relaxed`, `disabled`), and callback-binding failure type (`state is missing`, `cookie is missing`, `token mismatch`, `cookie is ambiguous`).
 - OAuth relay cache store startup failure: check `atomic.app.oauth.redirect.store.cache.cache-name` exists in `CacheManager` and that the selected backend supports atomic remove-and-return consume (with default `store.fail-fast=true`).
+- OAuth redirect startup summary now logs configured relay store, fail-fast, callback-binding mode, and replay protection shape together. If the warning mentions `process-local per instance`, treat the current relay/state configuration as local-only or intentionally single-node.
 - OAuth redirect prefix configuration issue: empty `allowed-redirect-uri-prefixes` fails startup; invalid prefix entries also fail startup before traffic begins.
 - JWT unauthorized unexpectedly: check channel resolver and token source.
 - API logs missing: check `ServiceLogger.send()` scheduling.
