@@ -82,8 +82,8 @@ open class AppImageEntityTxService(
                   )
                 },
                 ImageEntity.STATUS_DELETE_PENDING,
-                limit,
                 Timestamp.valueOf(staleClaimBefore),
+                limit,
                 claimToken,
                 Timestamp.valueOf(claimedAt),
                 Timestamp.valueOf(staleClaimBefore),
