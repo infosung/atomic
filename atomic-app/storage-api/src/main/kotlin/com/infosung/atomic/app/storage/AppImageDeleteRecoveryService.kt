@@ -1,5 +1,6 @@
 package com.infosung.atomic.app.storage
 
+import com.infosung.atomic.contract.log.LogStringPreview
 import com.infosung.atomic.storage.image.ImageService
 import java.time.Clock
 import java.time.LocalDateTime
@@ -67,8 +68,8 @@ class AppImageDeleteRecoveryService(
           imageId,
           batchToken,
           imageEntity.storageType,
-          summarizeForLog(imageEntity.fileName),
-          summarizeForLog(imageEntity.thumbnailFileName),
+          LogStringPreview.summarize(imageEntity.fileName),
+          LogStringPreview.summarize(imageEntity.thumbnailFileName),
           imageEntity.status,
       )
       try {
@@ -82,8 +83,8 @@ class AppImageDeleteRecoveryService(
             imageId,
             batchToken,
             imageEntity.storageType,
-            summarizeForLog(imageEntity.fileName),
-            summarizeForLog(imageEntity.thumbnailFileName),
+            LogStringPreview.summarize(imageEntity.fileName),
+            LogStringPreview.summarize(imageEntity.thumbnailFileName),
         )
         imageEntityTxService.purgeDeletePending(imageEntity)
         recoveredCount += 1
@@ -100,8 +101,8 @@ class AppImageDeleteRecoveryService(
             imageId,
             batchToken,
             imageEntity.storageType,
-            summarizeForLog(imageEntity.fileName),
-            summarizeForLog(imageEntity.thumbnailFileName),
+            LogStringPreview.summarize(imageEntity.fileName),
+            LogStringPreview.summarize(imageEntity.thumbnailFileName),
             imageEntity.status,
             e,
         )
@@ -148,13 +149,6 @@ class AppImageDeleteRecoveryService(
     }
     return ChronoUnit.SECONDS.between(oldestPendingCreatedAt, LocalDateTime.now(clock))
         .coerceAtLeast(0)
-  }
-
-  private fun summarizeForLog(value: String?): String? {
-    if (value == null) {
-      return null
-    }
-    return if (value.length <= 96) value else value.take(93) + "..."
   }
 
   companion object {

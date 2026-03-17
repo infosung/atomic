@@ -2,6 +2,7 @@ package com.infosung.atomic.app.storage
 
 import com.infosung.atomic.app.storage.autoconfigure.AtomicAppImageProperties
 import com.infosung.atomic.contract.exception.HttpStatusException
+import com.infosung.atomic.contract.log.LogStringPreview
 import com.infosung.atomic.storage.StorageClient
 import com.infosung.atomic.storage.image.ImageService
 import java.util.UUID
@@ -68,7 +69,7 @@ class AppImageApiService(
         serviceName,
         storageService,
         resolvedStorageType,
-        summarizeForLog(originalFilename),
+        LogStringPreview.summarize(originalFilename),
         originalFilename.length,
         resolvedUploaderId != null,
         thumbnailEnabled,
@@ -90,9 +91,9 @@ class AppImageApiService(
           "Storage upload completed: serviceName={}, storageService={}, objectKeyPreview={}, objectKeyLength={}, thumbnailKeyPreview={}, thumbnailKeyLength={}, urlLength={}, thumbnailUrlLength={}, thumbnailEnabled={}",
           serviceName,
           storageService,
-          summarizeForLog(uploaded.fileName),
+          LogStringPreview.summarize(uploaded.fileName),
           uploaded.fileName.length,
-          summarizeForLog(uploaded.thumbnailFileName),
+          LogStringPreview.summarize(uploaded.thumbnailFileName),
           uploaded.thumbnailFileName?.length ?: 0,
           uploaded.url.length,
           uploaded.thumbnailUrl?.length ?: 0,
@@ -125,7 +126,7 @@ class AppImageApiService(
             serviceName,
             storageService,
             saved.id,
-            summarizeForLog(saved.fileName),
+            LogStringPreview.summarize(saved.fileName),
             saved.fileName?.length ?: 0,
             saved.url.length,
             saved.thumbnailUrl?.length ?: 0,
@@ -139,7 +140,7 @@ class AppImageApiService(
             serviceName,
             storageService,
             resolvedStorageType,
-            summarizeForLog(uploaded.fileName),
+            LogStringPreview.summarize(uploaded.fileName),
             e,
         )
         runCatching {
@@ -155,7 +156,7 @@ class AppImageApiService(
                   serviceName,
                   storageService,
                   resolvedStorageType,
-                  summarizeForLog(uploaded.fileName),
+                  LogStringPreview.summarize(uploaded.fileName),
                   cleanupError,
               )
             }
@@ -231,8 +232,8 @@ class AppImageApiService(
           serviceName,
           storageService,
           resolvedStorageType,
-          summarizeForLog(imageEntity.fileName),
-          summarizeForLog(imageEntity.thumbnailFileName),
+          LogStringPreview.summarize(imageEntity.fileName),
+          LogStringPreview.summarize(imageEntity.thumbnailFileName),
       )
     }
     val deleteReservedEntity = imageEntityTxService.markDeletePending(imageEntity)
@@ -247,16 +248,16 @@ class AppImageApiService(
           "Storage objects deleted for image delete workflow: imageId={}, storageType={}, fileNamePreview={}, thumbnailFileNamePreview={}",
           imageId,
           resolvedStorageType,
-          summarizeForLog(deleteReservedEntity.fileName),
-          summarizeForLog(deleteReservedEntity.thumbnailFileName),
+          LogStringPreview.summarize(deleteReservedEntity.fileName),
+          LogStringPreview.summarize(deleteReservedEntity.thumbnailFileName),
       )
     } catch (e: Exception) {
       log.error(
           "Storage delete failed while metadata remains delete-pending. Retry delete or run AppImageDeleteRecoveryService: imageId={}, storageType={}, fileNamePreview={}, thumbnailFileNamePreview={}",
           imageId,
           resolvedStorageType,
-          summarizeForLog(deleteReservedEntity.fileName),
-          summarizeForLog(deleteReservedEntity.thumbnailFileName),
+          LogStringPreview.summarize(deleteReservedEntity.fileName),
+          LogStringPreview.summarize(deleteReservedEntity.thumbnailFileName),
           e,
       )
       throw e
@@ -268,7 +269,7 @@ class AppImageApiService(
           "Image metadata purge failed after storage delete: imageId={}, storageType={}, fileNamePreview={}, status={}",
           imageId,
           resolvedStorageType,
-          summarizeForLog(deleteReservedEntity.fileName),
+          LogStringPreview.summarize(deleteReservedEntity.fileName),
           deleteReservedEntity.status,
           e,
       )
@@ -391,12 +392,5 @@ class AppImageApiService(
                 "Unknown storageType for service=$serviceName, storageService=$storageService. " +
                     "Tried candidates=$candidates",
         )
-  }
-
-  private fun summarizeForLog(value: String?): String? {
-    if (value == null) {
-      return null
-    }
-    return if (value.length <= 96) value else value.take(93) + "..."
   }
 }

@@ -13,16 +13,16 @@ This guide focuses only on getting a working flow quickly.
 
 Dependency notation:
 - Gradle snippets below assume a local multi-module setup (`project(":...")`).
-- Published artifact equivalents for `v0.0.2` are:
-  - version-only: `implementation("com.infosung:atomic.app.version:0.0.2")`
-  - image API: `implementation("com.infosung:atomic.starter:0.0.2")`, `implementation("com.infosung:atomic.app.storage.api:0.0.2")`, `implementation("com.infosung:atomic.storage:0.0.2")`
-  - oauth redirect relay API: `implementation("com.infosung:atomic.starter:0.0.2")`, `implementation("com.infosung:atomic.app.oauth.redirect:0.0.2")`, `implementation("com.infosung:atomic.spring.oauth2:0.0.2")`
-  - convenience bundle: `implementation("com.infosung:atomic.app:0.0.2")`
+- Published artifact equivalents for `v0.0.3` are:
+  - version-only: `implementation("com.infosung:atomic.app.version:0.0.3")`
+  - image API: `implementation("com.infosung:atomic.starter:0.0.3")`, `implementation("com.infosung:atomic.app.storage.api:0.0.3")`, `implementation("com.infosung:atomic.storage:0.0.3")`
+  - oauth redirect relay API: `implementation("com.infosung:atomic.starter:0.0.3")`, `implementation("com.infosung:atomic.app.oauth.redirect:0.0.3")`, `implementation("com.infosung:atomic.spring.oauth2:0.0.3")`
+  - convenience bundle: `implementation("com.infosung:atomic.app:0.0.3")`
 
 Quick decision:
 - If you are still pre-production, validate behavior first with this document.
 - For production or multi-instance deployment, continue with [advanced-playbook](advanced-playbook.md).
-- If you are upgrading from `v0.0.1`, also review [Release Migration Guide: v0.0.1 -> v0.0.2](../migration/v0.0.1-to-v0.0.2.md).
+- If you are upgrading from `v0.0.2`, also review [Release Migration Guide: v0.0.2 -> v0.0.3](../migration/v0.0.2-to-v0.0.3.md).
 
 ---
 
@@ -38,6 +38,24 @@ If you need more than one app API at once, you can replace the narrow app module
 
 ```kotlin
 implementation(project(":atomic-app"))
+```
+
+Published artifact equivalents for the same three tracks:
+
+```kotlin
+dependencies {
+  implementation("com.infosung:atomic.app.version:0.0.3")
+
+  implementation("com.infosung:atomic.starter:0.0.3")
+  implementation("com.infosung:atomic.app.storage.api:0.0.3")
+  implementation("com.infosung:atomic.storage:0.0.3")
+
+  implementation("com.infosung:atomic.starter:0.0.3")
+  implementation("com.infosung:atomic.app.oauth.redirect:0.0.3")
+  implementation("com.infosung:atomic.spring.oauth2:0.0.3")
+
+  implementation("com.infosung:atomic.app:0.0.3")
+}
 ```
 
 ---
@@ -59,7 +77,7 @@ Notes:
   keep those rows as `store_available=false` so the version API does not advertise them as current
   store targets too early.
 - keep one row per `(service, platform, main_version, minor_version, patch_number)` semantic version;
-  duplicate version-policy rows are not a valid `v0.0.2` schema state.
+  duplicate version-policy rows are not a valid `v0.0.3` schema state.
 
 ### B. image API
 
