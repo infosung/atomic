@@ -1,17 +1,25 @@
-# Architecture Improvement Backlog
+# `v0.0.3` Roadmap
 
-These items came out of the review but are intentionally not part of Phase 1.
+`v0.0.3` should stay a hardening and cleanup release, not another broad behavior change release.
 
-## High Priority
+## Recommended Scope
 
-- no open high-priority backlog items at the moment
+- harden schema widths for operationally long values
+  - revisit `image` string columns such as `url`, `thumbnail_url`, `bucket`, `storage_service`,
+    `storage_type`, and file-name fields
+  - revisit `service_version.store_url`
+  - ship matching SQL assets, entity mappings, and migration tests
+- improve `storage-api` operator hooks around `DELETE_PENDING`
+  - add clearer recovery observability such as metrics/logging hooks or an example scheduler path
+  - keep the library free of a mandatory built-in reaper
+- add stronger `oauth-redirect` production presets and examples
+  - make `single-node` vs `multi-instance` store policy choices easier to apply correctly
+  - document `callback-binding` mode and `store.fail-fast` combinations as clearer deployment presets
+- simplify onboarding and module naming
+  - make `atomic.app` vs narrow-module adoption easier to understand
+  - revisit starter/bundle naming now that `0.0.2` release docs have stabilized
 
-## Medium Priority
-
-- no open medium-priority backlog items at the moment
-
-## Long-Term Architecture
+## Later, Not Required For `v0.0.3`
 
 - selectively introduce hexagonal boundaries inside `atomic-app/*` modules
-- define async/offloaded image processing path if higher upload concurrency becomes a target
-- revisit starter and bundle naming once module boundaries and onboarding guidance stabilize
+- define an optional async/offloaded image pipeline when throughput targets justify it

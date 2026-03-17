@@ -1,40 +1,17 @@
-# Architecture Improvements Worklog
+# Architecture Improvements
 
-This directory tracks contract-first architecture improvement work for `atomic`.
+`v0.0.2` release work is complete. This directory now keeps only the active post-release roadmap.
 
-## Goals
+Detailed phase-by-phase work logs were intentionally removed after the release cut. The repository
+history still preserves that implementation sequence if it ever needs to be traced again.
 
-- Keep external usage stable while internal architecture evolves.
-- Lock usage contracts with tests before implementation changes.
-- Separate immediate correctness fixes from larger architectural backlog.
+## Active Docs
 
-## Current Phase
+- [Backlog / `v0.0.3` Roadmap](backlog.md)
+- [Release Migration Guide: `v0.0.1` -> `v0.0.2`](../../migration/v0.0.1-to-v0.0.2.md)
 
-- [Phase 1: Contract And Correctness](phase-1-contract-and-correctness.md)
-- [Phase 2: Storage Delete Contract Tightening](phase-2-storage-delete-contract.md)
-- [Phase 3: PostgreSQL Migration Assets](phase-3-postgresql-migration-assets.md)
-- [Phase 4: Onboarding, Image Workflow, And Schema Freeze](phase-4-onboarding-image-workflow-and-schema-freeze.md)
-- [Phase 5: Self-Contained HTTP Contract And OAuth Readiness](phase-5-self-contained-http-contract-and-oauth-readiness.md)
-- [Phase 6: OAuth Relay Cache Atomic Consume](phase-6-oauth-relay-cache-atomic-consume.md)
-- [Phase 7: DELETE_PENDING Recovery Service](phase-7-delete-pending-recovery-service.md)
-- [Phase 8: Image Response DTO Separation](phase-8-image-response-dto-separation.md)
-- [Phase 9: App-Version Policy Resolution Optimization](phase-9-app-version-policy-resolution-optimization.md)
-- [Phase 10: Callback-Binding Policy Mode](phase-10-callback-binding-policy-mode.md)
-- [Phase 11: Version Policy Rollout-Safe Resolution](phase-11-version-policy-rollout-safe-resolution.md)
-- [Phase 12: Service-Version Uniqueness Guard](phase-12-service-version-uniqueness-guard.md)
-- [Phase 13: OAuth State Tamper Test Stability](phase-13-oauth-state-tamper-test-stability.md)
-- [Phase 14: App-Version Migration Test Isolation](phase-14-app-version-migration-test-isolation.md)
-- [Phase 15: App-Version Migration Validator Stability](phase-15-app-version-migration-validator-stability.md)
-- [Phase 16: App-Version Baseline Schema Alignment](phase-16-app-version-baseline-schema-alignment.md)
-- [Phase 17: Storage-API Baseline Schema Alignment](phase-17-storage-api-baseline-schema-alignment.md)
+## Scope Rule
 
-## Review Notes
-
-- [2026-03-16: Multi-Perspective Review](review-2026-03-16-multi-perspective.md)
-
-## Scope Rules
-
-- Prefer fixes that strengthen runtime correctness without changing public endpoints, property keys, or published usage examples.
-- Require tests first for each behavior change.
-- Keep external paths, property keys, documented request parameter names, and response envelopes stable unless a change is explicitly tracked as migration-impacting.
-- Keep backlog items documented when they need larger design changes than the current phase allows.
+- Keep only active roadmap material here.
+- Push release-specific behavior details into migration and usage docs.
+- Prefer Git history over permanent in-repo phase journals once a release is shipped.
