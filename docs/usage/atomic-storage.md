@@ -129,8 +129,8 @@ val staticCredentialClient =
 
 - generated original object keys are bounded to `512` characters.
 - the default object key generator truncates the sanitized filename portion to stay within that budget.
-- if the original object key or the final public URL would exceed the built-in budget, upload fails before the original storage write starts.
-- thumbnail object key / thumbnail URL budget violations do not fail the original upload; they are reported as `thumbnailUploadFailed=true` with a bounded `thumbnailFailureReason`.
+- the final public URL budget is `2048` characters; if the original object key or the final public URL would exceed its built-in budget, upload fails before the original storage write starts.
+- thumbnail object key / thumbnail URL budget violations do not fail the original upload; they are reported as `thumbnailUploadFailed=true` with a bounded `thumbnailFailureReason` whose current maximum length is `160`.
 - logs summarize long filename/object key values and log their lengths separately instead of emitting the full raw payload.
 - these budgets apply to the `ImageService` upload path; direct low-level `StorageClient` usage still remains caller-owned.
 - these budgets do not replace multipart/body-size limits or temp-disk policies; application-level upload limits are still mandatory.

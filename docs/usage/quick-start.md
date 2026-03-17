@@ -43,17 +43,33 @@ implementation(project(":atomic-app"))
 Published artifact equivalents for the same three tracks:
 
 ```kotlin
+// A. version-only
 dependencies {
   implementation("com.infosung:atomic.app.version:0.0.3")
+}
+```
 
+```kotlin
+// B. image API
+dependencies {
   implementation("com.infosung:atomic.starter:0.0.3")
   implementation("com.infosung:atomic.app.storage.api:0.0.3")
   implementation("com.infosung:atomic.storage:0.0.3")
+}
+```
 
+```kotlin
+// C. oauth redirect relay API
+dependencies {
   implementation("com.infosung:atomic.starter:0.0.3")
   implementation("com.infosung:atomic.app.oauth.redirect:0.0.3")
   implementation("com.infosung:atomic.spring.oauth2:0.0.3")
+}
+```
 
+```kotlin
+// Convenience bundle
+dependencies {
   implementation("com.infosung:atomic.app:0.0.3")
 }
 ```
