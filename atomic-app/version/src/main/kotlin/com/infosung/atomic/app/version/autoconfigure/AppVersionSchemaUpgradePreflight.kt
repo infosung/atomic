@@ -110,7 +110,14 @@ class AppVersionSchemaUpgradePreflight(
     }
 
     fun render(): String {
-      return if (characterMaximumLength == null) dataType else "$dataType($characterMaximumLength)"
+      val renderedType =
+          when {
+            dataType.equals("character varying", ignoreCase = true) -> "VARCHAR"
+            dataType.equals("text", ignoreCase = true) -> "TEXT"
+            else -> dataType.uppercase()
+          }
+      return if (characterMaximumLength == null) renderedType
+      else "$renderedType($characterMaximumLength)"
     }
   }
 
