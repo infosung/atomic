@@ -545,7 +545,12 @@ Typical override points:
   - `googleOauthProvider`, `kakaoOauthProvider`, `appleOauthProvider` (bean names)
 - App
   - `appVersionCheckService`, `appVersionController`
+  - `appOauthRedirectService`, `appOauthRedirectController`
   - `appImageApiService`, `appStorageController`
+
+For oauth redirect specifically, treat `AppOauthRedirectService` as the compatibility-stable host
+override seam. Internal oauth port/use-case beans may exist in the context for composition, but
+they are not the supported customization surface.
 
 ## What Was Ambiguous Before (Review Summary)
 

@@ -1,13 +1,13 @@
 package com.infosung.atomic.app.oauth.application.service
 
 import com.infosung.atomic.app.oauth.OauthRedirectClientTargetClassifier
+import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRequestException
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildOauthCallbackRedirectUseCase
 import com.infosung.atomic.app.oauth.application.port.`in`.CallbackRedirectResult
 import com.infosung.atomic.app.oauth.application.port.out.IssueOauthRelayCodePort
 import com.infosung.atomic.app.oauth.application.port.out.OauthProviderOperationsPort
 import com.infosung.atomic.app.oauth.application.port.out.ValidateOauthRedirectUriPort
 import com.infosung.atomic.app.oauth.application.port.out.VerifyOauthStatePort
-import com.infosung.atomic.contract.exception.HttpStatusException
 import com.infosung.atomic.oauth.api.OauthProviderName
 import com.infosung.atomic.oauth.api.OauthTokenExchangeRequest
 import java.util.Locale
@@ -34,10 +34,8 @@ internal class BuildOauthCallbackRedirectService(
   ): CallbackRedirectResult {
     val providerName = parseProviderName(provider)
     if (providerName == OauthProviderName.APPLE) {
-      throw HttpStatusException(
-          status = 400,
-          message = "Use POST ${resolveAppleCallbackPath()} for Apple callback.",
-      )
+      throw OauthRedirectRequestException(
+          "Use POST ${resolveAppleCallbackPath()} for Apple callback.")
     }
     val stateJwt =
         verifyOauthStatePort.verifyState(
@@ -104,8 +102,6 @@ internal class BuildOauthCallbackRedirectService(
 
   private fun parseProviderName(provider: String): OauthProviderName {
     return runCatching { OauthProviderName.valueOf(provider.uppercase(Locale.ROOT)) }
-        .getOrElse {
-          throw HttpStatusException(status = 400, message = "Unsupported provider: $provider")
-        }
+        .getOrElse { throw OauthRedirectRequestException("Unsupported provider: $provider") }
   }
 }

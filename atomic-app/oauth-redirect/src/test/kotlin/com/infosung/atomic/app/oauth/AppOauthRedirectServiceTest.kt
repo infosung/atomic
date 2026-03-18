@@ -1,5 +1,11 @@
 package com.infosung.atomic.app.oauth
 
+import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRequestException
+import com.infosung.atomic.app.oauth.application.port.`in`.AuthorizationRedirectResult
+import com.infosung.atomic.app.oauth.application.port.`in`.BuildAppleCallbackRedirectUseCase
+import com.infosung.atomic.app.oauth.application.port.`in`.BuildAuthorizationRedirectUseCase
+import com.infosung.atomic.app.oauth.application.port.`in`.BuildOauthCallbackRedirectUseCase
+import com.infosung.atomic.app.oauth.application.port.`in`.CallbackRedirectResult
 import com.infosung.atomic.app.oauth.autoconfigure.AtomicAppOauthRedirectProperties
 import com.infosung.atomic.contract.exception.HttpStatusException
 import com.infosung.atomic.oauth.api.OauthAuthorizationRequest
@@ -22,6 +28,114 @@ import org.mockito.Mockito.`when`
 import org.springframework.security.oauth2.jwt.Jwt
 
 class AppOauthRedirectServiceTest {
+  @Test
+  fun `buildAuthorizationRedirectUrl should map application exception to documented http 400`() {
+    val service =
+        AppOauthRedirectService(
+            oauthServiceProvider = mock(OauthServiceProvider::class.java),
+            oauthStateManager = mock(OauthStateManager::class.java),
+            relayCodeService =
+                AppOauthRelayCodeService(
+                    relayCodeStore = InMemoryOauthRelayCodeStore(),
+                    properties = AtomicAppOauthRedirectProperties(),
+                ),
+            properties = AtomicAppOauthRedirectProperties(),
+            buildAuthorizationRedirectUseCase =
+                object : BuildAuthorizationRedirectUseCase {
+                  override fun build(
+                      provider: String,
+                      redirectUri: String,
+                      nonce: String?,
+                      prompt: String?,
+                      loginHint: String?,
+                      responseMode: String?,
+                      additionalParameters: Map<String, String>,
+                      callbackBindingToken: String?,
+                  ): AuthorizationRedirectResult {
+                    throw OauthRedirectRequestException("redirectUri is invalid.")
+                  }
+                },
+            buildOauthCallbackRedirectUseCase = unusedCallbackUseCase(),
+            buildAppleCallbackRedirectUseCase = unusedAppleCallbackUseCase(),
+        )
+
+    val error =
+        assertFailsWith<HttpStatusException> {
+          service.buildAuthorizationRedirectUrl(
+              provider = "google",
+              redirectUri = "bad",
+              nonce = null,
+              prompt = null,
+              loginHint = null,
+              responseMode = null,
+              additionalParameters = emptyMap(),
+          )
+        }
+
+    assertEquals(400, error.status)
+    assertEquals("redirectUri is invalid.", error.message)
+  }
+
+  @Test
+  fun `buildCallbackRedirectUrl should map application exception to documented http 400`() {
+    val service =
+        AppOauthRedirectService(
+            oauthServiceProvider = mock(OauthServiceProvider::class.java),
+            oauthStateManager = mock(OauthStateManager::class.java),
+            relayCodeService =
+                AppOauthRelayCodeService(
+                    relayCodeStore = InMemoryOauthRelayCodeStore(),
+                    properties = AtomicAppOauthRedirectProperties(),
+                ),
+            properties = AtomicAppOauthRedirectProperties(),
+            buildAuthorizationRedirectUseCase =
+                object : BuildAuthorizationRedirectUseCase {
+                  override fun build(
+                      provider: String,
+                      redirectUri: String,
+                      nonce: String?,
+                      prompt: String?,
+                      loginHint: String?,
+                      responseMode: String?,
+                      additionalParameters: Map<String, String>,
+                      callbackBindingToken: String?,
+                  ): AuthorizationRedirectResult {
+                    return AuthorizationRedirectResult(
+                        providerName = OauthProviderName.GOOGLE,
+                        authorizationUrl = "https://provider.example.com/auth",
+                        redirectTargetType = OauthRedirectClientTarget.WEB,
+                    )
+                  }
+                },
+            buildOauthCallbackRedirectUseCase =
+                object : BuildOauthCallbackRedirectUseCase {
+                  override fun build(
+                      provider: String,
+                      code: String,
+                      state: String,
+                      additionalParameters: Map<String, String>,
+                      callbackBindingToken: String?,
+                  ): CallbackRedirectResult {
+                    throw OauthRedirectRequestException("OAuth callback binding cookie is missing.")
+                  }
+                },
+            buildAppleCallbackRedirectUseCase = unusedAppleCallbackUseCase(),
+        )
+
+    val error =
+        assertFailsWith<HttpStatusException> {
+          service.buildCallbackRedirectUrl(
+              provider = "google",
+              code = "code-123",
+              state = "state-123",
+              additionalParameters = emptyMap(),
+          )
+        }
+
+    assertEquals(400, error.status)
+    assertEquals("OAuth callback binding cookie is missing.", error.message)
+  }
+
   @Test
   fun `buildAuthorizationRedirectUrl should reject non-absolute redirectUri`() {
     val oauthServiceProvider = mock(OauthServiceProvider::class.java)
@@ -753,5 +867,34 @@ class AppOauthRedirectServiceTest {
 
   companion object {
     private const val CALLBACK_BINDING_TOKEN = "callback-binding-token"
+  }
+
+  private fun unusedCallbackUseCase(): BuildOauthCallbackRedirectUseCase {
+    return object : BuildOauthCallbackRedirectUseCase {
+      override fun build(
+          provider: String,
+          code: String,
+          state: String,
+          additionalParameters: Map<String, String>,
+          callbackBindingToken: String?,
+      ): CallbackRedirectResult {
+        throw AssertionError("callback use-case should not be called in this test")
+      }
+    }
+  }
+
+  private fun unusedAppleCallbackUseCase(): BuildAppleCallbackRedirectUseCase {
+    return object : BuildAppleCallbackRedirectUseCase {
+      override fun build(
+          state: String,
+          idToken: String,
+          code: String?,
+          user: String?,
+          additionalParameters: Map<String, String>,
+          callbackBindingToken: String?,
+      ): CallbackRedirectResult {
+        throw AssertionError("apple callback use-case should not be called in this test")
+      }
+    }
   }
 }

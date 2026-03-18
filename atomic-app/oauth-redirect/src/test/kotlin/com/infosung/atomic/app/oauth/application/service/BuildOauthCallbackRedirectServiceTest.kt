@@ -2,12 +2,12 @@ package com.infosung.atomic.app.oauth.application.service
 
 import com.infosung.atomic.app.oauth.OauthRedirectClientTarget
 import com.infosung.atomic.app.oauth.OauthRelayPayload
+import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRequestException
 import com.infosung.atomic.app.oauth.application.port.out.IssueOauthRelayCodePort
 import com.infosung.atomic.app.oauth.application.port.out.OauthProviderOperationsPort
 import com.infosung.atomic.app.oauth.application.port.out.OauthProviderTokenExchange
 import com.infosung.atomic.app.oauth.application.port.out.ValidateOauthRedirectUriPort
 import com.infosung.atomic.app.oauth.application.port.out.VerifyOauthStatePort
-import com.infosung.atomic.contract.exception.HttpStatusException
 import com.infosung.atomic.oauth.api.OauthProviderName
 import com.infosung.atomic.oauth.api.OauthTokenExchangeRequest
 import com.infosung.atomic.oauth.api.OauthTokenResult
@@ -84,7 +84,7 @@ class BuildOauthCallbackRedirectServiceTest {
         )
 
     val error =
-        assertFailsWith<HttpStatusException> {
+        assertFailsWith<OauthRedirectRequestException> {
           service.build(
               provider = "google",
               code = "code-123",
@@ -94,7 +94,6 @@ class BuildOauthCallbackRedirectServiceTest {
           )
         }
 
-    assertEquals(400, error.status)
     assertEquals("OAuth callback binding cookie is missing.", error.message)
   }
 

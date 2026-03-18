@@ -1,13 +1,14 @@
 package com.infosung.atomic.app.oauth.adapter.out.oauth
 
+import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRequestException
 import com.infosung.atomic.app.oauth.application.port.out.OauthProviderAuthorization
 import com.infosung.atomic.app.oauth.application.port.out.OauthProviderOperationsPort
 import com.infosung.atomic.app.oauth.application.port.out.OauthProviderTokenExchange
-import com.infosung.atomic.contract.exception.HttpStatusException
 import com.infosung.atomic.oauth.api.OauthAuthorizationRequest
 import com.infosung.atomic.oauth.api.OauthProviderName
 import com.infosung.atomic.oauth.api.OauthServiceProvider
 import com.infosung.atomic.oauth.api.OauthTokenExchangeRequest
+import com.infosung.atomic.oauth.exception.OauthException
 import org.slf4j.LoggerFactory
 
 internal class OauthServiceProviderAdapter(
@@ -18,7 +19,7 @@ internal class OauthServiceProviderAdapter(
   override fun requireProviderName(provider: String): OauthProviderName {
     val oauthProvider =
         oauthServiceProvider.getService(provider)
-            ?: throw HttpStatusException(status = 400, message = "Unsupported provider: $provider")
+            ?: throw OauthRedirectRequestException("Unsupported provider: $provider")
     return oauthProvider.providerName
   }
 
@@ -28,8 +29,21 @@ internal class OauthServiceProviderAdapter(
   ): OauthProviderAuthorization {
     val oauthProvider =
         oauthServiceProvider.getService(provider)
-            ?: throw HttpStatusException(status = 400, message = "Unsupported provider: $provider")
-    val authorizationUrl = oauthProvider.buildAuthorizationUrl(request)
+            ?: throw OauthRedirectRequestException("Unsupported provider: $provider")
+    val authorizationUrl =
+        try {
+          oauthProvider.buildAuthorizationUrl(request)
+        } catch (e: OauthException) {
+          throw OauthRedirectRequestException(
+              e.message ?: "Invalid OAuth authorization request for provider: $provider",
+              e,
+          )
+        } catch (e: IllegalArgumentException) {
+          throw OauthRedirectRequestException(
+              e.message ?: "Invalid OAuth authorization request for provider: $provider",
+              e,
+          )
+        }
     log.trace(
         "Resolved oauth authorization provider through adapter: provider={}, redirectUri={}",
         oauthProvider.providerName,
@@ -47,8 +61,21 @@ internal class OauthServiceProviderAdapter(
   ): OauthProviderTokenExchange {
     val oauthProvider =
         oauthServiceProvider.getService(provider)
-            ?: throw HttpStatusException(status = 400, message = "Unsupported provider: $provider")
-    val tokenResult = oauthProvider.exchangeCode(request)
+            ?: throw OauthRedirectRequestException("Unsupported provider: $provider")
+    val tokenResult =
+        try {
+          oauthProvider.exchangeCode(request)
+        } catch (e: OauthException) {
+          throw OauthRedirectRequestException(
+              e.message ?: "Invalid OAuth callback request for provider: $provider",
+              e,
+          )
+        } catch (e: IllegalArgumentException) {
+          throw OauthRedirectRequestException(
+              e.message ?: "Invalid OAuth callback request for provider: $provider",
+              e,
+          )
+        }
     log.trace(
         "Resolved oauth token exchange through adapter: provider={}, additionalParameterKeys={}",
         oauthProvider.providerName,

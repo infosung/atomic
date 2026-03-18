@@ -1,10 +1,10 @@
 package com.infosung.atomic.app.oauth.application.service
 
 import com.infosung.atomic.app.oauth.OauthRedirectClientTarget
+import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRequestException
 import com.infosung.atomic.app.oauth.application.port.out.OauthProviderAuthorization
 import com.infosung.atomic.app.oauth.application.port.out.OauthProviderOperationsPort
 import com.infosung.atomic.app.oauth.application.port.out.ValidateOauthRedirectUriPort
-import com.infosung.atomic.contract.exception.HttpStatusException
 import com.infosung.atomic.oauth.api.OauthAuthorizationRequest
 import com.infosung.atomic.oauth.api.OauthProviderName
 import kotlin.test.Test
@@ -90,7 +90,7 @@ class BuildAuthorizationRedirectServiceTest {
         )
 
     val error =
-        assertFailsWith<HttpStatusException> {
+        assertFailsWith<OauthRedirectRequestException> {
           service.build(
               provider = "google",
               redirectUri = "https://frontend.example.com/oauth/callback",
@@ -103,7 +103,6 @@ class BuildAuthorizationRedirectServiceTest {
           )
         }
 
-    assertEquals(400, error.status)
     assertEquals("OAuth callback binding token is required.", error.message)
   }
 

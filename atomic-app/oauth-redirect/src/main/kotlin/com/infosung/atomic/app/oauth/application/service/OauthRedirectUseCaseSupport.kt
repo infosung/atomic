@@ -1,7 +1,7 @@
 package com.infosung.atomic.app.oauth.application.service
 
 import com.infosung.atomic.app.oauth.OauthRelayPayload
-import com.infosung.atomic.contract.exception.HttpStatusException
+import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRequestException
 import com.infosung.atomic.oauth.api.OauthProviderName
 import com.infosung.atomic.oauth.api.OauthTokenResult
 import java.net.URLEncoder
@@ -19,10 +19,7 @@ internal object OauthRedirectUseCaseSupport {
     }
     val bindingToken =
         callbackBindingToken?.trim()?.takeIf { it.isNotBlank() }
-            ?: throw HttpStatusException(
-                status = 400,
-                message = "OAuth callback binding token is required.",
-            )
+            ?: throw OauthRedirectRequestException("OAuth callback binding token is required.")
     return mapOf(callbackBindingStateAttributeKey to bindingToken)
   }
 
@@ -38,31 +35,18 @@ internal object OauthRedirectUseCaseSupport {
     val expectedToken =
         readStateAttributes(stateJwt)[callbackBindingStateAttributeKey]?.trim()?.takeIf {
           it.isNotBlank()
-        }
-            ?: throw HttpStatusException(
-                status = 400,
-                message = "OAuth callback binding state is missing.",
-            )
+        } ?: throw OauthRedirectRequestException("OAuth callback binding state is missing.")
     val actualToken =
         callbackBindingToken?.trim()?.takeIf { it.isNotBlank() }
-            ?: throw HttpStatusException(
-                status = 400,
-                message = "OAuth callback binding cookie is missing.",
-            )
+            ?: throw OauthRedirectRequestException("OAuth callback binding cookie is missing.")
     if (actualToken != expectedToken) {
-      throw HttpStatusException(
-          status = 400,
-          message = "OAuth callback binding token mismatch.",
-      )
+      throw OauthRedirectRequestException("OAuth callback binding token mismatch.")
     }
   }
 
   fun readRedirectUri(stateJwt: Jwt): String {
     return stateJwt.claims["redirect_uri"]?.toString()
-        ?: throw HttpStatusException(
-            status = 400,
-            message = "State does not include redirect_uri.",
-        )
+        ?: throw OauthRedirectRequestException("State does not include redirect_uri.")
   }
 
   fun resolveRelayCodeQueryParameterName(relayCodeQueryParameterName: String): String {

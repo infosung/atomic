@@ -4,6 +4,7 @@ import com.infosung.atomic.app.oauth.adapter.out.oauth.OauthServiceProviderAdapt
 import com.infosung.atomic.app.oauth.adapter.out.redirect.AllowedRedirectUriPortAdapter
 import com.infosung.atomic.app.oauth.adapter.out.relay.AppOauthRelayCodePortAdapter
 import com.infosung.atomic.app.oauth.adapter.out.state.OauthStateManagerAdapter
+import com.infosung.atomic.app.oauth.application.exception.OauthRedirectApplicationException
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildAppleCallbackRedirectUseCase
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildAuthorizationRedirectUseCase
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildOauthCallbackRedirectUseCase
@@ -102,16 +103,18 @@ private constructor(
       callbackBindingToken: String? = null,
   ): String {
     val result =
-        buildAuthorizationRedirectUseCase.build(
-            provider = provider,
-            redirectUri = redirectUri,
-            nonce = nonce,
-            prompt = prompt,
-            loginHint = loginHint,
-            responseMode = responseMode,
-            additionalParameters = additionalParameters,
-            callbackBindingToken = callbackBindingToken,
-        )
+        mapApplicationErrors(provider = provider, action = "oauth authorization redirect") {
+          buildAuthorizationRedirectUseCase.build(
+              provider = provider,
+              redirectUri = redirectUri,
+              nonce = nonce,
+              prompt = prompt,
+              loginHint = loginHint,
+              responseMode = responseMode,
+              additionalParameters = additionalParameters,
+              callbackBindingToken = callbackBindingToken,
+          )
+        }
     log.debug(
         "Built oauth authorization URL through facade: provider={}, redirectTargetType={}",
         result.providerName,
@@ -189,6 +192,13 @@ private constructor(
   ): T {
     return try {
       block()
+    } catch (e: OauthRedirectApplicationException) {
+      log.warn("Rejected oauth callback: provider={}, message={}", provider, e.message)
+      throw HttpStatusException(
+          status = 400,
+          message = e.message ?: "Invalid OAuth callback request for provider: $provider",
+          cause = e,
+      )
     } catch (e: HttpStatusException) {
       log.warn("Rejected oauth callback: provider={}, message={}", provider, e.message)
       throw e
@@ -206,6 +216,26 @@ private constructor(
           message = e.message ?: "Invalid OAuth callback request for provider: $provider",
           cause = e,
       )
+    }
+  }
+
+  private inline fun <T> mapApplicationErrors(
+      provider: String,
+      action: String,
+      block: () -> T,
+  ): T {
+    return try {
+      block()
+    } catch (e: OauthRedirectApplicationException) {
+      log.warn("Rejected {}: provider={}, message={}", action, provider, e.message)
+      throw HttpStatusException(
+          status = 400,
+          message = e.message ?: "Invalid request for provider: $provider",
+          cause = e,
+      )
+    } catch (e: HttpStatusException) {
+      log.warn("Rejected {}: provider={}, message={}", action, provider, e.message)
+      throw e
     }
   }
 
