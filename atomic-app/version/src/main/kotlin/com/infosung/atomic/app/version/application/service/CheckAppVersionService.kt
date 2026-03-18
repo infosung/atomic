@@ -1,10 +1,11 @@
 package com.infosung.atomic.app.version.application.service
 
+import com.infosung.atomic.app.version.application.exception.InvalidAppVersionException
+import com.infosung.atomic.app.version.application.exception.VersionPolicyNotFoundException
 import com.infosung.atomic.app.version.application.port.`in`.CheckAppVersionUseCase
 import com.infosung.atomic.app.version.application.port.out.LoadVersionPolicyPort
 import com.infosung.atomic.app.version.domain.SemanticVersion
 import com.infosung.atomic.app.version.domain.VersionCheckDecision
-import com.infosung.atomic.contract.exception.HttpStatusException
 import org.slf4j.LoggerFactory
 
 internal class CheckAppVersionService(
@@ -36,10 +37,9 @@ internal class CheckAppVersionService(
                   normalizedService,
                   normalizedPlatform,
               )
-              throw HttpStatusException(
-                  status = 404,
-                  message =
-                      "No service version policy found for service=$normalizedService, platform=$normalizedPlatform",
+              throw VersionPolicyNotFoundException(
+                  service = normalizedService,
+                  platform = normalizedPlatform,
               )
             }
 
@@ -116,15 +116,12 @@ internal class CheckAppVersionService(
     val segments = version.trim().split('.')
     if (segments.size != 3) {
       log.warn("Invalid app version format in use-case (semantic required): appVersion={}", version)
-      throw HttpStatusException(status = 400, message = "Version must be semantic format: x.y.z")
+      throw InvalidAppVersionException("Version must be semantic format: x.y.z")
     }
     val numbers =
         segments.map {
           it.toIntOrNull()
-              ?: throw HttpStatusException(
-                      status = 400,
-                      message = "Version segment must be numeric: $version",
-                  )
+              ?: throw InvalidAppVersionException("Version segment must be numeric: $version")
                   .also {
                     log.warn(
                         "Invalid app version segment in use-case (numeric required): appVersion={}",
@@ -135,10 +132,7 @@ internal class CheckAppVersionService(
     if (numbers.any { it < 0 }) {
       log.warn(
           "Invalid app version value in use-case (non-negative required): appVersion={}", version)
-      throw HttpStatusException(
-          status = 400,
-          message = "Version must not contain negative numbers.",
-      )
+      throw InvalidAppVersionException("Version must not contain negative numbers.")
     }
     return SemanticVersion(
         major = numbers[0],

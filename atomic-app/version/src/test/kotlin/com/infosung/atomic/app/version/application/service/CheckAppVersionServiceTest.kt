@@ -1,9 +1,10 @@
 package com.infosung.atomic.app.version.application.service
 
+import com.infosung.atomic.app.version.application.exception.InvalidAppVersionException
+import com.infosung.atomic.app.version.application.exception.VersionPolicyNotFoundException
 import com.infosung.atomic.app.version.application.port.out.LoadVersionPolicyPort
 import com.infosung.atomic.app.version.domain.SemanticVersion
 import com.infosung.atomic.app.version.domain.VersionPolicy
-import com.infosung.atomic.contract.exception.HttpStatusException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -176,7 +177,7 @@ class CheckAppVersionServiceTest {
         )
 
     val error =
-        assertFailsWith<HttpStatusException> {
+        assertFailsWith<InvalidAppVersionException> {
           service.check(
               service = "my_service",
               platform = "android",
@@ -184,7 +185,6 @@ class CheckAppVersionServiceTest {
           )
         }
 
-    assertEquals(400, error.status)
     assertEquals("Version must be semantic format: x.y.z", error.message)
   }
 
@@ -197,7 +197,7 @@ class CheckAppVersionServiceTest {
         )
 
     val error =
-        assertFailsWith<HttpStatusException> {
+        assertFailsWith<VersionPolicyNotFoundException> {
           service.check(
               service = "my_service",
               platform = "android",
@@ -205,7 +205,10 @@ class CheckAppVersionServiceTest {
           )
         }
 
-    assertEquals(404, error.status)
+    assertEquals(
+        "No service version policy found for service=MY_SERVICE, platform=ANDROID",
+        error.message,
+    )
   }
 
   private fun versionPolicy(

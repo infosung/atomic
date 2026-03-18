@@ -1,5 +1,9 @@
 package com.infosung.atomic.app.version
 
+import com.infosung.atomic.app.version.application.exception.InvalidAppVersionException
+import com.infosung.atomic.app.version.application.exception.VersionPolicyNotFoundException
+import com.infosung.atomic.app.version.application.port.`in`.CheckAppVersionUseCase
+import com.infosung.atomic.app.version.domain.VersionCheckDecision
 import com.infosung.atomic.contract.exception.HttpStatusException
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -15,6 +19,65 @@ import org.mockito.Mockito.`when`
 import org.springframework.data.domain.PageRequest
 
 class AppVersionCheckServiceTest {
+  @Test
+  fun `checkVersion should translate injected invalid app version exception into 400`() {
+    val repository = mock(ServiceVersionRepository::class.java)
+    val service =
+        AppVersionCheckService(
+            serviceVersionRepository = repository,
+            defaultStoreUrl = "https://default.store",
+            checkAppVersionUseCase =
+                FakeCheckAppVersionUseCase { _, _, _ ->
+                  throw InvalidAppVersionException("Version must be semantic format: x.y.z")
+                },
+        )
+
+    val error =
+        assertFailsWith<HttpStatusException> {
+          service.checkVersion(
+              VersionCheckRequest(
+                  service = "my_service",
+                  platform = "android",
+                  appVersion = "1.2",
+              ),
+          )
+        }
+
+    assertEquals(400, error.status)
+    assertEquals("Version must be semantic format: x.y.z", error.message)
+  }
+
+  @Test
+  fun `checkVersion should translate injected version policy not found exception into 404`() {
+    val repository = mock(ServiceVersionRepository::class.java)
+    val service =
+        AppVersionCheckService(
+            serviceVersionRepository = repository,
+            defaultStoreUrl = "https://default.store",
+            checkAppVersionUseCase =
+                FakeCheckAppVersionUseCase { _, _, _ ->
+                  throw VersionPolicyNotFoundException("MY_SERVICE", "ANDROID")
+                },
+        )
+
+    val error =
+        assertFailsWith<HttpStatusException> {
+          service.checkVersion(
+              VersionCheckRequest(
+                  service = "my_service",
+                  platform = "android",
+                  appVersion = "1.2.3",
+              ),
+          )
+        }
+
+    assertEquals(404, error.status)
+    assertEquals(
+        "No service version policy found for service=MY_SERVICE, platform=ANDROID",
+        error.message,
+    )
+  }
+
   @Test
   fun `checkVersion should resolve targeted repository lookups without loading all policy rows`() {
     val repository = mock(ServiceVersionRepository::class.java)
@@ -473,5 +536,9 @@ class AppVersionCheckServiceTest {
             storeUrl = storeUrl,
         )
         .also { it.storeAvailable = storeAvailable }
+  }
+
+  private fun interface FakeCheckAppVersionUseCase : CheckAppVersionUseCase {
+    override fun check(service: String, platform: String, appVersion: String): VersionCheckDecision
   }
 }

@@ -1,6 +1,8 @@
 package com.infosung.atomic.app.version
 
 import com.infosung.atomic.app.version.adapter.out.persistence.JpaLoadVersionPolicyAdapter
+import com.infosung.atomic.app.version.application.exception.InvalidAppVersionException
+import com.infosung.atomic.app.version.application.exception.VersionPolicyNotFoundException
 import com.infosung.atomic.app.version.application.port.`in`.CheckAppVersionUseCase
 import com.infosung.atomic.app.version.application.service.CheckAppVersionService
 import com.infosung.atomic.contract.exception.HttpStatusException
@@ -58,11 +60,39 @@ class AppVersionCheckService(
         request.appVersion,
     )
     val decision =
-        checkAppVersionUseCase.check(
-            service = request.service,
-            platform = request.platform,
-            appVersion = request.appVersion,
-        )
+        try {
+          checkAppVersionUseCase.check(
+              service = request.service,
+              platform = request.platform,
+              appVersion = request.appVersion,
+          )
+        } catch (e: InvalidAppVersionException) {
+          log.warn(
+              "Translating application invalid-version error at facade boundary: service={}, platform={}, appVersion={}, message={}",
+              request.service,
+              request.platform,
+              request.appVersion,
+              e.message,
+          )
+          throw HttpStatusException(
+              status = 400,
+              message = e.message ?: "Invalid app version.",
+              cause = e,
+          )
+        } catch (e: VersionPolicyNotFoundException) {
+          log.warn(
+              "Translating application policy-not-found error at facade boundary: service={}, platform={}, appVersion={}, message={}",
+              request.service,
+              request.platform,
+              request.appVersion,
+              e.message,
+          )
+          throw HttpStatusException(
+              status = 404,
+              message = e.message ?: "No version policy found.",
+              cause = e,
+          )
+        }
     log.debug(
         "App version facade completed: service={}, platform={}, currentVersion={}, requiredUpdate={}",
         request.service,

@@ -92,6 +92,7 @@ Notes:
 - if you register review builds or phased-rollout target versions before they are broadly downloadable,
   keep those rows as `store_available=false` so the version API does not advertise them as current
   store targets too early.
+- if no matched policy row contributes a non-blank `store_url`, the API falls back to `atomic.app.version.default-store-url` (default `https://www.infosung.com`). Override that default before QA if it is not your actual store destination.
 - keep one row per `(service, platform, main_version, minor_version, patch_number)` semantic version;
   duplicate version-policy rows are not a valid `v0.0.3` schema state.
 
@@ -151,6 +152,8 @@ atomic:
 Notes:
 - `allowed-redirect-uri-prefixes` is required when `atomic.app.oauth.redirect.enabled=true`.
 - `atomic.app.oauth.redirect.enabled=true` also requires both `OauthServiceProvider` and a store-backed `OauthStateManager`. The easiest path is `atomic-starter` plus `atomic-spring-oauth2` with both `atomic.oauth2.state.signing-secret` and `atomic.oauth2.state.in-memory-store.enabled=true`.
+- This module ends at relay handoff. Your app must still expose a login/session endpoint that consumes `relayCode` and issues your own cookie/JWT/session.
+- For mobile and desktop, prefer launching the provider flow in the system browser or a system-browser-based tab (`Custom Tabs`, `SFSafariViewController`, default desktop browser), then return to the app with an allowlisted deep link/app link. Treat embedded webviews as an exception path you review explicitly with the provider and cookie/state policy.
 - malformed `allowed-redirect-uri-prefixes` entries fail startup, not first request.
 - mobile/custom-scheme deep links are supported, but allowlist matching still uses `scheme + host + port + path-prefix`.
   - `myapp://oauth` allows `myapp://oauth/callback`
@@ -164,6 +167,7 @@ Notes:
 - If Spring Security is enabled, explicitly configure `permitAll` for redirect/callback endpoints and CSRF policy for Apple `POST` callback path.
 - startup now logs an oauth redirect deployment summary (`relayStoreType`, `relayStoreFailFast`, `callbackBindingMode`, `replayProtectionEnabled`, `stateStoreType`).
   - if you see warnings about `process-local per instance`, `callback binding mode is disabled`, or in-memory state replay protection, treat that configuration as local-only or intentionally single-node.
+- the startup summary is operational signal, not noise. If it says `process-local per instance`, the current relay/state path is not safe for multi-instance semantics.
 
 Preset shortcut:
 - `local-development`
@@ -188,7 +192,7 @@ Preset shortcut:
 |---|---|
 | `A. version-only` | On `GET /api/v1/version/check`, confirm headers (`X-Service-Name`, `X-Platform`, `X-App-Version`) are present and `service_version` table/rows are ready |
 | `B. image API` | Confirm `POST /api/v1/storage/image/{service}/{storageService}` is not `404`, storage backend key (`S3`, etc.) matches request path values, thumbnail behavior matches `atomic.app.image.thumbnail-enabled` / request `thumbnailEnabled`, and your team knows that failed DELETE can leave retryable `DELETE_PENDING` metadata |
-| `C. oauth redirect relay API` | Confirm `GET /oauth/redirect/google?redirectUri=...` returns redirect, and provider console redirect URI exactly matches `https://{host}/oauth/callback/google` |
+| `C. oauth redirect relay API` | Confirm `GET /oauth/redirect/google?redirectUri=...` returns redirect, provider console redirect URI exactly matches `https://{host}/oauth/callback/google`, your login API can consume `relayCode`, and expired/replayed `relayCode` is rejected as expected |
 
 Common failure causes:
 - Missing module dependencies while `enabled=true`
