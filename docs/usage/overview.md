@@ -137,6 +137,12 @@ dependencies {
 Use this matrix as the shortest handoff summary for app-module adoption. If a row introduces
 infrastructure your team does not want to own yet, stay on the narrower feature set.
 
+OAuth redirect handoff summary:
+
+- web: browser -> server callback -> allowlisted `https://...` frontend redirect with `relayCode`
+- mobile: system browser or browser-based tab -> server callback -> allowlisted app link / deep link with `relayCode`
+- desktop: system browser -> server callback -> allowlisted loopback URI or custom scheme with `relayCode`
+
 ## 6. Configuration Policy
 
 - `atomic.starter` activates only when corresponding module classes are on classpath.
