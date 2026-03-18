@@ -129,6 +129,7 @@ dependencies {
 
 - Version API host customization should continue to target the exported `AppVersionCheckService` bean. Internal `application`, `domain`, and `adapter` packages are layered implementation detail, not a supported extension contract.
 - OAuth redirect stops at relayCode handoff. Your app still owns the login/session exchange after `AppOauthRelayCodeService.consumeRelayCode(relayCode)` succeeds.
+- Internally the module is layered as application use-cases plus outbound adapters, but the supported host override seam remains the exported `AppOauthRedirectService` bean.
 
 ## Reference application.yml (feature template)
 
@@ -464,6 +465,7 @@ OAuth relay option (without token in callback query):
   - mobile: system browser / Custom Tabs / SFSafariViewController -> server callback -> allowlisted deep link or app link such as `myapp://oauth/...?...relayCode=...`
   - desktop: system browser -> server callback -> allowlisted loopback URI (`http://127.0.0.1:{port}/...`) or desktop custom scheme
   - desktop loopback support assumes a fixed, pre-allowlisted listener port in this line; random ephemeral callback ports are not matched by the current allowlist policy
+  - `redirectTargetType` logging is URI-shape based, so verified app/universal links that still use `https://...` are logged in the same `WEB` bucket as ordinary web redirects
 - concrete relay consumption pattern:
   - web frontend receives `relayCode` and posts it to your backend login API
   - mobile/desktop client receives `relayCode` through deep link, app link, loopback, or custom scheme and posts it to your backend login API

@@ -22,6 +22,7 @@ import com.infosung.atomic.oauth.state.InMemoryOauthStateStore
 import com.infosung.atomic.oauth.state.OauthStateManager
 import java.util.concurrent.Callable
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
@@ -148,6 +149,56 @@ class AtomicAppOauthRedirectAutoConfigurationContextTest {
           assertNotNull(context.getBean(AppOauthRedirectService::class.java))
           assertNotNull(context.getBean(AppOauthRedirectController::class.java))
           assertNotNull(context.getBean(AppOauthRedirectHttpExceptionHandler::class.java))
+        }
+  }
+
+  @Test
+  fun `custom oauth redirect facade bean should suppress default facade bean and still register controller`() {
+    contextRunner
+        .withPropertyValues(
+            "atomic.app.oauth.redirect.enabled=true",
+            "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes=https://app.example.com/oauth",
+            "atomic.app.oauth.redirect.store.type=in-memory",
+        )
+        .withBean(
+            OauthServiceProvider::class.java,
+            { OauthServiceProvider(listOf(TestOauthProvider())) },
+        )
+        .withBean(
+            OauthStateManager::class.java,
+            {
+              OauthStateManager(
+                  signingSecret = "0123456789abcdef0123456789abcdef",
+                  store = InMemoryOauthStateStore(),
+              )
+            },
+        )
+        .withBean(
+            AppOauthRedirectService::class.java,
+            {
+              AppOauthRedirectService(
+                  oauthServiceProvider = OauthServiceProvider(listOf(TestOauthProvider())),
+                  oauthStateManager =
+                      OauthStateManager(
+                          signingSecret = "0123456789abcdef0123456789abcdef",
+                          store = InMemoryOauthStateStore(),
+                      ),
+                  relayCodeService =
+                      AppOauthRelayCodeService(
+                          relayCodeStore = InMemoryOauthRelayCodeStore(),
+                          properties = AtomicAppOauthRedirectProperties(),
+                      ),
+                  properties =
+                      AtomicAppOauthRedirectProperties().apply {
+                        allowedRedirectUriPrefixes = listOf("https://app.example.com/oauth")
+                      },
+              )
+            },
+        )
+        .run { context ->
+          assertTrue(context.startupFailure == null)
+          assertEquals(1, context.getBeansOfType(AppOauthRedirectService::class.java).size)
+          assertEquals(1, context.getBeansOfType(AppOauthRedirectController::class.java).size)
         }
   }
 

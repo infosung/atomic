@@ -341,6 +341,8 @@ Behavior:
 - frontend sends `relayCode` to your login API.
 - login API consumes relay payload using `AppOauthRelayCodeService.consumeRelayCode(relayCode)`.
 - the relay module stops at this handoff; your app still issues its own session/JWT/cookie after relay consumption.
+- internal implementation is organized as application ports/use-cases plus outbound adapters, but the compatibility-stable host override surface remains `AppOauthRedirectService`.
+- internal port/use-case beans may appear in the Spring context, but they are implementation details; the supported host customization seam is still the exported `AppOauthRedirectService` bean.
 - browser initiation is the intended model for non-web clients too: mobile and desktop apps should normally start the provider flow in the system browser or a system-browser-based tab, let the server receive the provider callback, and then return to an allowlisted app URI with `relayCode`.
 - redirect endpoint input `redirectUri` must be an absolute URI and must not include user-info.
 - callback binding validates redirect/callback continuity using one-time state attribute + cookie token.
@@ -361,6 +363,8 @@ Supported client handoff patterns:
 | Web | browser | `https://frontend.example.com/oauth/...` | final browser redirect stays on the web origin |
 | Mobile | system browser / Custom Tabs / SFSafariViewController | `myapp://oauth/...` or `myapp:/oauth/...` or verified app/universal link | exact emitted URI shape must be allowlisted |
 | Desktop | system browser | `http://127.0.0.1:{port}/oauth/...` or desktop custom scheme | loopback host/port/path prefix must be allowlisted exactly; use a fixed pre-allowlisted port in this line |
+
+- `redirectTargetType` logging is URI-shape based, not OS-intent aware. Non-loopback `https://...` targets, including verified app/universal links, are logged as `WEB` because they remain HTTPS redirects at the library boundary.
 
 Concrete relayCode consume flows:
 

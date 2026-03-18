@@ -158,6 +158,7 @@ Notes:
   - web: `https://frontend.example.com/...`
   - mobile: deep link/app link such as `myapp://oauth/...` or `myapp:/oauth/...`
   - desktop: loopback URI such as `http://127.0.0.1:49152/oauth/...` or a desktop custom scheme
+- `redirectTargetType` in logs is URI-shape based. Verified app/universal links that still use `https://...` remain in the same `WEB` bucket as normal web redirects.
 - malformed `allowed-redirect-uri-prefixes` entries fail startup, not first request.
 - mobile/custom-scheme deep links are supported, but allowlist matching still uses `scheme + host + port + path-prefix`.
   - `myapp://oauth` allows `myapp://oauth/callback`

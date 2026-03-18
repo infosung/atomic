@@ -635,6 +635,70 @@ class AppOauthRedirectControllerHttpContractTest {
     assertTrue(response.getHeader(HttpHeaders.SET_COOKIE) == null)
   }
 
+  @Test
+  fun `apple post callback should support mobile deep link handoff with relayCode`() {
+    val properties =
+        configuredProperties().apply {
+          callbackBinding.enabled = false
+          allowedRedirectUriPrefixes = listOf("myapp://oauth")
+        }
+    val stateManager = stateManager()
+    val controller =
+        newController(
+            properties = properties,
+            providers = listOf(ContractOauthProvider(providerName = OauthProviderName.APPLE)),
+            stateManager = stateManager,
+        )
+    val mockMvc = newMockMvc(controller = controller, properties = properties)
+    val state =
+        stateManager.issueState(
+            provider = OauthProviderName.APPLE,
+            redirectUri = "myapp://oauth/callback",
+        )
+
+    mockMvc
+        .perform(
+            post("/oauth/callback/apple")
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .param("state", state)
+                .param("id_token", "id-token"),
+        )
+        .andExpect(status().isFound)
+        .andExpect(redirectedUrlPattern("myapp://oauth/callback?relayCode=*"))
+  }
+
+  @Test
+  fun `apple post callback should support desktop loopback handoff with relayCode`() {
+    val properties =
+        configuredProperties().apply {
+          callbackBinding.enabled = false
+          allowedRedirectUriPrefixes = listOf("http://127.0.0.1:49152/oauth")
+        }
+    val stateManager = stateManager()
+    val controller =
+        newController(
+            properties = properties,
+            providers = listOf(ContractOauthProvider(providerName = OauthProviderName.APPLE)),
+            stateManager = stateManager,
+        )
+    val mockMvc = newMockMvc(controller = controller, properties = properties)
+    val state =
+        stateManager.issueState(
+            provider = OauthProviderName.APPLE,
+            redirectUri = "http://127.0.0.1:49152/oauth/callback",
+        )
+
+    mockMvc
+        .perform(
+            post("/oauth/callback/apple")
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .param("state", state)
+                .param("id_token", "id-token"),
+        )
+        .andExpect(status().isFound)
+        .andExpect(redirectedUrlPattern("http://127.0.0.1:49152/oauth/callback?relayCode=*"))
+  }
+
   private fun configuredProperties(): AtomicAppOauthRedirectProperties {
     return AtomicAppOauthRedirectProperties().apply {
       allowedRedirectUriPrefixes = listOf("https://app.example.com/oauth")

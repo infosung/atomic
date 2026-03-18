@@ -9,6 +9,20 @@ import com.infosung.atomic.app.oauth.CacheOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.EntityOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.InMemoryOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.OauthRelayCodeStore
+import com.infosung.atomic.app.oauth.adapter.out.oauth.OauthServiceProviderAdapter
+import com.infosung.atomic.app.oauth.adapter.out.redirect.AllowedRedirectUriPortAdapter
+import com.infosung.atomic.app.oauth.adapter.out.relay.AppOauthRelayCodePortAdapter
+import com.infosung.atomic.app.oauth.adapter.out.state.OauthStateManagerAdapter
+import com.infosung.atomic.app.oauth.application.port.`in`.BuildAppleCallbackRedirectUseCase
+import com.infosung.atomic.app.oauth.application.port.`in`.BuildAuthorizationRedirectUseCase
+import com.infosung.atomic.app.oauth.application.port.`in`.BuildOauthCallbackRedirectUseCase
+import com.infosung.atomic.app.oauth.application.port.out.IssueOauthRelayCodePort
+import com.infosung.atomic.app.oauth.application.port.out.OauthProviderOperationsPort
+import com.infosung.atomic.app.oauth.application.port.out.ValidateOauthRedirectUriPort
+import com.infosung.atomic.app.oauth.application.port.out.VerifyOauthStatePort
+import com.infosung.atomic.app.oauth.application.service.BuildAppleCallbackRedirectService
+import com.infosung.atomic.app.oauth.application.service.BuildAuthorizationRedirectService
+import com.infosung.atomic.app.oauth.application.service.BuildOauthCallbackRedirectService
 import com.infosung.atomic.contract.time.TimeProvider
 import com.infosung.atomic.oauth.api.OauthServiceProvider
 import com.infosung.atomic.oauth.state.InMemoryOauthStateStore
@@ -207,17 +221,114 @@ class AtomicAppOauthRedirectAutoConfiguration {
   @Bean
   @ConditionalOnMissingBean
   @ConditionalOnBean(OauthServiceProvider::class, OauthStateManager::class)
-  fun appOauthRedirectService(
+  internal fun oauthProviderOperationsPort(
+      oauthServiceProvider: OauthServiceProvider,
+  ): OauthProviderOperationsPort {
+    return OauthServiceProviderAdapter(oauthServiceProvider)
+  }
+
+  @Bean
+  @ConditionalOnMissingBean
+  @ConditionalOnBean(OauthStateManager::class)
+  internal fun verifyOauthStatePort(
+      oauthStateManager: OauthStateManager,
+  ): VerifyOauthStatePort {
+    return OauthStateManagerAdapter(oauthStateManager)
+  }
+
+  @Bean
+  @ConditionalOnMissingBean
+  @ConditionalOnBean(AppOauthRelayCodeService::class)
+  internal fun issueOauthRelayCodePort(
+      appOauthRelayCodeService: AppOauthRelayCodeService,
+  ): IssueOauthRelayCodePort {
+    return AppOauthRelayCodePortAdapter(appOauthRelayCodeService)
+  }
+
+  @Bean
+  @ConditionalOnMissingBean
+  internal fun validateOauthRedirectUriPort(
+      properties: AtomicAppOauthRedirectProperties,
+  ): ValidateOauthRedirectUriPort {
+    return AllowedRedirectUriPortAdapter(properties)
+  }
+
+  @Bean
+  @ConditionalOnMissingBean
+  internal fun buildAuthorizationRedirectUseCase(
+      oauthProviderOperationsPort: OauthProviderOperationsPort,
+      validateOauthRedirectUriPort: ValidateOauthRedirectUriPort,
+      properties: AtomicAppOauthRedirectProperties,
+  ): BuildAuthorizationRedirectUseCase {
+    return BuildAuthorizationRedirectService(
+        oauthProviderOperationsPort = oauthProviderOperationsPort,
+        validateOauthRedirectUriPort = validateOauthRedirectUriPort,
+        callbackBindingEnabled = properties.callbackBinding.isCookieValidationEnabled(),
+        callbackBindingStateAttributeKey = properties.callbackBinding.stateAttributeKey.trim(),
+    )
+  }
+
+  @Bean
+  @ConditionalOnMissingBean
+  internal fun buildOauthCallbackRedirectUseCase(
+      oauthProviderOperationsPort: OauthProviderOperationsPort,
+      verifyOauthStatePort: VerifyOauthStatePort,
+      issueOauthRelayCodePort: IssueOauthRelayCodePort,
+      validateOauthRedirectUriPort: ValidateOauthRedirectUriPort,
+      properties: AtomicAppOauthRedirectProperties,
+  ): BuildOauthCallbackRedirectUseCase {
+    return BuildOauthCallbackRedirectService(
+        oauthProviderOperationsPort = oauthProviderOperationsPort,
+        verifyOauthStatePort = verifyOauthStatePort,
+        issueOauthRelayCodePort = issueOauthRelayCodePort,
+        validateOauthRedirectUriPort = validateOauthRedirectUriPort,
+        callbackBindingEnabled = properties.callbackBinding.isCookieValidationEnabled(),
+        callbackBindingStateAttributeKey = properties.callbackBinding.stateAttributeKey.trim(),
+        relayCodeQueryParameterName = properties.relayCodeQueryParameterName,
+        callbackEndpointPath = properties.callbackEndpointPath,
+    )
+  }
+
+  @Bean
+  @ConditionalOnMissingBean
+  internal fun buildAppleCallbackRedirectUseCase(
+      oauthProviderOperationsPort: OauthProviderOperationsPort,
+      verifyOauthStatePort: VerifyOauthStatePort,
+      issueOauthRelayCodePort: IssueOauthRelayCodePort,
+      validateOauthRedirectUriPort: ValidateOauthRedirectUriPort,
+      properties: AtomicAppOauthRedirectProperties,
+  ): BuildAppleCallbackRedirectUseCase {
+    return BuildAppleCallbackRedirectService(
+        oauthProviderOperationsPort = oauthProviderOperationsPort,
+        verifyOauthStatePort = verifyOauthStatePort,
+        issueOauthRelayCodePort = issueOauthRelayCodePort,
+        validateOauthRedirectUriPort = validateOauthRedirectUriPort,
+        callbackBindingEnabled = properties.callbackBinding.isCookieValidationEnabled(),
+        callbackBindingStateAttributeKey = properties.callbackBinding.stateAttributeKey.trim(),
+        relayCodeQueryParameterName = properties.relayCodeQueryParameterName,
+    )
+  }
+
+  @Bean
+  @ConditionalOnMissingBean
+  @ConditionalOnBean(OauthServiceProvider::class, OauthStateManager::class)
+  internal fun appOauthRedirectService(
       oauthServiceProvider: OauthServiceProvider,
       oauthStateManager: OauthStateManager,
       appOauthRelayCodeService: AppOauthRelayCodeService,
       properties: AtomicAppOauthRedirectProperties,
+      buildAuthorizationRedirectUseCase: BuildAuthorizationRedirectUseCase,
+      buildOauthCallbackRedirectUseCase: BuildOauthCallbackRedirectUseCase,
+      buildAppleCallbackRedirectUseCase: BuildAppleCallbackRedirectUseCase,
   ): AppOauthRedirectService {
     return AppOauthRedirectService(
         oauthServiceProvider = oauthServiceProvider,
         oauthStateManager = oauthStateManager,
         relayCodeService = appOauthRelayCodeService,
         properties = properties,
+        buildAuthorizationRedirectUseCase = buildAuthorizationRedirectUseCase,
+        buildOauthCallbackRedirectUseCase = buildOauthCallbackRedirectUseCase,
+        buildAppleCallbackRedirectUseCase = buildAppleCallbackRedirectUseCase,
     )
   }
 
