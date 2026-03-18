@@ -54,27 +54,12 @@ internal class CheckAppVersionService(
               )
             }
 
-    val userVersionPolicy =
-        loadVersionPolicyPort.loadExact(
-            service = normalizedService,
-            platform = normalizedPlatform,
-            version = parsedVersion,
-        )
-    if (userVersionPolicy == null) {
-      log.info(
-          "Client version is not explicitly registered in use-case; continuing semantic evaluation: service={}, platform={}, appVersion={}",
-          normalizedService,
-          normalizedPlatform,
-          appVersion,
-      )
-    } else {
-      log.debug(
-          "Loaded exact client version policy in use-case: service={}, platform={}, userVersion={}",
-          normalizedService,
-          normalizedPlatform,
-          userVersionPolicy.version,
-      )
-    }
+    log.debug(
+        "Using semantic client version directly in use-case without exact persistence lookup: service={}, platform={}, userVersion={}",
+        normalizedService,
+        normalizedPlatform,
+        parsedVersion,
+    )
 
     val requiredTarget =
         loadVersionPolicyPort.loadRequiredUpdateTargetAbove(
@@ -98,7 +83,7 @@ internal class CheckAppVersionService(
         normalizedService,
         normalizedPlatform,
         current.version,
-        userVersionPolicy?.version ?: parsedVersion,
+        parsedVersion,
         requiredTarget != null,
         if (requiredTarget?.storeUrl?.isNotBlank() == true) "policy" else "default",
         resolvedStoreUrl.length,
@@ -106,7 +91,7 @@ internal class CheckAppVersionService(
 
     return VersionCheckDecision(
         currentVersion = current.version.toString(),
-        userVersion = (userVersionPolicy?.version ?: parsedVersion).toString(),
+        userVersion = parsedVersion.toString(),
         requiredUpdate = requiredTarget != null,
         storeUrl = resolvedStoreUrl,
     )

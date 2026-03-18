@@ -464,6 +464,10 @@ OAuth relay option (without token in callback query):
   - mobile: system browser / Custom Tabs / SFSafariViewController -> server callback -> allowlisted deep link or app link such as `myapp://oauth/...?...relayCode=...`
   - desktop: system browser -> server callback -> allowlisted loopback URI (`http://127.0.0.1:{port}/...`) or desktop custom scheme
   - desktop loopback support assumes a fixed, pre-allowlisted listener port in this line; random ephemeral callback ports are not matched by the current allowlist policy
+- concrete relay consumption pattern:
+  - web frontend receives `relayCode` and posts it to your backend login API
+  - mobile/desktop client receives `relayCode` through deep link, app link, loopback, or custom scheme and posts it to your backend login API
+  - backend calls `AppOauthRelayCodeService.consumeRelayCode(relayCode)` and then issues your own session/JWT/cookie
 - redirect endpoint input `redirectUri` must be an absolute URI and must not include user-info.
 - `allowed-redirect-uri-prefixes` is required when redirect API is enabled.
   - matching uses scheme/host/port/path-prefix boundary (not raw string startsWith).

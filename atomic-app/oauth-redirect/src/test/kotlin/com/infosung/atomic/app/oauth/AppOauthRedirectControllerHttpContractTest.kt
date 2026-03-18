@@ -239,6 +239,173 @@ class AppOauthRedirectControllerHttpContractTest {
   }
 
   @Test
+  fun `redirect endpoint should return provider redirect and callback-binding cookie for mobile deep link`() {
+    val properties =
+        configuredProperties().apply { allowedRedirectUriPrefixes = listOf("myapp://oauth") }
+    val provider = ContractOauthProvider(providerName = OauthProviderName.GOOGLE)
+    val controller = newController(properties = properties, providers = listOf(provider))
+    val mockMvc = newMockMvc(controller = controller, properties = properties)
+
+    val response =
+        mockMvc
+            .perform(
+                get("/oauth/redirect/google").param("redirectUri", "myapp://oauth/callback"),
+            )
+            .andExpect(status().isFound)
+            .andExpect(redirectedUrl("https://provider.example.com/auth"))
+            .andReturn()
+            .response
+
+    val setCookie = assertNotNull(response.getHeader(HttpHeaders.SET_COOKIE))
+    assertTrue(setCookie.contains("${properties.callbackBinding.cookieName}="))
+  }
+
+  @Test
+  fun `callback should clear callback-binding cookie after successful mobile deep link callback`() {
+    val properties =
+        configuredProperties().apply { allowedRedirectUriPrefixes = listOf("myapp://oauth") }
+    val provider = ContractOauthProvider(providerName = OauthProviderName.GOOGLE)
+    val stateManager = stateManager()
+    val controller =
+        newController(
+            properties = properties,
+            providers = listOf(provider),
+            stateManager = stateManager,
+        )
+    val mockMvc = newMockMvc(controller = controller, properties = properties)
+    val state =
+        stateManager.issueState(
+            provider = OauthProviderName.GOOGLE,
+            redirectUri = "myapp://oauth/callback",
+            attributes =
+                mapOf(
+                    properties.callbackBinding.stateAttributeKey to "callback-binding-token-app",
+                ),
+        )
+
+    val response =
+        mockMvc
+            .perform(
+                get("/oauth/callback/google")
+                    .param("code", "code-123")
+                    .param("state", state)
+                    .cookie(
+                        jakarta.servlet.http.Cookie(
+                            properties.callbackBinding.cookieName,
+                            "callback-binding-token-app",
+                        ),
+                    ),
+            )
+            .andExpect(status().isFound)
+            .andExpect(redirectedUrlPattern("myapp://oauth/callback?relayCode=*"))
+            .andReturn()
+            .response
+
+    val clearedCookie = assertNotNull(response.getHeader(HttpHeaders.SET_COOKIE))
+    assertTrue(clearedCookie.contains("${properties.callbackBinding.cookieName}="))
+    assertTrue(clearedCookie.contains("Max-Age=0"))
+  }
+
+  @Test
+  fun `callback should preserve callback-binding cookie after mobile deep link success in relaxed mode`() {
+    val properties =
+        configuredProperties().apply {
+          allowedRedirectUriPrefixes = listOf("myapp://oauth")
+          callbackBinding.mode = AtomicAppOauthRedirectProperties.CallbackBindingMode.RELAXED
+        }
+    val provider = ContractOauthProvider(providerName = OauthProviderName.GOOGLE)
+    val stateManager = stateManager()
+    val controller =
+        newController(
+            properties = properties,
+            providers = listOf(provider),
+            stateManager = stateManager,
+        )
+    val mockMvc = newMockMvc(controller = controller, properties = properties)
+    val state =
+        stateManager.issueState(
+            provider = OauthProviderName.GOOGLE,
+            redirectUri = "myapp://oauth/callback",
+            attributes =
+                mapOf(
+                    properties.callbackBinding.stateAttributeKey to
+                        "callback-binding-token-app-relaxed",
+                ),
+        )
+
+    val response =
+        mockMvc
+            .perform(
+                get("/oauth/callback/google")
+                    .param("code", "code-123")
+                    .param("state", state)
+                    .cookie(
+                        jakarta.servlet.http.Cookie(
+                            properties.callbackBinding.cookieName,
+                            "callback-binding-token-app-relaxed",
+                        ),
+                    ),
+            )
+            .andExpect(status().isFound)
+            .andExpect(redirectedUrlPattern("myapp://oauth/callback?relayCode=*"))
+            .andReturn()
+            .response
+
+    assertTrue(response.getHeader(HttpHeaders.SET_COOKIE) == null)
+  }
+
+  @Test
+  fun `callback should clear callback-binding cookie after successful desktop loopback callback`() {
+    val properties =
+        configuredProperties().apply {
+          allowedRedirectUriPrefixes = listOf("http://127.0.0.1:49152/oauth")
+        }
+    val provider = ContractOauthProvider(providerName = OauthProviderName.GOOGLE)
+    val stateManager = stateManager()
+    val controller =
+        newController(
+            properties = properties,
+            providers = listOf(provider),
+            stateManager = stateManager,
+        )
+    val mockMvc = newMockMvc(controller = controller, properties = properties)
+    val state =
+        stateManager.issueState(
+            provider = OauthProviderName.GOOGLE,
+            redirectUri = "http://127.0.0.1:49152/oauth/callback",
+            attributes =
+                mapOf(
+                    properties.callbackBinding.stateAttributeKey to
+                        "callback-binding-token-loopback",
+                ),
+        )
+
+    val response =
+        mockMvc
+            .perform(
+                get("/oauth/callback/google")
+                    .param("code", "code-123")
+                    .param("state", state)
+                    .cookie(
+                        jakarta.servlet.http.Cookie(
+                            properties.callbackBinding.cookieName,
+                            "callback-binding-token-loopback",
+                        ),
+                    ),
+            )
+            .andExpect(status().isFound)
+            .andExpect(
+                redirectedUrlPattern("http://127.0.0.1:49152/oauth/callback?relayCode=*"),
+            )
+            .andReturn()
+            .response
+
+    val clearedCookie = assertNotNull(response.getHeader(HttpHeaders.SET_COOKIE))
+    assertTrue(clearedCookie.contains("${properties.callbackBinding.cookieName}="))
+    assertTrue(clearedCookie.contains("Max-Age=0"))
+  }
+
+  @Test
   fun `callback should preserve callback-binding cookie after success in relaxed mode`() {
     val properties =
         configuredProperties().apply {

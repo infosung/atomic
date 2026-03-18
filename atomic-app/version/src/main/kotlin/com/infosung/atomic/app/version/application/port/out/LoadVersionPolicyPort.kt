@@ -8,12 +8,6 @@ internal interface LoadVersionPolicyPort {
 
   fun loadLatestStoreAvailable(service: String, platform: String): VersionPolicy?
 
-  fun loadExact(
-      service: String,
-      platform: String,
-      version: SemanticVersion,
-  ): VersionPolicy?
-
   fun loadRequiredUpdateTargetAbove(
       service: String,
       platform: String,

@@ -5,7 +5,6 @@ import com.infosung.atomic.app.version.ServiceVersionRepository
 import com.infosung.atomic.app.version.domain.SemanticVersion
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
@@ -90,32 +89,6 @@ class JpaLoadVersionPolicyAdapterTest {
             3,
             PageRequest.of(0, 1),
         )
-  }
-
-  @Test
-  fun `loadExact should return null when repository row is absent`() {
-    val repository = mock(ServiceVersionRepository::class.java)
-    val adapter = JpaLoadVersionPolicyAdapter(repository)
-    val version = SemanticVersion(major = 1, minor = 2, patch = 3)
-    `when`(
-            repository.findFirstByServiceAndPlatformAndMainVersionAndMinorVersionAndPatchNumber(
-                "MY_SERVICE",
-                "ANDROID",
-                1,
-                2,
-                3,
-            ),
-        )
-        .thenReturn(null)
-
-    val result =
-        adapter.loadExact(
-            service = "MY_SERVICE",
-            platform = "ANDROID",
-            version = version,
-        )
-
-    assertNull(result)
   }
 
   private fun entity(

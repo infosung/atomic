@@ -99,16 +99,6 @@ class AppVersionCheckServiceTest {
         )
         .thenReturn(version(main = 2, minor = 0, patch = 0, requireUpdate = false))
     `when`(
-            repository.findFirstByServiceAndPlatformAndMainVersionAndMinorVersionAndPatchNumber(
-                "MY_SERVICE",
-                "ANDROID",
-                1,
-                2,
-                3,
-            ),
-        )
-        .thenReturn(version(main = 1, minor = 2, patch = 3, requireUpdate = false))
-    `when`(
             repository.findRequiredUpdateTargetsHigherThan(
                 "MY_SERVICE",
                 "ANDROID",
@@ -153,14 +143,6 @@ class AppVersionCheckServiceTest {
             "ANDROID",
         )
     verify(repository, times(1))
-        .findFirstByServiceAndPlatformAndMainVersionAndMinorVersionAndPatchNumber(
-            "MY_SERVICE",
-            "ANDROID",
-            1,
-            2,
-            3,
-        )
-    verify(repository, times(1))
         .findRequiredUpdateTargetsHigherThan(
             "MY_SERVICE",
             "ANDROID",
@@ -168,6 +150,14 @@ class AppVersionCheckServiceTest {
             2,
             3,
             PageRequest.of(0, 1),
+        )
+    verify(repository, never())
+        .findFirstByServiceAndPlatformAndMainVersionAndMinorVersionAndPatchNumber(
+            "MY_SERVICE",
+            "ANDROID",
+            1,
+            2,
+            3,
         )
     verify(repository, never())
         .findAllByServiceAndPlatformOrderByMainVersionDescMinorVersionDescPatchNumberDesc(
@@ -197,16 +187,6 @@ class AppVersionCheckServiceTest {
                 ),
         )
         .thenReturn(version(main = 1, minor = 2, patch = 4, requireUpdate = true, storeUrl = " "))
-    `when`(
-            repository.findFirstByServiceAndPlatformAndMainVersionAndMinorVersionAndPatchNumber(
-                "MY_SERVICE",
-                "ANDROID",
-                1,
-                2,
-                3,
-            ),
-        )
-        .thenReturn(version(main = 1, minor = 2, patch = 3, requireUpdate = false))
     `when`(
             repository.findRequiredUpdateTargetsHigherThan(
                 "MY_SERVICE",
@@ -254,16 +234,6 @@ class AppVersionCheckServiceTest {
                     "MY_SERVICE",
                     "ANDROID",
                 ),
-        )
-        .thenReturn(version(main = 1, minor = 2, patch = 3, requireUpdate = false))
-    `when`(
-            repository.findFirstByServiceAndPlatformAndMainVersionAndMinorVersionAndPatchNumber(
-                "MY_SERVICE",
-                "ANDROID",
-                1,
-                2,
-                3,
-            ),
         )
         .thenReturn(version(main = 1, minor = 2, patch = 3, requireUpdate = false))
     `when`(
@@ -339,16 +309,6 @@ class AppVersionCheckServiceTest {
         )
         .thenReturn(version(main = 2, minor = 0, patch = 0, requireUpdate = false))
     `when`(
-            repository.findFirstByServiceAndPlatformAndMainVersionAndMinorVersionAndPatchNumber(
-                "MY_SERVICE",
-                "ANDROID",
-                1,
-                2,
-                3,
-            ),
-        )
-        .thenReturn(null)
-    `when`(
             repository.findRequiredUpdateTargetsHigherThan(
                 "MY_SERVICE",
                 "ANDROID",
@@ -406,16 +366,6 @@ class AppVersionCheckServiceTest {
         )
         .thenReturn(version(main = 1, minor = 2, patch = 5, requireUpdate = false))
     `when`(
-            repository.findFirstByServiceAndPlatformAndMainVersionAndMinorVersionAndPatchNumber(
-                "MY_SERVICE",
-                "ANDROID",
-                1,
-                2,
-                6,
-            ),
-        )
-        .thenReturn(null)
-    `when`(
             repository.findRequiredUpdateTargetsHigherThan(
                 "MY_SERVICE",
                 "ANDROID",
@@ -463,16 +413,6 @@ class AppVersionCheckServiceTest {
                 ),
         )
         .thenReturn(version(main = 2, minor = 0, patch = 0, requireUpdate = false))
-    `when`(
-            repository.findFirstByServiceAndPlatformAndMainVersionAndMinorVersionAndPatchNumber(
-                "MY_SERVICE",
-                "ANDROID",
-                1,
-                2,
-                3,
-            ),
-        )
-        .thenReturn(version(main = 1, minor = 2, patch = 3, requireUpdate = false))
     `when`(
             repository.findRequiredUpdateTargetsHigherThan(
                 "MY_SERVICE",

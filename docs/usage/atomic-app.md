@@ -362,6 +362,38 @@ Supported client handoff patterns:
 | Mobile | system browser / Custom Tabs / SFSafariViewController | `myapp://oauth/...` or `myapp:/oauth/...` or verified app/universal link | exact emitted URI shape must be allowlisted |
 | Desktop | system browser | `http://127.0.0.1:{port}/oauth/...` or desktop custom scheme | loopback host/port/path prefix must be allowlisted exactly; use a fixed pre-allowlisted port in this line |
 
+Concrete relayCode consume flows:
+
+- Web
+  - browser opens `GET /oauth/redirect/google?redirectUri=https://frontend.example.com/oauth/callback`
+  - provider returns to `GET /oauth/callback/google?...`
+  - server redirects browser to `https://frontend.example.com/oauth/callback?relayCode=...`
+  - frontend posts that `relayCode` to your login API
+  - login API calls `AppOauthRelayCodeService.consumeRelayCode(relayCode)` and then issues your own session/JWT/cookie
+- Mobile
+  - app starts provider flow in the system browser or browser-based tab
+  - provider returns to the same server callback path
+  - server redirects to an allowlisted app URI such as `myapp://oauth/callback?relayCode=...`
+  - app extracts `relayCode` from the deep link or app link and sends it to your backend login API
+  - backend consumes the relay payload and completes account linking or session issuance
+- Desktop
+  - app starts a fixed loopback listener or custom-scheme handler before opening the system browser
+  - provider returns to the server callback path
+  - server redirects to the allowlisted desktop URI such as `http://127.0.0.1:49152/oauth/callback?relayCode=...`
+  - desktop app receives `relayCode` locally and sends it to your backend login API
+  - backend consumes the relay payload and returns the app-specific login/session result
+
+Minimal backend consume example:
+
+```kotlin
+@PostMapping("/api/login/oauth/relay")
+fun loginWithRelayCode(@RequestBody request: RelayLoginRequest): SessionResponse {
+  val payload = appOauthRelayCodeService.consumeRelayCode(request.relayCode)
+  val principal = accountService.resolveOrCreateFromOauth(payload)
+  return sessionService.issueSession(principal)
+}
+```
+
 Relay payload:
 
 - provider name
