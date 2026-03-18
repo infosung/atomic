@@ -20,8 +20,6 @@ class CheckAppVersionServiceTest {
                 versionPolicy(main = 2, minor = 1, patch = 0, storeAvailable = false),
             latestStoreAvailable =
                 versionPolicy(main = 2, minor = 0, patch = 0, storeAvailable = true),
-            exactClientVersion =
-                versionPolicy(main = 1, minor = 2, patch = 3, storeAvailable = true),
         )
     val service =
         CheckAppVersionService(
@@ -50,8 +48,6 @@ class CheckAppVersionServiceTest {
         FakeLoadVersionPolicyPort(
             latestRegistered = latestRegistered,
             latestStoreAvailable = null,
-            exactClientVersion =
-                versionPolicy(main = 1, minor = 9, patch = 9, storeAvailable = false),
         )
     val service =
         CheckAppVersionService(
@@ -77,8 +73,6 @@ class CheckAppVersionServiceTest {
             latestRegistered = versionPolicy(main = 2, minor = 0, patch = 0, storeAvailable = true),
             latestStoreAvailable =
                 versionPolicy(main = 2, minor = 0, patch = 0, storeAvailable = true),
-            exactClientVersion =
-                versionPolicy(main = 1, minor = 2, patch = 3, storeAvailable = true),
             requiredUpdateTarget =
                 versionPolicy(
                     main = 1,
@@ -113,8 +107,6 @@ class CheckAppVersionServiceTest {
             latestRegistered = versionPolicy(main = 2, minor = 0, patch = 0, storeAvailable = true),
             latestStoreAvailable =
                 versionPolicy(main = 2, minor = 0, patch = 0, storeAvailable = true),
-            exactClientVersion =
-                versionPolicy(main = 1, minor = 2, patch = 3, storeAvailable = true),
             requiredUpdateTarget =
                 versionPolicy(
                     main = 1,
@@ -149,7 +141,6 @@ class CheckAppVersionServiceTest {
             latestRegistered = versionPolicy(main = 2, minor = 0, patch = 0, storeAvailable = true),
             latestStoreAvailable =
                 versionPolicy(main = 2, minor = 0, patch = 0, storeAvailable = true),
-            exactClientVersion = null,
         )
     val service =
         CheckAppVersionService(
@@ -232,7 +223,6 @@ class CheckAppVersionServiceTest {
   private class FakeLoadVersionPolicyPort(
       private val latestRegistered: VersionPolicy? = null,
       private val latestStoreAvailable: VersionPolicy? = null,
-      private val exactClientVersion: VersionPolicy? = null,
       private val requiredUpdateTarget: VersionPolicy? = null,
   ) : LoadVersionPolicyPort {
     override fun loadLatestRegistered(service: String, platform: String): VersionPolicy? =
@@ -240,12 +230,6 @@ class CheckAppVersionServiceTest {
 
     override fun loadLatestStoreAvailable(service: String, platform: String): VersionPolicy? =
         latestStoreAvailable
-
-    override fun loadExact(
-        service: String,
-        platform: String,
-        version: SemanticVersion,
-    ): VersionPolicy? = exactClientVersion
 
     override fun loadRequiredUpdateTargetAbove(
         service: String,

@@ -40,28 +40,6 @@ internal class JpaLoadVersionPolicyAdapter(
         ?.let(ServiceVersionPersistenceMapper::toDomain)
   }
 
-  override fun loadExact(
-      service: String,
-      platform: String,
-      version: SemanticVersion,
-  ): VersionPolicy? {
-    log.debug(
-        "Loading exact client version policy from persistence: service={}, platform={}, version={}",
-        service,
-        platform,
-        version,
-    )
-    return serviceVersionRepository
-        .findFirstByServiceAndPlatformAndMainVersionAndMinorVersionAndPatchNumber(
-            service = service,
-            platform = platform,
-            mainVersion = version.major,
-            minorVersion = version.minor,
-            patchNumber = version.patch,
-        )
-        ?.let(ServiceVersionPersistenceMapper::toDomain)
-  }
-
   override fun loadRequiredUpdateTargetAbove(
       service: String,
       platform: String,

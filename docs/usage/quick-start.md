@@ -175,6 +175,31 @@ Notes:
   - if you see warnings about `process-local per instance`, `callback binding mode is disabled`, or in-memory state replay protection, treat that configuration as local-only or intentionally single-node.
 - the startup summary is operational signal, not noise. If it says `process-local per instance`, the current relay/state path is not safe for multi-instance semantics.
 
+RelayCode consume examples:
+- Web
+  - frontend receives `https://frontend.example.com/oauth/callback?relayCode=...`
+  - frontend calls your login API with that `relayCode`
+  - backend consumes relay payload and issues your app session/token
+- Mobile
+  - deep link handler receives `myapp://oauth/callback?relayCode=...`
+  - app sends `relayCode` to your login API
+  - backend consumes relay payload and completes sign-in/linking
+- Desktop
+  - loopback or custom-scheme handler receives `relayCode`
+  - desktop app sends it to your login API
+  - backend consumes relay payload and returns your app login result
+
+Minimal consume endpoint sketch:
+
+```kotlin
+@PostMapping("/api/login/oauth/relay")
+fun loginWithRelayCode(@RequestBody request: RelayLoginRequest): SessionResponse {
+  val payload = appOauthRelayCodeService.consumeRelayCode(request.relayCode)
+  val principal = accountService.resolveOrCreateFromOauth(payload)
+  return sessionService.issueSession(principal)
+}
+```
+
 Preset shortcut:
 - `local-development`
   - `atomic.oauth2.state.in-memory-store.enabled=true`
