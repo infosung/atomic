@@ -20,11 +20,15 @@ class AppVersionCheckService(
     private val defaultStoreUrl: String,
 ) {
   private val log = LoggerFactory.getLogger(this::class.java)
-  private var checkAppVersionUseCase: CheckAppVersionUseCase =
-      defaultUseCase(
-          serviceVersionRepository = serviceVersionRepository,
-          defaultStoreUrl = defaultStoreUrl,
-      )
+  private var injectedCheckAppVersionUseCase: CheckAppVersionUseCase? = null
+  private val defaultCheckAppVersionUseCase: CheckAppVersionUseCase by lazy {
+    defaultUseCase(
+        serviceVersionRepository = serviceVersionRepository,
+        defaultStoreUrl = defaultStoreUrl,
+    )
+  }
+  private val checkAppVersionUseCase: CheckAppVersionUseCase
+    get() = injectedCheckAppVersionUseCase ?: defaultCheckAppVersionUseCase
 
   init {
     log.debug(
@@ -39,9 +43,11 @@ class AppVersionCheckService(
       defaultStoreUrl: String,
       checkAppVersionUseCase: CheckAppVersionUseCase,
   ) : this(serviceVersionRepository, defaultStoreUrl) {
-    this.checkAppVersionUseCase = checkAppVersionUseCase
+    this.injectedCheckAppVersionUseCase = checkAppVersionUseCase
     log.debug(
-        "Replaced app version facade use-case with injected composition: useCaseType={}",
+        "Configured app version facade with injected use-case composition: repositoryType={}, defaultStoreUrlLength={}, useCaseType={}",
+        serviceVersionRepository::class.java.name,
+        defaultStoreUrl.length,
         checkAppVersionUseCase::class.java.name,
     )
   }
