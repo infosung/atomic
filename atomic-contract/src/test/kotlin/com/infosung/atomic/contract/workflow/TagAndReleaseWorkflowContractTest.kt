@@ -4,10 +4,14 @@ import kotlin.test.Test
 import kotlin.test.assertTrue
 
 class TagAndReleaseWorkflowContractTest {
+  private companion object {
+    val workflow by lazy {
+      WorkflowContractFixtures.readWorkflow(".github/workflows/tag-and-release.yml")
+    }
+  }
+
   @Test
   fun `tag and release workflow should keep semver and duplicate tag guards`() {
-    val workflow = WorkflowContractFixtures.readWorkflow(".github/workflows/tag-and-release.yml")
-
     assertTrue(workflow.contains("workflow_dispatch:"), "manual trigger must remain")
     assertTrue(
         workflow.contains("workflow_dispatch must run on refs/heads/main"),
@@ -29,8 +33,6 @@ class TagAndReleaseWorkflowContractTest {
 
   @Test
   fun `tag and release workflow should keep tag push and release creation flow`() {
-    val workflow = WorkflowContractFixtures.readWorkflow(".github/workflows/tag-and-release.yml")
-
     assertTrue(workflow.contains("git tag"), "release workflow should create the git tag")
     assertTrue(workflow.contains("git push origin"), "release workflow should push the release tag")
     assertTrue(

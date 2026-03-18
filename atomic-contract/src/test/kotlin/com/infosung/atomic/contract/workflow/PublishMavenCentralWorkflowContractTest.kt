@@ -5,10 +5,14 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class PublishMavenCentralWorkflowContractTest {
+  private companion object {
+    val workflow by lazy {
+      WorkflowContractFixtures.readWorkflow(".github/workflows/publish-maven-central.yml")
+    }
+  }
+
   @Test
   fun `publish workflow should publish modules sequentially instead of matrix fanout`() {
-    val workflow = publishWorkflow()
-
     assertFalse(workflow.contains("matrix:"), "publish workflow should not use matrix fanout")
     assertFalse(
         workflow.contains("\${{ matrix.module }}"),
@@ -26,7 +30,6 @@ class PublishMavenCentralWorkflowContractTest {
 
   @Test
   fun `publish workflow should keep exact module list in release order`() {
-    val workflow = publishWorkflow()
     val expectedModules =
         listOf(
             "atomic-contract",
@@ -42,7 +45,7 @@ class PublishMavenCentralWorkflowContractTest {
             "atomic-app:storage-api",
             "atomic-app",
         )
-    val modulesBlock = workflow.substringAfter("MODULES=(").substringBefore("\n          )")
+    val modulesBlock = workflow.substringAfter("MODULES=(").substringBefore(")")
     val actualModules =
         modulesBlock.lineSequence().map { it.trim() }.filter { it.isNotBlank() }.toList()
 
@@ -54,8 +57,6 @@ class PublishMavenCentralWorkflowContractTest {
 
   @Test
   fun `publish workflow should keep release context guards for workflow run and manual rerun`() {
-    val workflow = publishWorkflow()
-
     assertTrue(workflow.contains("workflow_run:"), "workflow_run trigger must remain")
     assertTrue(workflow.contains("workflow_dispatch:"), "workflow_dispatch trigger must remain")
     assertTrue(
@@ -90,16 +91,10 @@ class PublishMavenCentralWorkflowContractTest {
 
   @Test
   fun `publish workflow should serialize publish execution per release tag`() {
-    val workflow = publishWorkflow()
-
     assertTrue(workflow.contains("concurrency:"), "publish workflow should define concurrency")
     assertTrue(
         workflow.contains("maven-central-"),
         "publish workflow should serialize publish jobs per release tag",
     )
-  }
-
-  private fun publishWorkflow(): String {
-    return WorkflowContractFixtures.readWorkflow(".github/workflows/publish-maven-central.yml")
   }
 }
