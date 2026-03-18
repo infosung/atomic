@@ -128,6 +128,46 @@ class AppVersionCheckServiceContainerTest {
     assertEquals("https://default.store", reviewerResult.storeUrl)
   }
 
+  @Test
+  fun `checkVersion should choose highest required-update target when multiple higher rows exist`() {
+    val service =
+        AppVersionCheckService(serviceVersionRepository, defaultStoreUrl = "https://default.store")
+    serviceVersionRepository.saveAll(
+        listOf(
+            policy(main = 2, minor = 0, patch = 0, requireUpdate = false, storeAvailable = true),
+            policy(
+                main = 1,
+                minor = 3,
+                patch = 0,
+                requireUpdate = true,
+                storeUrl = "https://force.update/highest",
+                storeAvailable = true,
+            ),
+            policy(
+                main = 1,
+                minor = 2,
+                patch = 4,
+                requireUpdate = true,
+                storeUrl = "https://force.update/lower",
+                storeAvailable = true,
+            ),
+            policy(main = 1, minor = 2, patch = 3, requireUpdate = false, storeAvailable = true),
+        ),
+    )
+
+    val result =
+        service.checkVersion(
+            VersionCheckRequest(
+                service = "MY_SERVICE",
+                platform = "ANDROID",
+                appVersion = "1.2.3",
+            ),
+        )
+
+    assertTrue(result.requiredUpdate)
+    assertEquals("https://force.update/highest", result.storeUrl)
+  }
+
   private fun policy(
       main: Int,
       minor: Int,

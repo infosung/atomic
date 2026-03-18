@@ -4,11 +4,18 @@ import com.infosung.atomic.app.version.AppVersionCheckService
 import com.infosung.atomic.app.version.AppVersionController
 import com.infosung.atomic.app.version.AppVersionHttpExceptionHandler
 import com.infosung.atomic.app.version.ServiceVersionRepository
+import com.infosung.atomic.app.version.adapter.out.persistence.JpaLoadVersionPolicyAdapter
+import com.infosung.atomic.app.version.application.port.`in`.CheckAppVersionUseCase
+import com.infosung.atomic.app.version.application.port.out.LoadVersionPolicyPort
+import com.infosung.atomic.app.version.application.service.CheckAppVersionService
+import java.lang.reflect.Method
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import org.mockito.Mockito.mock
 import org.springframework.boot.autoconfigure.AutoConfigurations
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.jdbc.core.JdbcTemplate
 
@@ -27,7 +34,7 @@ class AtomicAppVersionAutoConfigurationContractTest {
   }
 
   @Test
-  fun `auto configuration factory methods should create service and controller when dependencies exist`() {
+  fun `auto configuration factory methods should create port use-case and facade when dependencies exist`() {
     val autoConfiguration = AtomicAppVersionAutoConfiguration()
     val repository = mock(ServiceVersionRepository::class.java)
     val properties =
@@ -36,10 +43,16 @@ class AtomicAppVersionAutoConfigurationContractTest {
           defaultStoreUrl = "https://env.example.com/store"
         }
 
-    val service = autoConfiguration.appVersionCheckService(repository, properties)
+    val loadPort = autoConfiguration.loadVersionPolicyPort(repository)
+    val useCase = autoConfiguration.checkAppVersionUseCase(loadPort, properties)
+    val service = autoConfiguration.appVersionCheckService(repository, properties, useCase)
     val controller = autoConfiguration.appVersionController(service)
     val handler = autoConfiguration.appVersionHttpExceptionHandler()
 
+    assertIs<LoadVersionPolicyPort>(loadPort)
+    assertIs<JpaLoadVersionPolicyAdapter>(loadPort)
+    assertIs<CheckAppVersionUseCase>(useCase)
+    assertIs<CheckAppVersionService>(useCase)
     assertIs<AppVersionCheckService>(service)
     assertIs<AppVersionController>(controller)
     assertIs<AppVersionHttpExceptionHandler>(handler)
@@ -53,5 +66,29 @@ class AtomicAppVersionAutoConfigurationContractTest {
         autoConfiguration.appVersionSchemaUpgradePreflight(mock(JdbcTemplate::class.java))
 
     assertIs<AppVersionSchemaUpgradePreflight>(preflight)
+  }
+
+  @Test
+  fun `auto configuration should keep app version service override guard on exported bean`() {
+    val beanMethod =
+        AtomicAppVersionAutoConfiguration::class
+            .java
+            .declaredMethods
+            .single(::isAppVersionServiceBeanMethod)
+
+    assertTrue(beanMethod.isAnnotationPresent(ConditionalOnMissingBean::class.java))
+    assertEquals(AppVersionCheckService::class.java, beanMethod.returnType)
+  }
+
+  private fun isAppVersionServiceBeanMethod(method: Method): Boolean {
+    return method.name.startsWith("appVersionCheckService") &&
+        method.returnType == AppVersionCheckService::class.java &&
+        method.parameterTypes.contentEquals(
+            arrayOf(
+                ServiceVersionRepository::class.java,
+                AtomicAppVersionProperties::class.java,
+                CheckAppVersionUseCase::class.java,
+            ),
+        )
   }
 }

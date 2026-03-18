@@ -5,6 +5,10 @@ import com.infosung.atomic.app.version.AppVersionController
 import com.infosung.atomic.app.version.AppVersionHttpExceptionHandler
 import com.infosung.atomic.app.version.ServiceVersionEntity
 import com.infosung.atomic.app.version.ServiceVersionRepository
+import com.infosung.atomic.app.version.adapter.out.persistence.JpaLoadVersionPolicyAdapter
+import com.infosung.atomic.app.version.application.port.`in`.CheckAppVersionUseCase
+import com.infosung.atomic.app.version.application.port.out.LoadVersionPolicyPort
+import com.infosung.atomic.app.version.application.service.CheckAppVersionService
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -36,13 +40,35 @@ import org.springframework.jdbc.core.JdbcTemplate
 class AtomicAppVersionAutoConfiguration {
   @Bean
   @ConditionalOnMissingBean
-  fun appVersionCheckService(
+  internal fun loadVersionPolicyPort(
+      serviceVersionRepository: ServiceVersionRepository,
+  ): LoadVersionPolicyPort {
+    return JpaLoadVersionPolicyAdapter(serviceVersionRepository = serviceVersionRepository)
+  }
+
+  @Bean
+  @ConditionalOnMissingBean
+  internal fun checkAppVersionUseCase(
+      loadVersionPolicyPort: LoadVersionPolicyPort,
+      properties: AtomicAppVersionProperties,
+  ): CheckAppVersionUseCase {
+    return CheckAppVersionService(
+        loadVersionPolicyPort = loadVersionPolicyPort,
+        defaultStoreUrl = properties.defaultStoreUrl,
+    )
+  }
+
+  @Bean
+  @ConditionalOnMissingBean
+  internal fun appVersionCheckService(
       serviceVersionRepository: ServiceVersionRepository,
       properties: AtomicAppVersionProperties,
+      checkAppVersionUseCase: CheckAppVersionUseCase,
   ): AppVersionCheckService {
     return AppVersionCheckService(
         serviceVersionRepository = serviceVersionRepository,
         defaultStoreUrl = properties.defaultStoreUrl,
+        checkAppVersionUseCase = checkAppVersionUseCase,
     )
   }
 

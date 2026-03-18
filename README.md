@@ -116,14 +116,19 @@ dependencies {
 |---|---|---|---|
 | Contract utilities (`TimeProvider`, `TraceIdGenerator`) | `atomic.contract` (starter optional) | none | In starter-based flow these are auto-configured; for direct usage, `atomic.contract` alone is enough |
 | Storage (`storageClients`, `storageProfiles`, `ImageService`) | `atomic.starter` + `atomic.storage` | `atomic.storage.enabled=true` (default); configure at least one enabled `atomic.storage.backends.*` entry before storage API traffic | none |
-| Common version check API (`GET /api/v1/version/check`) | `atomic.app.version` (+ datasource/JPA) or convenience bundle `atomic.app` | `atomic.app.version.enabled=true` | `service_version` table schema and version policy data (`store_available` defaults to `true`; set it to `false` for review/pre-rollout rows that must not become force-update targets yet) |
-| Common image upload/delete API (`POST/DELETE /api/v1/storage/image/{service}/{storageService}`) | `atomic.app.storage.api` + `atomic.starter` + `atomic.storage` + storage backend config, or convenience bundle `atomic.app` | `atomic.app.image.enabled=true`, `atomic.storage.enabled=true` (+ optional uploader tracking config) | `image` table schema |
-| Common OAuth redirect/callback relay API (`/oauth/redirect/{provider}`, `/oauth/callback/{provider}`, `POST /oauth/callback/apple`) | `atomic.app.oauth.redirect` + `atomic.starter` + `atomic.spring.oauth2`, or convenience bundle `atomic.app` | `atomic.app.oauth.redirect.enabled=true`, oauth state/provider properties | login API that consumes relayCode |
+| Common version check API (`GET /api/v1/version/check`) | `atomic.app.version` (+ datasource/JPA) or convenience bundle `atomic.app` with the same datasource/JPA prerequisites | `atomic.app.version.enabled=true` | `service_version` table schema and version policy data (`store_available` defaults to `true`; set it to `false` for review/pre-rollout rows that must not become force-update targets yet) |
+| Common image upload/delete API (`POST/DELETE /api/v1/storage/image/{service}/{storageService}`) | `atomic.app.storage.api` + `atomic.starter` + `atomic.storage` + storage backend config, or convenience bundle `atomic.app` with the same storage prerequisites | `atomic.app.image.enabled=true`, `atomic.storage.enabled=true` (+ optional uploader tracking config) | `image` table schema |
+| Common OAuth redirect/callback relay API (`/oauth/redirect/{provider}`, `/oauth/callback/{provider}`, `POST /oauth/callback/apple`) | `atomic.app.oauth.redirect` + `atomic.starter` + `atomic.spring.oauth2`, or convenience bundle `atomic.app` with the same starter/oauth2/store prerequisites | `atomic.app.oauth.redirect.enabled=true`, non-empty `allowed-redirect-uri-prefixes`, oauth state/provider properties, and selected relay-store prerequisites | login API that consumes relayCode and establishes app session/token |
 | Web logging/json/rate-limit helpers | `atomic.starter` + `atomic.spring.web` | `atomic.web.enabled=true` (default), `atomic.web.logging.enabled=true` (default), `atomic.web.rate-limit.enabled=false` (default) | for logging/exception mapping: `LogSaver` + `ApiLogAspect` + `BaseExceptionHandler`; for rate-limit only: no mandatory app bean |
 | HTTP idempotency filter | `atomic.starter` + `atomic.spring.idempotency` | `atomic.idempotency.enabled=true` | optional custom `IdempotencyStore`, optional custom `IdempotencyFingerprintResolver` |
 | Security JWT helpers | `atomic.starter` + `atomic.spring.security` | `atomic.security.enabled=true` (default), `atomic.security.jwt.enabled=true` (default), JWT keys | your `SecurityFilterChain` that applies `JwtSecurityConfigurerAdapter` |
 | OAuth provider beans/service | `atomic.starter` + `atomic.spring.oauth2` | `atomic.oauth2.enabled=true` (default), per-provider `enabled=true`, and available `OauthStateManager` (auto path: `state.enabled=true` + `state.signing-secret`; or custom bean) | callback/redirect controller endpoints |
 | Heartbeat ping + dependency checks (`db`, `redis`) | `atomic.starter` + `atomic.heartbeat` | `atomic.heartbeat.enabled=true` | monitor endpoint URL config, optional DataSource/Redis, optional leader dedup backend |
+
+Compatibility notes:
+
+- Version API host customization should continue to target the exported `AppVersionCheckService` bean. Internal `application`, `domain`, and `adapter` packages are layered implementation detail, not a supported extension contract.
+- OAuth redirect stops at relayCode handoff. Your app still owns the login/session exchange after `AppOauthRelayCodeService.consumeRelayCode(relayCode)` succeeds.
 
 ## Reference application.yml (feature template)
 
@@ -154,7 +159,8 @@ atomic:
         relay-code-query-parameter-name: relayCode
         relay-code-ttl-seconds: 300 # must be > 0
         callback-binding:
-          enabled: true
+          enabled: true # legacy compatibility flag; prefer explicit mode below
+          mode: strict # strict, relaxed, disabled
           state-attribute-key: atomicCallbackBinding
           cookie-name: __Host-atomic_oauth_callback_binding
           cookie-same-site: None
@@ -451,6 +457,8 @@ OAuth relay option (without token in callback query):
 - `atomic.app.oauth.redirect.enabled=true` enables redirect/callback endpoints.
 - callback redirects frontend with `relayCode` only (no raw `id_token`/`access_token` in URL).
 - login API consumes relay payload via `AppOauthRelayCodeService.consumeRelayCode(relayCode)`.
+- the relay module does not issue your app session or JWT for you; treat `relayCode` consumption as an input to your own login flow.
+- for mobile/desktop clients, the intended path is system browser login -> server callback -> allowlisted app URI/deep link with `relayCode`.
 - redirect endpoint input `redirectUri` must be an absolute URI and must not include user-info.
 - `allowed-redirect-uri-prefixes` is required when redirect API is enabled.
   - matching uses scheme/host/port/path-prefix boundary (not raw string startsWith).

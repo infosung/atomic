@@ -1,15 +1,50 @@
 package com.infosung.atomic.app.version
 
+import com.infosung.atomic.app.version.adapter.out.persistence.JpaLoadVersionPolicyAdapter
+import com.infosung.atomic.app.version.application.exception.InvalidAppVersionException
+import com.infosung.atomic.app.version.application.exception.VersionPolicyNotFoundException
+import com.infosung.atomic.app.version.application.port.`in`.CheckAppVersionUseCase
+import com.infosung.atomic.app.version.application.service.CheckAppVersionService
 import com.infosung.atomic.contract.exception.HttpStatusException
 import org.slf4j.LoggerFactory
-import org.springframework.data.domain.PageRequest
 
-/** Validates client app version against service/platform version policies. */
+/**
+ * Stable facade for the app-version API.
+ *
+ * The HTTP/property/schema contract is exposed through this type, while the internal decision flow
+ * is delegated to the hexagonal use-case layer. Host applications should keep treating this facade
+ * bean as the supported override point for `0.0.4`.
+ */
 class AppVersionCheckService(
     private val serviceVersionRepository: ServiceVersionRepository,
     private val defaultStoreUrl: String,
 ) {
   private val log = LoggerFactory.getLogger(this::class.java)
+  private var checkAppVersionUseCase: CheckAppVersionUseCase =
+      defaultUseCase(
+          serviceVersionRepository = serviceVersionRepository,
+          defaultStoreUrl = defaultStoreUrl,
+      )
+
+  init {
+    log.debug(
+        "Configured app version facade with default persistence-backed use-case: repositoryType={}, defaultStoreUrlLength={}",
+        serviceVersionRepository::class.java.name,
+        defaultStoreUrl.length,
+    )
+  }
+
+  internal constructor(
+      serviceVersionRepository: ServiceVersionRepository,
+      defaultStoreUrl: String,
+      checkAppVersionUseCase: CheckAppVersionUseCase,
+  ) : this(serviceVersionRepository, defaultStoreUrl) {
+    this.checkAppVersionUseCase = checkAppVersionUseCase
+    log.debug(
+        "Replaced app version facade use-case with injected composition: useCaseType={}",
+        checkAppVersionUseCase::class.java.name,
+    )
+  }
 
   /**
    * Checks version policy and returns update requirement.
@@ -18,184 +53,70 @@ class AppVersionCheckService(
    * @throws HttpStatusException 404 when no version policy exists.
    */
   fun checkVersion(request: VersionCheckRequest): VersionCheckResult {
-    val parsedVersion = parseVersion(request.appVersion)
-    val service = request.service.trim().uppercase()
-    val platform = request.platform.trim().uppercase()
     log.debug(
-        "Checking version policy: service={}, platform={}, appVersion={}",
-        service,
-        platform,
+        "Delegating app version facade to use-case: service={}, platform={}, appVersion={}",
+        request.service,
+        request.platform,
         request.appVersion,
     )
-
-    log.debug("Loading latest version policy row: service={}, platform={}", service, platform)
-    val latestRegistered =
-        serviceVersionRepository
-            .findFirstByServiceAndPlatformOrderByMainVersionDescMinorVersionDescPatchNumberDesc(
-                service,
-                platform,
-            )
-    if (latestRegistered == null) {
-      log.warn("No version policies found: service={}, platform={}", service, platform)
-      throw HttpStatusException(
-          status = 404,
-          message = "No service version policy found for service=$service, platform=$platform",
-      )
-    }
-    val current =
-        serviceVersionRepository
-            .findFirstByServiceAndPlatformAndStoreAvailableTrueOrderByMainVersionDescMinorVersionDescPatchNumberDesc(
-                service,
-                platform,
-            )
-            ?: latestRegistered.also {
-              log.warn(
-                  "No store-available version policy found; falling back to latest registered version: service={}, platform={}, latestRegistered={}.{}.{}",
-                  service,
-                  platform,
-                  latestRegistered.mainVersion,
-                  latestRegistered.minorVersion,
-                  latestRegistered.patchNumber,
-              )
-            }
-    log.debug(
-        "Loaded latest version policy row: service={}, platform={}, currentVersion={}.{}.{}",
-        service,
-        platform,
-        current.mainVersion,
-        current.minorVersion,
-        current.patchNumber,
-    )
-
-    log.debug(
-        "Loading exact client version policy row: service={}, platform={}, clientVersion={}.{}.{}",
-        service,
-        platform,
-        parsedVersion.major,
-        parsedVersion.minor,
-        parsedVersion.patch,
-    )
-    val userVersionPolicy =
-        serviceVersionRepository
-            .findFirstByServiceAndPlatformAndMainVersionAndMinorVersionAndPatchNumber(
-                service = service,
-                platform = platform,
-                mainVersion = parsedVersion.major,
-                minorVersion = parsedVersion.minor,
-                patchNumber = parsedVersion.patch,
-            )
-    if (userVersionPolicy == null) {
-      log.info(
-          "Client version is not explicitly registered; continuing with rollout-safe semantic evaluation: service={}, platform={}, appVersion={}",
-          service,
-          platform,
-          request.appVersion,
-      )
-    } else {
-      log.debug(
-          "Loaded exact client version policy row: service={}, platform={}, userVersion={}.{}.{}",
-          service,
-          platform,
-          userVersionPolicy.mainVersion,
-          userVersionPolicy.minorVersion,
-          userVersionPolicy.patchNumber,
-      )
-    }
-
-    log.debug(
-        "Loading required-update target above client version: service={}, platform={}, clientVersion={}.{}.{}",
-        service,
-        platform,
-        parsedVersion.major,
-        parsedVersion.minor,
-        parsedVersion.patch,
-    )
-    val requiredTarget =
-        serviceVersionRepository
-            .findRequiredUpdateTargetsHigherThan(
-                service = service,
-                platform = platform,
-                mainVersion = parsedVersion.major,
-                minorVersion = parsedVersion.minor,
-                patchNumber = parsedVersion.patch,
-                pageable = PageRequest.of(0, 1),
-            )
-            .firstOrNull()
-
-    log.debug(
-        "Checked app version: service={}, platform={}, userVersion={}, requiredUpdate={}",
-        service,
-        platform,
-        request.appVersion,
-        requiredTarget != null,
-    )
-    if (requiredTarget != null) {
-      log.info(
-          "Required update detected: service={}, platform={}, userVersion={}, targetVersion={}.{}.{}",
-          service,
-          platform,
-          request.appVersion,
-          requiredTarget.mainVersion,
-          requiredTarget.minorVersion,
-          requiredTarget.patchNumber,
-      )
-    }
-
-    val resolvedStoreUrl = requiredTarget?.storeUrl?.takeIf { it.isNotBlank() } ?: defaultStoreUrl
-    log.debug(
-        "Resolved store url for version response: service={}, platform={}, requiredUpdate={}, storeUrlSource={}, storeUrlLength={}",
-        service,
-        platform,
-        requiredTarget != null,
-        if (requiredTarget?.storeUrl?.isNotBlank() == true) "policy" else "default",
-        resolvedStoreUrl.length,
-    )
-
-    return VersionCheckResult(
-        currentVersion = toVersionString(current),
-        userVersion = userVersionPolicy?.let(::toVersionString) ?: toVersionString(parsedVersion),
-        requiredUpdate = requiredTarget != null,
-        storeUrl = resolvedStoreUrl,
-    )
-  }
-
-  private fun parseVersion(version: String): SemanticVersion {
-    val segments = version.trim().split('.')
-    if (segments.size != 3) {
-      log.warn("Invalid app version format (semantic required): appVersion={}", version)
-      throw HttpStatusException(status = 400, message = "Version must be semantic format: x.y.z")
-    }
-    val numbers =
-        segments.map {
-          it.toIntOrNull()
-              ?: throw HttpStatusException(
-                      status = 400,
-                      message = "Version segment must be numeric: $version",
-                  )
-                  .also {
-                    log.warn(
-                        "Invalid app version segment (numeric required): appVersion={}", version)
-                  }
+    val decision =
+        try {
+          checkAppVersionUseCase.check(
+              service = request.service,
+              platform = request.platform,
+              appVersion = request.appVersion,
+          )
+        } catch (e: InvalidAppVersionException) {
+          log.warn(
+              "Translating application invalid-version error at facade boundary: service={}, platform={}, appVersion={}, message={}",
+              request.service,
+              request.platform,
+              request.appVersion,
+              e.message,
+          )
+          throw HttpStatusException(
+              status = 400,
+              message = e.message ?: "Invalid app version.",
+              cause = e,
+          )
+        } catch (e: VersionPolicyNotFoundException) {
+          log.warn(
+              "Translating application policy-not-found error at facade boundary: service={}, platform={}, appVersion={}, message={}",
+              request.service,
+              request.platform,
+              request.appVersion,
+              e.message,
+          )
+          throw HttpStatusException(
+              status = 404,
+              message = e.message ?: "No version policy found.",
+              cause = e,
+          )
         }
-    if (numbers.any { it < 0 }) {
-      log.warn("Invalid app version value (non-negative required): appVersion={}", version)
-      throw HttpStatusException(
-          status = 400, message = "Version must not contain negative numbers.")
+    log.debug(
+        "App version facade completed: service={}, platform={}, currentVersion={}, requiredUpdate={}",
+        request.service,
+        request.platform,
+        decision.currentVersion,
+        decision.requiredUpdate,
+    )
+    return VersionCheckResult(
+        currentVersion = decision.currentVersion,
+        userVersion = decision.userVersion,
+        requiredUpdate = decision.requiredUpdate,
+        storeUrl = decision.storeUrl,
+    )
+  }
+
+  private companion object {
+    fun defaultUseCase(
+        serviceVersionRepository: ServiceVersionRepository,
+        defaultStoreUrl: String,
+    ): CheckAppVersionUseCase {
+      return CheckAppVersionService(
+          loadVersionPolicyPort = JpaLoadVersionPolicyAdapter(serviceVersionRepository),
+          defaultStoreUrl = defaultStoreUrl,
+      )
     }
-    return SemanticVersion(major = numbers[0], minor = numbers[1], patch = numbers[2])
   }
-
-  private fun toVersionString(version: ServiceVersionEntity): String {
-    return "${version.mainVersion}.${version.minorVersion}.${version.patchNumber}"
-  }
-
-  private fun toVersionString(version: SemanticVersion): String {
-    return "${version.major}.${version.minor}.${version.patch}"
-  }
-
-  private data class SemanticVersion(
-      val major: Int,
-      val minor: Int,
-      val patch: Int,
-  )
 }

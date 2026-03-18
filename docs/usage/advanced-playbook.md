@@ -38,9 +38,11 @@ References:
 - [ ] Version API: prepare `service_version` table and policy rows
 - [ ] Version API: keep review/pre-rollout rows with `store_available=false` until they are safe force-update targets
 - [ ] Version API: deduplicate semantic-version rows before applying the official uniqueness guard
+- [ ] Version API: if you override host behavior, keep using the exported `AppVersionCheckService` bean; internal layered packages are not a public extension contract
 - [ ] Image API: prepare `image` table, `storageClients`/`ImageService`, and endpoint security rules
 - [ ] OAuth redirect API: set non-empty `allowed-redirect-uri-prefixes` in every enabled environment, and pin production prefixes to real domains only
 - [ ] OAuth redirect + Spring Security: define `permitAll` for redirect/callback and explicit CSRF policy for Apple `POST` callback
+- [ ] OAuth redirect API: document which login/session endpoint consumes `relayCode`; the library does not complete your app login on its own
 - [ ] Document relay store policy (`entity`/`cache`/`in-memory`) and fail-fast behavior by deployment model
 - [ ] Image API: decide who owns `DELETE_PENDING` recovery, how it is invoked, and what alert threshold is acceptable
 - [ ] Image API: decide whether synchronous request-thread image processing still fits your latency/error budget
@@ -161,6 +163,8 @@ Interpret the startup logs literally:
   - current relay/state path is not multi-instance safe
 - warning contains `callback binding mode is disabled`
   - treat the config as local-only unless you have an explicit exception
+- relay/code handoff still requires your own login/session issuance
+  - `AppOauthRelayCodeService.consumeRelayCode(relayCode)` gives you relay payload, not a completed app session
 
 ## 6) Synchronous Image Processing Envelope
 

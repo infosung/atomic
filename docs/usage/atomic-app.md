@@ -61,7 +61,7 @@ dependencies {
 }
 ```
 
-Recommended narrow-module setup:
+Example narrow-module selection (pick only the APIs you actually use):
 
 ```kotlin
 dependencies {
@@ -71,7 +71,7 @@ dependencies {
 }
 ```
 
-Published-artifact narrow-module setup:
+Published-artifact narrow-module selection:
 
 ```kotlin
 dependencies {
@@ -83,6 +83,7 @@ dependencies {
 
 Note:
 
+- the two snippets above show all narrow modules side by side as a reference map. In real adoption, pick only the APIs your app actually needs.
 - `atomic.app.version` can work with JPA/datasource only.
 - `atomic.app.image` requires storage beans (`ImageService`, `storageClients`) and JPA.
 - if `atomic.app.image.enabled=true` and required image/storage beans are missing, startup can fail (not only API skipped).
@@ -203,6 +204,15 @@ Version API rollout-safe semantics:
 - `currentVersion` prefers the latest `storeAvailable=true` row
 - if no row is marked `storeAvailable=true`, the API falls back to the latest registered row and logs a warning
 - use `storeAvailable=false` for app-review, internal-distribution, or not-yet-downloadable rows
+
+Version API customization note:
+
+- the current development line layers internal version evaluation behind application ports/use-cases
+- application-layer errors are translated back to the documented HTTP contract at the facade/controller boundary
+- the supported host override point remains the exported `AppVersionCheckService` bean
+- internal `application`, `domain`, and `adapter` packages are not a supported public extension contract
+- auto-configuration may wire internal port/use-case beans, but host apps should not treat those beans as compatibility-stable override surface in this line
+- documented `400` / `404` wire semantics remain unchanged for the controller API
 
 ## Image API
 
@@ -330,6 +340,8 @@ Behavior:
 - callback appends only `relayCode` to frontend redirect URI.
 - frontend sends `relayCode` to your login API.
 - login API consumes relay payload using `AppOauthRelayCodeService.consumeRelayCode(relayCode)`.
+- the relay module stops at this handoff; your app still issues its own session/JWT/cookie after relay consumption.
+- browser initiation is the intended model for non-web clients too: mobile and desktop apps should normally start the provider flow in the system browser or a system-browser-based tab, let the server receive the provider callback, and then return to an allowlisted app URI with `relayCode`.
 - redirect endpoint input `redirectUri` must be an absolute URI and must not include user-info.
 - callback binding validates redirect/callback continuity using one-time state attribute + cookie token.
 - callback-binding mode can be selected with `atomic.app.oauth.redirect.callback-binding.mode`:
@@ -365,6 +377,7 @@ OAuth redirect exception semantics:
 - `400` relayCode is invalid/expired/already consumed (on consume API call)
 - callback/state validation errors are wrapped as `HttpStatusException(400)` in app oauth redirect service.
 - upstream provider I/O errors can propagate as `HttpStatusException(500)` from oauth module.
+- errors after `relayCode` consumption belong to your login/session API, not to the redirect/callback relay module.
 - app modules now ship controller-specific `HttpStatusException` mapping, so the documented HTTP status and `BaseResponse.error(...)` envelope are returned by default.
 - if your host app wants a different error envelope, register a higher-precedence `@RestControllerAdvice` to override the built-in handler.
 - empty `allowed-redirect-uri-prefixes` fails startup (fail-fast).
@@ -384,6 +397,7 @@ Security notes:
     - `myapp://oauth` matches `myapp://oauth/callback`
     - `myapp:/oauth` matches `myapp:/oauth/callback`
     - `myapp://oauth/...` and `myapp:/oauth/...` are different contracts because host/port/path matching still applies
+  - for mobile/desktop, prefer system browser handoff plus deep link/app link return instead of embedded webviews unless you intentionally accept that tradeoff
 - Keep callback binding enabled in production; change cookie policy only when your provider callback topology requires it.
 - Callback-binding uses hardened cookie constraints when enabled: `cookie-name` must start with `__Host-`, `cookie-secure=true`, and `cookie-path=/`.
 - default `strict` mode clears the callback-binding cookie after success, so each flow must complete with the cookie issued during redirect.
@@ -435,6 +449,7 @@ Startup summary:
     - only appropriate for local HTTP-only testing or explicitly trusted environments
   - `callback binding mode is relaxed`
     - intentional UX tradeoff; cookie reuse after success remains possible
+- treat the startup summary as deployment signal, not optional noise. It is the fastest way to catch local-only relay/state choices before traffic reaches the callback path.
 
 ## DDL Examples (PostgreSQL)
 
