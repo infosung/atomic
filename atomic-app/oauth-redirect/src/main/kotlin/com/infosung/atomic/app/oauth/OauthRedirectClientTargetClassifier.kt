@@ -14,12 +14,11 @@ internal object OauthRedirectClientTargetClassifier {
     val uri = URI(redirectUri)
     val scheme = uri.scheme?.lowercase(Locale.ROOT).orEmpty()
     val host = uri.host?.lowercase(Locale.ROOT)
-    if ((scheme == "http" || scheme == "https") && (host == "127.0.0.1" || host == "localhost")) {
-      return OauthRedirectClientTarget.LOOPBACK
+    return when {
+      (scheme == "http" || scheme == "https") && (host == "127.0.0.1" || host == "localhost") ->
+          OauthRedirectClientTarget.LOOPBACK
+      scheme != "http" && scheme != "https" -> OauthRedirectClientTarget.APP_LINK
+      else -> OauthRedirectClientTarget.WEB
     }
-    if (scheme != "http" && scheme != "https") {
-      return OauthRedirectClientTarget.APP_LINK
-    }
-    return OauthRedirectClientTarget.WEB
   }
 }

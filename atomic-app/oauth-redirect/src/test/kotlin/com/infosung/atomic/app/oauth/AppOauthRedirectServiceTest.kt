@@ -359,66 +359,24 @@ class AppOauthRedirectServiceTest {
 
   @Test
   fun `buildCallbackRedirectUrl should return mobile deep link redirect with relayCode`() {
-    val oauthServiceProvider = mock(OauthServiceProvider::class.java)
-    val oauthProvider = mock(OauthProvider::class.java)
-    val stateManager = mock(OauthStateManager::class.java)
-    val relayCodeService =
-        AppOauthRelayCodeService(
-            relayCodeStore = InMemoryOauthRelayCodeStore(),
-            properties = AtomicAppOauthRedirectProperties(),
-        )
-    val properties =
-        configuredProperties().apply { allowedRedirectUriPrefixes = listOf("myapp://oauth") }
-    val service =
-        AppOauthRedirectService(
-            oauthServiceProvider = oauthServiceProvider,
-            oauthStateManager = stateManager,
-            relayCodeService = relayCodeService,
-            properties = properties,
-        )
-    val stateJwt =
-        stateJwt(
-            provider = "GOOGLE",
-            redirectUri = "myapp://oauth/callback",
-            callbackBindingKey = properties.callbackBinding.stateAttributeKey,
-            callbackBindingToken = CALLBACK_BINDING_TOKEN,
-        )
-    `when`(oauthServiceProvider.getService("google")).thenReturn(oauthProvider)
-    `when`(oauthProvider.providerName).thenReturn(OauthProviderName.GOOGLE)
-    `when`(
-            stateManager.verifyState(
-                "state-value",
-                OauthProviderName.GOOGLE,
-                null,
-                null,
-            ),
-        )
-        .thenReturn(stateJwt)
-    `when`(
-            oauthProvider.exchangeCode(
-                OauthTokenExchangeRequest(
-                    code = "code-value",
-                    state = "state-value",
-                    additionalParameters = emptyMap(),
-                ),
-            ),
-        )
-        .thenReturn(OauthTokenResult(accessToken = "access-token"))
-
-    val redirectUrl =
-        service.buildCallbackRedirectUrl(
-            provider = "google",
-            code = "code-value",
-            state = "state-value",
-            additionalParameters = emptyMap(),
-            callbackBindingToken = CALLBACK_BINDING_TOKEN,
-        )
-
-    assertTrue(redirectUrl.startsWith("myapp://oauth/callback?relayCode="))
+    assertCallbackRedirectUrlStartsWith(
+        allowedRedirectUriPrefix = "myapp://oauth",
+        redirectUri = "myapp://oauth/callback",
+    )
   }
 
   @Test
   fun `buildCallbackRedirectUrl should return desktop loopback redirect with relayCode`() {
+    assertCallbackRedirectUrlStartsWith(
+        allowedRedirectUriPrefix = "http://127.0.0.1:49152/oauth",
+        redirectUri = "http://127.0.0.1:49152/oauth/callback",
+    )
+  }
+
+  private fun assertCallbackRedirectUrlStartsWith(
+      allowedRedirectUriPrefix: String,
+      redirectUri: String,
+  ) {
     val oauthServiceProvider = mock(OauthServiceProvider::class.java)
     val oauthProvider = mock(OauthProvider::class.java)
     val stateManager = mock(OauthStateManager::class.java)
@@ -429,7 +387,7 @@ class AppOauthRedirectServiceTest {
         )
     val properties =
         configuredProperties().apply {
-          allowedRedirectUriPrefixes = listOf("http://127.0.0.1:49152/oauth")
+          allowedRedirectUriPrefixes = listOf(allowedRedirectUriPrefix)
         }
     val service =
         AppOauthRedirectService(
@@ -441,7 +399,7 @@ class AppOauthRedirectServiceTest {
     val stateJwt =
         stateJwt(
             provider = "GOOGLE",
-            redirectUri = "http://127.0.0.1:49152/oauth/callback",
+            redirectUri = redirectUri,
             callbackBindingKey = properties.callbackBinding.stateAttributeKey,
             callbackBindingToken = CALLBACK_BINDING_TOKEN,
         )
@@ -476,7 +434,7 @@ class AppOauthRedirectServiceTest {
             callbackBindingToken = CALLBACK_BINDING_TOKEN,
         )
 
-    assertTrue(redirectUrl.startsWith("http://127.0.0.1:49152/oauth/callback?relayCode="))
+    assertTrue(redirectUrl.startsWith("$redirectUri?relayCode="))
   }
 
   @Test
