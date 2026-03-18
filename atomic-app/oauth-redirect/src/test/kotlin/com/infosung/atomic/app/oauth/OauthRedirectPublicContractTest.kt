@@ -132,6 +132,20 @@ class OauthRedirectPublicContractTest {
   }
 
   @Test
+  fun `oauth redirect web entry types should remain exported root classes`() {
+    assertTrue(Modifier.isPublic(AppOauthRedirectController::class.java.modifiers))
+    assertTrue(Modifier.isPublic(AppOauthRedirectHttpExceptionHandler::class.java.modifiers))
+    assertEquals(
+        "com.infosung.atomic.app.oauth.AppOauthRedirectController",
+        AppOauthRedirectController::class.java.name,
+    )
+    assertEquals(
+        "com.infosung.atomic.app.oauth.AppOauthRedirectHttpExceptionHandler",
+        AppOauthRedirectHttpExceptionHandler::class.java.name,
+    )
+  }
+
+  @Test
   fun `oauth relay code service public methods should remain stable`() {
     assertEquals(
         listOf(

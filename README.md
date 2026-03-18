@@ -129,7 +129,7 @@ dependencies {
 
 - Version API host customization should continue to target the exported `AppVersionCheckService` bean. Internal `application`, `domain`, and `adapter` packages are layered implementation detail, not a supported extension contract.
 - OAuth redirect stops at relayCode handoff. Your app still owns the login/session exchange after `AppOauthRelayCodeService.consumeRelayCode(relayCode)` succeeds.
-- Internally the module is layered as application use-cases plus outbound adapters, but the supported host override seam remains the exported `AppOauthRedirectService` bean.
+- Internally the module is layered as application use-cases plus outbound adapters plus web adapter support. The supported host override seam remains the exported `AppOauthRedirectService` bean, and the exported `AppOauthRedirectController` / `AppOauthRedirectHttpExceptionHandler` types stay as compatibility wrappers over that web boundary.
 
 ## Reference application.yml (feature template)
 
@@ -550,7 +550,8 @@ Typical override points:
 
 For oauth redirect specifically, treat `AppOauthRedirectService` as the compatibility-stable host
 override seam. Internal oauth port/use-case beans may exist in the context for composition, but
-they are not the supported customization surface.
+host apps should not customize them directly; they are not a supported compatibility-stable
+extension surface in this line.
 
 ## What Was Ambiguous Before (Review Summary)
 

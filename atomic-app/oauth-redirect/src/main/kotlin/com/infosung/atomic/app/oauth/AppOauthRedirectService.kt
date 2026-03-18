@@ -1,16 +1,9 @@
 package com.infosung.atomic.app.oauth
 
-import com.infosung.atomic.app.oauth.adapter.out.oauth.OauthServiceProviderAdapter
-import com.infosung.atomic.app.oauth.adapter.out.redirect.AllowedRedirectUriPortAdapter
-import com.infosung.atomic.app.oauth.adapter.out.relay.AppOauthRelayCodePortAdapter
-import com.infosung.atomic.app.oauth.adapter.out.state.OauthStateManagerAdapter
 import com.infosung.atomic.app.oauth.application.exception.OauthRedirectApplicationException
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildAppleCallbackRedirectUseCase
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildAuthorizationRedirectUseCase
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildOauthCallbackRedirectUseCase
-import com.infosung.atomic.app.oauth.application.service.BuildAppleCallbackRedirectService
-import com.infosung.atomic.app.oauth.application.service.BuildAuthorizationRedirectService
-import com.infosung.atomic.app.oauth.application.service.BuildOauthCallbackRedirectService
 import com.infosung.atomic.app.oauth.autoconfigure.AtomicAppOauthRedirectProperties
 import com.infosung.atomic.contract.exception.HttpStatusException
 import com.infosung.atomic.oauth.api.OauthProviderName
@@ -244,11 +237,9 @@ private constructor(
         oauthServiceProvider: OauthServiceProvider,
         properties: AtomicAppOauthRedirectProperties,
     ): BuildAuthorizationRedirectUseCase {
-      return BuildAuthorizationRedirectService(
-          oauthProviderOperationsPort = OauthServiceProviderAdapter(oauthServiceProvider),
-          validateOauthRedirectUriPort = AllowedRedirectUriPortAdapter(properties),
-          callbackBindingEnabled = properties.callbackBinding.isCookieValidationEnabled(),
-          callbackBindingStateAttributeKey = properties.callbackBinding.stateAttributeKey.trim(),
+      return OauthRedirectComposition.buildAuthorizationRedirectUseCase(
+          oauthServiceProvider = oauthServiceProvider,
+          properties = properties,
       )
     }
 
@@ -258,15 +249,11 @@ private constructor(
         relayCodeService: AppOauthRelayCodeService,
         properties: AtomicAppOauthRedirectProperties,
     ): BuildOauthCallbackRedirectUseCase {
-      return BuildOauthCallbackRedirectService(
-          oauthProviderOperationsPort = OauthServiceProviderAdapter(oauthServiceProvider),
-          verifyOauthStatePort = OauthStateManagerAdapter(oauthStateManager),
-          issueOauthRelayCodePort = AppOauthRelayCodePortAdapter(relayCodeService),
-          validateOauthRedirectUriPort = AllowedRedirectUriPortAdapter(properties),
-          callbackBindingEnabled = properties.callbackBinding.isCookieValidationEnabled(),
-          callbackBindingStateAttributeKey = properties.callbackBinding.stateAttributeKey.trim(),
-          relayCodeQueryParameterName = properties.relayCodeQueryParameterName,
-          callbackEndpointPath = properties.callbackEndpointPath,
+      return OauthRedirectComposition.buildOauthCallbackRedirectUseCase(
+          oauthServiceProvider = oauthServiceProvider,
+          oauthStateManager = oauthStateManager,
+          relayCodeService = relayCodeService,
+          properties = properties,
       )
     }
 
@@ -276,14 +263,11 @@ private constructor(
         relayCodeService: AppOauthRelayCodeService,
         properties: AtomicAppOauthRedirectProperties,
     ): BuildAppleCallbackRedirectUseCase {
-      return BuildAppleCallbackRedirectService(
-          oauthProviderOperationsPort = OauthServiceProviderAdapter(oauthServiceProvider),
-          verifyOauthStatePort = OauthStateManagerAdapter(oauthStateManager),
-          issueOauthRelayCodePort = AppOauthRelayCodePortAdapter(relayCodeService),
-          validateOauthRedirectUriPort = AllowedRedirectUriPortAdapter(properties),
-          callbackBindingEnabled = properties.callbackBinding.isCookieValidationEnabled(),
-          callbackBindingStateAttributeKey = properties.callbackBinding.stateAttributeKey.trim(),
-          relayCodeQueryParameterName = properties.relayCodeQueryParameterName,
+      return OauthRedirectComposition.buildAppleCallbackRedirectUseCase(
+          oauthServiceProvider = oauthServiceProvider,
+          oauthStateManager = oauthStateManager,
+          relayCodeService = relayCodeService,
+          properties = properties,
       )
     }
   }

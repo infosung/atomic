@@ -8,11 +8,8 @@ import com.infosung.atomic.app.oauth.AppOauthRelayCodeService
 import com.infosung.atomic.app.oauth.CacheOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.EntityOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.InMemoryOauthRelayCodeStore
+import com.infosung.atomic.app.oauth.OauthRedirectComposition
 import com.infosung.atomic.app.oauth.OauthRelayCodeStore
-import com.infosung.atomic.app.oauth.adapter.out.oauth.OauthServiceProviderAdapter
-import com.infosung.atomic.app.oauth.adapter.out.redirect.AllowedRedirectUriPortAdapter
-import com.infosung.atomic.app.oauth.adapter.out.relay.AppOauthRelayCodePortAdapter
-import com.infosung.atomic.app.oauth.adapter.out.state.OauthStateManagerAdapter
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildAppleCallbackRedirectUseCase
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildAuthorizationRedirectUseCase
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildOauthCallbackRedirectUseCase
@@ -224,7 +221,7 @@ class AtomicAppOauthRedirectAutoConfiguration {
   internal fun oauthProviderOperationsPort(
       oauthServiceProvider: OauthServiceProvider,
   ): OauthProviderOperationsPort {
-    return OauthServiceProviderAdapter(oauthServiceProvider)
+    return OauthRedirectComposition.oauthProviderOperationsPort(oauthServiceProvider)
   }
 
   @Bean
@@ -233,7 +230,7 @@ class AtomicAppOauthRedirectAutoConfiguration {
   internal fun verifyOauthStatePort(
       oauthStateManager: OauthStateManager,
   ): VerifyOauthStatePort {
-    return OauthStateManagerAdapter(oauthStateManager)
+    return OauthRedirectComposition.verifyOauthStatePort(oauthStateManager)
   }
 
   @Bean
@@ -242,7 +239,7 @@ class AtomicAppOauthRedirectAutoConfiguration {
   internal fun issueOauthRelayCodePort(
       appOauthRelayCodeService: AppOauthRelayCodeService,
   ): IssueOauthRelayCodePort {
-    return AppOauthRelayCodePortAdapter(appOauthRelayCodeService)
+    return OauthRedirectComposition.issueOauthRelayCodePort(appOauthRelayCodeService)
   }
 
   @Bean
@@ -250,7 +247,7 @@ class AtomicAppOauthRedirectAutoConfiguration {
   internal fun validateOauthRedirectUriPort(
       properties: AtomicAppOauthRedirectProperties,
   ): ValidateOauthRedirectUriPort {
-    return AllowedRedirectUriPortAdapter(properties)
+    return OauthRedirectComposition.validateOauthRedirectUriPort(properties)
   }
 
   @Bean
