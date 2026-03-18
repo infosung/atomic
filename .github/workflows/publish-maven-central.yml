@@ -55,6 +55,12 @@ jobs:
 
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             if git ls-remote --exit-code --tags origin "refs/tags/${EXPECTED_TAG}" >/dev/null 2>&1; then
+              CURRENT_HEAD=$(git rev-parse HEAD)
+              TAG_COMMIT=$(git rev-list -n 1 "${EXPECTED_TAG}")
+              if [ "${CURRENT_HEAD}" != "${TAG_COMMIT}" ]; then
+                echo "Manual publish requires HEAD to match ${EXPECTED_TAG}: head=${CURRENT_HEAD}, tag=${TAG_COMMIT}"
+                exit 1
+              fi
               SHOULD_PUBLISH=true
             else
               echo "Tag ${EXPECTED_TAG} not found on origin. Refusing manual publish."
@@ -93,11 +99,12 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: Checkout (default)
-        if: github.event_name != 'workflow_run'
+      - name: Checkout (manual release tag)
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ needs.resolve.outputs.tag }}
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -135,6 +142,13 @@ jobs:
               echo "Tag commit mismatch: ${EXPECTED_TAG} -> ${TAG_COMMIT}, workflow_run head_sha=${SOURCE_SHA}"
               exit 1
             fi
+          else
+            TAG_COMMIT=$(git rev-list -n 1 "${EXPECTED_TAG}")
+            CURRENT_HEAD=$(git rev-parse HEAD)
+            if [ "${TAG_COMMIT}" != "${CURRENT_HEAD}" ]; then
+              echo "Manual publish requires HEAD to match ${EXPECTED_TAG}: head=${CURRENT_HEAD}, tag=${TAG_COMMIT}"
+              exit 1
+            fi
           fi
 
           git fetch origin main
@@ -157,33 +171,24 @@ jobs:
     permissions:
       contents: read
     if: needs.resolve.outputs.should_publish == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        module:
-          - atomic-contract
-          - atomic-storage
-          - atomic-spring-web
-          - atomic-spring-security
-          - atomic-spring-idempotency
-          - atomic-spring-oauth2
-          - atomic-heartbeat
-          - atomic-starter
-          - "atomic-app:app-version"
-          - "atomic-app:oauth-redirect"
-          - "atomic-app:storage-api"
-          - atomic-app
+    concurrency:
+      group: maven-central-${{ needs.resolve.outputs.tag }}
+      cancel-in-progress: false
 
     steps:
       - name: Checkout (workflow_run source SHA)
         if: github.event_name == 'workflow_run'
         uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: Checkout (default)
-        if: github.event_name != 'workflow_run'
+      - name: Checkout (manual release tag)
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.resolve.outputs.tag }}
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -194,8 +199,32 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Publish to Maven Central
-        run: ./gradlew --no-configuration-cache :${{ matrix.module }}:publishAndReleaseToMavenCentral
+      - name: Publish to Maven Central sequentially
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          MODULES=(
+            atomic-contract
+            atomic-storage
+            atomic-spring-web
+            atomic-spring-security
+            atomic-spring-idempotency
+            atomic-spring-oauth2
+            atomic-heartbeat
+            atomic-starter
+            atomic-app:app-version
+            atomic-app:oauth-redirect
+            atomic-app:storage-api
+            atomic-app
+          )
+
+          for MODULE in "${MODULES[@]}"; do
+            echo "::group::Publish ${MODULE}"
+            echo "Publishing module ${MODULE} for release tag ${{ needs.resolve.outputs.tag }}"
+            ./gradlew --no-configuration-cache ":${MODULE}:publishAndReleaseToMavenCentral"
+            echo "::endgroup::"
+          done
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
