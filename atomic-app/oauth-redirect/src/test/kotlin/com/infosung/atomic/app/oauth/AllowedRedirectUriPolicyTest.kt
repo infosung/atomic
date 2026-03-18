@@ -33,6 +33,17 @@ class AllowedRedirectUriPolicyTest {
   }
 
   @Test
+  fun `validateRedirectUri should allow desktop loopback redirect`() {
+    val redirectUri =
+        AllowedRedirectUriPolicy.validateRedirectUri(
+            redirectUri = "http://127.0.0.1:49152/oauth/callback",
+            configuredPrefixes = listOf("http://127.0.0.1:49152/oauth"),
+        )
+
+    assertEquals("http://127.0.0.1:49152/oauth/callback", redirectUri)
+  }
+
+  @Test
   fun `validateRedirectUri should log matched allowlist pattern for accepted redirect`() {
     val logger = LoggerFactory.getLogger(AllowedRedirectUriPolicy::class.java) as Logger
     val originalLevel = logger.level

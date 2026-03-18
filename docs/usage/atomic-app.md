@@ -354,6 +354,14 @@ Behavior:
 - global relay settings (for example `relay-code-ttl-seconds`) are validated regardless of store type.
 - `relay-code-ttl-seconds` must be greater than zero (validated at startup).
 
+Supported client handoff patterns:
+
+| Client type | Recommended launch surface | Typical `redirectUri` shape | Notes |
+|---|---|---|---|
+| Web | browser | `https://frontend.example.com/oauth/...` | final browser redirect stays on the web origin |
+| Mobile | system browser / Custom Tabs / SFSafariViewController | `myapp://oauth/...` or `myapp:/oauth/...` or verified app/universal link | exact emitted URI shape must be allowlisted |
+| Desktop | system browser | `http://127.0.0.1:{port}/oauth/...` or desktop custom scheme | loopback host/port/path prefix must be allowlisted exactly; use a fixed pre-allowlisted port in this line |
+
 Relay payload:
 
 - provider name

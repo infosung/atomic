@@ -125,7 +125,7 @@ dependencies {
 | OAuth provider beans/service | `atomic.starter` + `atomic.spring.oauth2` | `atomic.oauth2.enabled=true` (default), per-provider `enabled=true`, and available `OauthStateManager` (auto path: `state.enabled=true` + `state.signing-secret`; or custom bean) | callback/redirect controller endpoints |
 | Heartbeat ping + dependency checks (`db`, `redis`) | `atomic.starter` + `atomic.heartbeat` | `atomic.heartbeat.enabled=true` | monitor endpoint URL config, optional DataSource/Redis, optional leader dedup backend |
 
-Compatibility notes:
+### Compatibility Notes
 
 - Version API host customization should continue to target the exported `AppVersionCheckService` bean. Internal `application`, `domain`, and `adapter` packages are layered implementation detail, not a supported extension contract.
 - OAuth redirect stops at relayCode handoff. Your app still owns the login/session exchange after `AppOauthRelayCodeService.consumeRelayCode(relayCode)` succeeds.
@@ -459,6 +459,11 @@ OAuth relay option (without token in callback query):
 - login API consumes relay payload via `AppOauthRelayCodeService.consumeRelayCode(relayCode)`.
 - the relay module does not issue your app session or JWT for you; treat `relayCode` consumption as an input to your own login flow.
 - for mobile/desktop clients, the intended path is system browser login -> server callback -> allowlisted app URI/deep link with `relayCode`.
+- supported client handoff patterns:
+  - web: browser -> server callback -> `https://frontend.example.com/...?...relayCode=...`
+  - mobile: system browser / Custom Tabs / SFSafariViewController -> server callback -> allowlisted deep link or app link such as `myapp://oauth/...?...relayCode=...`
+  - desktop: system browser -> server callback -> allowlisted loopback URI (`http://127.0.0.1:{port}/...`) or desktop custom scheme
+  - desktop loopback support assumes a fixed, pre-allowlisted listener port in this line; random ephemeral callback ports are not matched by the current allowlist policy
 - redirect endpoint input `redirectUri` must be an absolute URI and must not include user-info.
 - `allowed-redirect-uri-prefixes` is required when redirect API is enabled.
   - matching uses scheme/host/port/path-prefix boundary (not raw string startsWith).

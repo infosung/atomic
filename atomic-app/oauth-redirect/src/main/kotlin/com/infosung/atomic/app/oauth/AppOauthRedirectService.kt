@@ -41,6 +41,7 @@ class AppOauthRedirectService(
   ): String {
     val oauthProvider = resolveProvider(provider)
     val normalizedRedirectUri = validateRedirectUri(redirectUri)
+    val redirectTargetType = OauthRedirectClientTargetClassifier.classify(normalizedRedirectUri)
     val authorizationUrl =
         oauthProvider.buildAuthorizationUrl(
             OauthAuthorizationRequest(
@@ -54,9 +55,10 @@ class AppOauthRedirectService(
             ),
         )
     log.debug(
-        "Built oauth authorization URL: provider={}, redirectUri={}",
+        "Built oauth authorization URL: provider={}, redirectUri={}, redirectTargetType={}",
         oauthProvider.providerName,
         normalizedRedirectUri,
+        redirectTargetType,
     )
     return authorizationUrl
   }
@@ -111,6 +113,7 @@ class AppOauthRedirectService(
               ),
           )
       val redirectUri = readRedirectUri(stateJwt)
+      val redirectTargetType = OauthRedirectClientTargetClassifier.classify(redirectUri)
       val redirectWithRelay =
           appendQueryParameter(
               url = redirectUri,
@@ -118,9 +121,10 @@ class AppOauthRedirectService(
               value = relayCode,
           )
       log.debug(
-          "OAuth callback processed: provider={}, redirectUri={}, relayCodeLength={}",
+          "OAuth callback processed: provider={}, redirectUri={}, redirectTargetType={}, relayCodeLength={}",
           oauthProvider.providerName,
           redirectUri,
+          redirectTargetType,
           relayCode.length,
       )
       redirectWithRelay
@@ -168,6 +172,7 @@ class AppOauthRedirectService(
               ),
           )
       val redirectUri = readRedirectUri(stateJwt)
+      val redirectTargetType = OauthRedirectClientTargetClassifier.classify(redirectUri)
       val redirectWithRelay =
           appendQueryParameter(
               url = redirectUri,
@@ -175,8 +180,9 @@ class AppOauthRedirectService(
               value = relayCode,
           )
       log.debug(
-          "Apple oauth callback processed: redirectUri={}, relayCodeLength={}",
+          "Apple oauth callback processed: redirectUri={}, redirectTargetType={}, relayCodeLength={}",
           redirectUri,
+          redirectTargetType,
           relayCode.length,
       )
       redirectWithRelay

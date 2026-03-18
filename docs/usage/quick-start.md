@@ -154,11 +154,17 @@ Notes:
 - `atomic.app.oauth.redirect.enabled=true` also requires both `OauthServiceProvider` and a store-backed `OauthStateManager`. The easiest path is `atomic-starter` plus `atomic-spring-oauth2` with both `atomic.oauth2.state.signing-secret` and `atomic.oauth2.state.in-memory-store.enabled=true`.
 - This module ends at relay handoff. Your app must still expose a login/session endpoint that consumes `relayCode` and issues your own cookie/JWT/session.
 - For mobile and desktop, prefer launching the provider flow in the system browser or a system-browser-based tab (`Custom Tabs`, `SFSafariViewController`, default desktop browser), then return to the app with an allowlisted deep link/app link. Treat embedded webviews as an exception path you review explicitly with the provider and cookie/state policy.
+- Supported client handoff patterns:
+  - web: `https://frontend.example.com/...`
+  - mobile: deep link/app link such as `myapp://oauth/...` or `myapp:/oauth/...`
+  - desktop: loopback URI such as `http://127.0.0.1:49152/oauth/...` or a desktop custom scheme
 - malformed `allowed-redirect-uri-prefixes` entries fail startup, not first request.
 - mobile/custom-scheme deep links are supported, but allowlist matching still uses `scheme + host + port + path-prefix`.
   - `myapp://oauth` allows `myapp://oauth/callback`
   - `myapp:/oauth` allows `myapp:/oauth/callback`
   - keep the configured entry in the exact URI shape your client actually emits; `myapp://oauth/...` and `myapp:/oauth/...` do not match each other
+- desktop loopback return is also supported when you explicitly allowlist the exact host/port/path prefix your app listens on
+  - this line assumes a fixed pre-allowlisted loopback port; random ephemeral callback ports are not matched
 - Default callback-binding uses hardened cookie constraints (`cookie-name` with `__Host-` prefix, `cookie-secure=true`, `cookie-path=/`), so local plain HTTP callbacks can fail with `OAuth callback binding cookie is missing.`
   - For local HTTP-only testing, use HTTPS tunneling or set `atomic.app.oauth.redirect.callback-binding.mode=disabled` (legacy `callback-binding.enabled=false` still works).
 - Default callback-binding mode is `strict`, so a successful callback clears the callback-binding cookie and the callback must complete with the cookie minted during redirect.

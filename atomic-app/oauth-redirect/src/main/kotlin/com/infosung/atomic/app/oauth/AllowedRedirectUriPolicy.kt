@@ -63,9 +63,10 @@ internal object AllowedRedirectUriPolicy {
     }
 
     log.debug(
-        "Accepted oauth redirect URI: redirectUri={}, matchedPattern={}, scheme={}, host={}, port={}, path={}",
+        "Accepted oauth redirect URI: redirectUri={}, matchedPattern={}, clientTarget={}, scheme={}, host={}, port={}, path={}",
         normalizedRedirectUri,
         matchedPattern.raw,
+        OauthRedirectClientTargetClassifier.classify(normalizedRedirectUri),
         candidateUri.scheme,
         candidateUri.host,
         effectivePort(candidateUri),

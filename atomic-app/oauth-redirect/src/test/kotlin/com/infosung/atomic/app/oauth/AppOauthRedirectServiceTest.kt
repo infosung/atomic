@@ -14,6 +14,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.never
 import org.mockito.Mockito.verify
@@ -354,6 +355,86 @@ class AppOauthRedirectServiceTest {
     assertEquals("id-token", payload.idToken)
     verify(stateManager).verifyState("state-value", OauthProviderName.GOOGLE, null, null)
     verify(stateManager, never()).readState("state-value", OauthProviderName.GOOGLE, null, null)
+  }
+
+  @Test
+  fun `buildCallbackRedirectUrl should return mobile deep link redirect with relayCode`() {
+    assertCallbackRedirectUrlStartsWith(
+        allowedRedirectUriPrefix = "myapp://oauth",
+        redirectUri = "myapp://oauth/callback",
+    )
+  }
+
+  @Test
+  fun `buildCallbackRedirectUrl should return desktop loopback redirect with relayCode`() {
+    assertCallbackRedirectUrlStartsWith(
+        allowedRedirectUriPrefix = "http://127.0.0.1:49152/oauth",
+        redirectUri = "http://127.0.0.1:49152/oauth/callback",
+    )
+  }
+
+  private fun assertCallbackRedirectUrlStartsWith(
+      allowedRedirectUriPrefix: String,
+      redirectUri: String,
+  ) {
+    val oauthServiceProvider = mock(OauthServiceProvider::class.java)
+    val oauthProvider = mock(OauthProvider::class.java)
+    val stateManager = mock(OauthStateManager::class.java)
+    val relayCodeService =
+        AppOauthRelayCodeService(
+            relayCodeStore = InMemoryOauthRelayCodeStore(),
+            properties = AtomicAppOauthRedirectProperties(),
+        )
+    val properties =
+        configuredProperties().apply {
+          allowedRedirectUriPrefixes = listOf(allowedRedirectUriPrefix)
+        }
+    val service =
+        AppOauthRedirectService(
+            oauthServiceProvider = oauthServiceProvider,
+            oauthStateManager = stateManager,
+            relayCodeService = relayCodeService,
+            properties = properties,
+        )
+    val stateJwt =
+        stateJwt(
+            provider = "GOOGLE",
+            redirectUri = redirectUri,
+            callbackBindingKey = properties.callbackBinding.stateAttributeKey,
+            callbackBindingToken = CALLBACK_BINDING_TOKEN,
+        )
+    `when`(oauthServiceProvider.getService("google")).thenReturn(oauthProvider)
+    `when`(oauthProvider.providerName).thenReturn(OauthProviderName.GOOGLE)
+    `when`(
+            stateManager.verifyState(
+                "state-value",
+                OauthProviderName.GOOGLE,
+                null,
+                null,
+            ),
+        )
+        .thenReturn(stateJwt)
+    `when`(
+            oauthProvider.exchangeCode(
+                OauthTokenExchangeRequest(
+                    code = "code-value",
+                    state = "state-value",
+                    additionalParameters = emptyMap(),
+                ),
+            ),
+        )
+        .thenReturn(OauthTokenResult(accessToken = "access-token"))
+
+    val redirectUrl =
+        service.buildCallbackRedirectUrl(
+            provider = "google",
+            code = "code-value",
+            state = "state-value",
+            additionalParameters = emptyMap(),
+            callbackBindingToken = CALLBACK_BINDING_TOKEN,
+        )
+
+    assertTrue(redirectUrl.startsWith("$redirectUri?relayCode="))
   }
 
   @Test
