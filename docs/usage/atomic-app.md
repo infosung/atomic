@@ -463,6 +463,7 @@ Relay store notes:
 - when `store.fail-fast=false`, selected store errors (missing deps, invalid cache-name/ttl, unavailable cache, unsupported atomic cache backend) do not fail startup and fall back to in-memory store.
 - in-memory fallback is process-local per instance and can break one-time relay semantics in multi-instance deployments.
 - oauth redirect readiness now checks explicit `OauthStateManager.isReplayProtectionEnabled()` capability instead of reflecting internal fields.
+- oauth redirect now prefers typed state claims from `atomic.spring.oauth2` and only keeps public facade/web wrappers for compatibility.
 - entity store expects table columns:
   - `relay_code` (PK, string)
   - `payload_json` (text/json string)

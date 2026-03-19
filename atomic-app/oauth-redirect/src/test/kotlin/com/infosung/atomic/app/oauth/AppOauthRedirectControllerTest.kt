@@ -13,6 +13,7 @@ import com.infosung.atomic.oauth.api.OauthTokenExchangeRequest
 import com.infosung.atomic.oauth.api.OauthTokenRefreshRequest
 import com.infosung.atomic.oauth.api.OauthTokenResult
 import com.infosung.atomic.oauth.api.OauthTokenRevokeRequest
+import com.infosung.atomic.oauth.state.OauthStateClaims
 import com.infosung.atomic.oauth.state.OauthStateManager
 import jakarta.servlet.http.Cookie
 import java.time.Instant
@@ -26,7 +27,6 @@ import org.mockito.Mockito.mock
 import org.mockito.Mockito.`when`
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.mock.web.MockHttpServletResponse
-import org.springframework.security.oauth2.jwt.Jwt
 
 class AppOauthRedirectControllerTest {
   @Test
@@ -146,7 +146,7 @@ class AppOauthRedirectControllerTest {
 
     val callbackBindingToken = "binding-token"
     `when`(
-            stateManager.verifyState(
+            stateManager.verifyStateClaims(
                 "state-value",
                 OauthProviderName.GOOGLE,
                 null,
@@ -154,7 +154,7 @@ class AppOauthRedirectControllerTest {
             ),
         )
         .thenReturn(
-            stateJwt(
+            stateClaims(
                 provider = "GOOGLE",
                 redirectUri = "https://client.example.com/oauth/callback",
                 callbackBindingKey = properties.callbackBinding.stateAttributeKey,
@@ -213,7 +213,7 @@ class AppOauthRedirectControllerTest {
 
     val callbackBindingToken = "binding-token"
     `when`(
-            stateManager.verifyState(
+            stateManager.verifyStateClaims(
                 "state-value",
                 OauthProviderName.GOOGLE,
                 null,
@@ -221,7 +221,7 @@ class AppOauthRedirectControllerTest {
             ),
         )
         .thenReturn(
-            stateJwt(
+            stateClaims(
                 provider = "GOOGLE",
                 redirectUri = "https://client.example.com/oauth/callback",
                 callbackBindingKey = properties.callbackBinding.stateAttributeKey,
@@ -438,23 +438,21 @@ class AppOauthRedirectControllerTest {
     }
   }
 
-  private fun stateJwt(
+  private fun stateClaims(
       provider: String,
       redirectUri: String,
       callbackBindingKey: String,
       callbackBindingToken: String,
-  ): Jwt {
+  ): OauthStateClaims {
     val now = Instant.now()
-    return Jwt(
-        "state-token",
-        now,
-        now.plusSeconds(300),
-        mapOf("alg" to "HS256"),
-        mapOf(
-            "provider" to provider,
-            "redirect_uri" to redirectUri,
-            "attributes" to mapOf(callbackBindingKey to callbackBindingToken),
-        ),
+    return OauthStateClaims(
+        issuer = "atomic-test",
+        stateId = "state-token",
+        issuedAt = now,
+        expiresAt = now.plusSeconds(300),
+        provider = OauthProviderName.valueOf(provider),
+        redirectUri = redirectUri,
+        attributes = mapOf(callbackBindingKey to callbackBindingToken),
     )
   }
 

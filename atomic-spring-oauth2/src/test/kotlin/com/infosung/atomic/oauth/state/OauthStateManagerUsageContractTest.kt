@@ -14,7 +14,7 @@ class OauthStateManagerUsageContractTest {
   private val signingSecret = "s".repeat(32)
 
   @Test
-  fun `readState should not consume one time state before verifyState`() {
+  fun `readStateClaims should not consume one time state before verifyStateClaims`() {
     val manager =
         OauthStateManager(
             signingSecret = signingSecret,
@@ -28,23 +28,23 @@ class OauthStateManagerUsageContractTest {
             attributes = mapOf("flow" to "mobile"),
         )
 
-    val readJwt =
-        manager.readState(
+    val readState =
+        manager.readStateClaims(
             signedState = state,
             expectedProvider = OauthProviderName.GOOGLE,
             expectedRedirectUri = "https://app.example.com/oauth/callback",
             expectedNonce = "nonce-1",
         )
-    val verifiedJwt =
-        manager.verifyState(
+    val verifiedState =
+        manager.verifyStateClaims(
             signedState = state,
             expectedProvider = OauthProviderName.GOOGLE,
             expectedRedirectUri = "https://app.example.com/oauth/callback",
             expectedNonce = "nonce-1",
         )
 
-    assertEquals("GOOGLE", readJwt.claims["provider"])
-    assertEquals("mobile", (verifiedJwt.claims["attributes"] as Map<*, *>)["flow"])
+    assertEquals(OauthProviderName.GOOGLE, readState.provider)
+    assertEquals("mobile", verifiedState.attributes["flow"])
   }
 
   @Test

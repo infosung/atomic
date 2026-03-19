@@ -460,7 +460,7 @@ OAuth relay option (without token in callback query):
 - callback redirects frontend with `relayCode` only (no raw `id_token`/`access_token` in URL).
 - login API consumes relay payload via `AppOauthRelayCodeService.consumeRelayCode(relayCode)`.
 - the relay module does not issue your app session or JWT for you; treat `relayCode` consumption as an input to your own login flow.
-- internally, oauth redirect now translates Spring Security `Jwt` state results into an application-owned verified-state model before callback use-cases read redirect URI, nonce, or callback-binding attributes.
+- internally, oauth redirect now consumes typed OAuth state claims from `atomic.spring.oauth2` and translates them into an application-owned verified-state model before callback use-cases read redirect URI, nonce, or callback-binding attributes.
 - for mobile/desktop clients, the intended path is system browser login -> server callback -> allowlisted app URI/deep link with `relayCode`.
 - supported client handoff patterns:
   - web: browser -> server callback -> `https://frontend.example.com/...?...relayCode=...`

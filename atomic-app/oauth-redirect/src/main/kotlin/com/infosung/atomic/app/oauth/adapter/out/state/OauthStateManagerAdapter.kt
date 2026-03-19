@@ -15,29 +15,20 @@ internal class OauthStateManagerAdapter(
       signedState: String,
       expectedProvider: OauthProviderName,
   ): OauthVerifiedState {
-    val jwt =
-        oauthStateManager.verifyState(
+    val stateClaims =
+        oauthStateManager.verifyStateClaims(
             signedState = signedState,
             expectedProvider = expectedProvider,
         )
-    val provider =
-        jwt.claims["provider"]?.toString()?.let {
-          runCatching { OauthProviderName.valueOf(it) }.getOrNull()
-        }
-    @Suppress("UNCHECKED_CAST")
-    val attributes =
-        (jwt.claims["attributes"] as? Map<*, *>)?.entries?.associate { (key, value) ->
-          key.toString() to value.toString()
-        } ?: emptyMap()
     val verifiedState =
         OauthVerifiedState(
-            provider = provider,
-            redirectUri = jwt.claims["redirect_uri"]?.toString(),
-            nonce = jwt.claims["nonce"]?.toString(),
-            attributes = attributes,
+            provider = stateClaims.provider,
+            redirectUri = stateClaims.redirectUri,
+            nonce = stateClaims.nonce,
+            attributes = stateClaims.attributes,
         )
     log.debug(
-        "Translated oauth state jwt into verified-state model: expectedProvider={}, resolvedProvider={}, hasRedirectUri={}, hasNonce={}, attributesCount={}",
+        "Translated typed oauth state claims into verified-state model: expectedProvider={}, resolvedProvider={}, hasRedirectUri={}, hasNonce={}, attributesCount={}",
         expectedProvider,
         verifiedState.provider,
         !verifiedState.redirectUri.isNullOrBlank(),

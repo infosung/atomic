@@ -13,6 +13,7 @@ import com.infosung.atomic.oauth.api.OauthTokenRevokeRequest
 import com.infosung.atomic.oauth.exception.HttpJwtVerifyException
 import com.infosung.atomic.oauth.exception.InvalidOauthRequestException
 import com.infosung.atomic.oauth.state.OauthStateManager
+import org.slf4j.LoggerFactory
 
 /** Provider router for one OAuth provider name with multiple platform-specific clients. */
 internal class RoutedOauthProvider(
@@ -23,6 +24,7 @@ internal class RoutedOauthProvider(
     private val oauthStateManager: OauthStateManager,
     private val audiencesByClientKey: Map<String, Set<String>> = emptyMap(),
 ) : OauthProvider {
+  private val log = LoggerFactory.getLogger(this::class.java)
   private val providersByClientKey: Map<String, OauthProvider> =
       providersByClientKey.toMap().also { providers ->
         require(providers.isNotEmpty()) { "providersByClientKey must not be empty." }
@@ -138,15 +140,13 @@ internal class RoutedOauthProvider(
   }
 
   private fun requireClientKeyFromStateForExchange(state: String): String {
-    val jwt =
-        oauthStateManager.readState(
+    val stateClaims =
+        oauthStateManager.readStateClaims(
             signedState = state,
             expectedProvider = providerName,
         )
-
-    @Suppress("UNCHECKED_CAST") val attributes = jwt.claims["attributes"] as? Map<String, Any?>
     val value =
-        attributes?.get(routeAttributeKey)?.toString()?.takeIf { it.isNotBlank() }
+        stateClaims.attributes[routeAttributeKey]?.takeIf { it.isNotBlank() }
             ?: throw InvalidOauthRequestException(
                 "OAuth state does not include required routing key '$routeAttributeKey'.",
             )
@@ -155,22 +155,34 @@ internal class RoutedOauthProvider(
           "Unknown oauth client key in state for $providerName: $value",
       )
     }
+    log.debug(
+        "Resolved routed oauth client key from typed state claims: provider={}, routeAttributeKey={}, clientKey={}",
+        providerName,
+        routeAttributeKey,
+        value,
+    )
     return value
   }
 
   private fun readClientKeyFromStateOrNull(state: String): String? {
-    val jwt =
+    val stateClaims =
         runCatching {
-              oauthStateManager.readState(
+              oauthStateManager.readStateClaims(
                   signedState = state,
                   expectedProvider = providerName,
               )
             }
             .getOrNull() ?: return null
-
-    @Suppress("UNCHECKED_CAST")
-    val attributes = jwt.claims["attributes"] as? Map<String, Any?> ?: return null
-    return attributes[routeAttributeKey]?.toString()?.takeIf { it.isNotBlank() }
+    val clientKey = stateClaims.attributes[routeAttributeKey]?.takeIf { it.isNotBlank() }
+    if (clientKey != null) {
+      log.debug(
+          "Read optional routed oauth client key from typed state claims: provider={}, routeAttributeKey={}, clientKey={}",
+          providerName,
+          routeAttributeKey,
+          clientKey,
+      )
+    }
+    return clientKey
   }
 
   private fun resolveClientKeyOrDefault(clientKey: String?): String {

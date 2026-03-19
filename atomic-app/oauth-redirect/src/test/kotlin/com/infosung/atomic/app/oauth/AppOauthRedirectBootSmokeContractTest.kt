@@ -12,6 +12,7 @@ import com.infosung.atomic.oauth.api.OauthTokenExchangeRequest
 import com.infosung.atomic.oauth.api.OauthTokenRefreshRequest
 import com.infosung.atomic.oauth.api.OauthTokenResult
 import com.infosung.atomic.oauth.api.OauthTokenRevokeRequest
+import com.infosung.atomic.oauth.state.InMemoryOauthStateStore
 import com.infosung.atomic.oauth.state.OauthStateManager
 import org.junit.jupiter.api.Test
 import org.springframework.boot.SpringBootConfiguration
@@ -32,6 +33,8 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
     properties =
         [
             "atomic.app.oauth.redirect.redirect-endpoint-path=/test/oauth/redirect",
+            "atomic.app.oauth.redirect.enabled=true",
+            "atomic.app.oauth.redirect.store.type=in_memory",
             "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes=https://client.example.com",
         ],
 )
@@ -65,33 +68,16 @@ class AppOauthRedirectBootSmokeContractTest {
   @EnableConfigurationProperties(AtomicAppOauthRedirectProperties::class)
   class TestApplication {
     @Bean
-    fun appOauthRedirectService(
-        properties: AtomicAppOauthRedirectProperties,
-    ): AppOauthRedirectService {
-      return AppOauthRedirectService(
-          oauthServiceProvider = OauthServiceProvider(listOf(TestOauthProvider())),
-          oauthStateManager = OauthStateManager("0123456789abcdef0123456789abcdef"),
-          relayCodeService =
-              AppOauthRelayCodeService(
-                  relayCodeStore = InMemoryOauthRelayCodeStore(),
-                  properties = properties,
-              ),
-          properties = properties,
+    fun oauthServiceProvider(): OauthServiceProvider {
+      return OauthServiceProvider(listOf(TestOauthProvider()))
+    }
+
+    @Bean
+    fun oauthStateManager(): OauthStateManager {
+      return OauthStateManager(
+          signingSecret = "0123456789abcdef0123456789abcdef",
+          store = InMemoryOauthStateStore(),
       )
-    }
-
-    @Bean
-    fun appOauthRedirectController(
-        appOauthRedirectService: AppOauthRedirectService,
-        properties: AtomicAppOauthRedirectProperties,
-    ): AppOauthRedirectController {
-      return AppOauthRedirectController(
-          appOauthRedirectService = appOauthRedirectService, properties = properties)
-    }
-
-    @Bean
-    fun appOauthRedirectHttpExceptionHandler(): AppOauthRedirectHttpExceptionHandler {
-      return AppOauthRedirectHttpExceptionHandler()
     }
   }
 

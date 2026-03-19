@@ -1,5 +1,6 @@
 package com.infosung.atomic.oauth.api
 
+import com.infosung.atomic.oauth.state.OauthStateClaims
 import com.infosung.atomic.oauth.state.OauthStateManager
 import java.lang.reflect.Modifier
 import kotlin.reflect.full.primaryConstructor
@@ -77,6 +78,18 @@ class OauthPublicApiContractTest {
             "rawProfile",
         ),
     )
+    assertConstructorFields(
+        OauthStateClaims::class,
+        listOf(
+            "issuer",
+            "stateId",
+            "issuedAt",
+            "expiresAt",
+            "provider",
+            "redirectUri",
+            "nonce",
+            "attributes"),
+    )
   }
 
   @Test
@@ -94,7 +107,9 @@ class OauthPublicApiContractTest {
             "isReplayProtectionEnabled():boolean",
             "issueState(OauthProviderName, String, String, Map):String",
             "readState(String, OauthProviderName, String, String):Jwt",
+            "readStateClaims(String, OauthProviderName, String, String):OauthStateClaims",
             "verifyState(String, OauthProviderName, String, String):Jwt",
+            "verifyStateClaims(String, OauthProviderName, String, String):OauthStateClaims",
         ),
         publicSignatures(OauthStateManager::class.java),
     )
