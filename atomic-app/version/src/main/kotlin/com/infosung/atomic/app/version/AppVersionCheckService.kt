@@ -6,6 +6,7 @@ import com.infosung.atomic.app.version.application.exception.VersionPolicyNotFou
 import com.infosung.atomic.app.version.application.port.`in`.CheckAppVersionUseCase
 import com.infosung.atomic.app.version.application.service.CheckAppVersionService
 import com.infosung.atomic.contract.exception.HttpStatusException
+import java.lang.reflect.Proxy
 import org.slf4j.LoggerFactory
 
 /**
@@ -35,6 +36,18 @@ class AppVersionCheckService(
         "Configured app version facade with default persistence-backed use-case: repositoryType={}, defaultStoreUrlLength={}",
         serviceVersionRepository::class.java.name,
         defaultStoreUrl.length,
+    )
+  }
+
+  internal constructor(
+      defaultStoreUrl: String,
+      checkAppVersionUseCase: CheckAppVersionUseCase,
+  ) : this(unsupportedServiceVersionRepository(), defaultStoreUrl) {
+    this.injectedCheckAppVersionUseCase = checkAppVersionUseCase
+    log.debug(
+        "Configured app version facade with injected use-case composition and no repository fallback: defaultStoreUrlLength={}, useCaseType={}",
+        defaultStoreUrl.length,
+        checkAppVersionUseCase::class.java.name,
     )
   }
 
@@ -115,6 +128,23 @@ class AppVersionCheckService(
   }
 
   private companion object {
+    fun unsupportedServiceVersionRepository(): ServiceVersionRepository {
+      return Proxy.newProxyInstance(
+          ServiceVersionRepository::class.java.classLoader,
+          arrayOf(ServiceVersionRepository::class.java),
+      ) { _, method, _ ->
+        when (method.name) {
+          "toString" -> "UnsupportedServiceVersionRepository"
+          "hashCode" -> System.identityHashCode(method.declaringClass)
+          "equals" -> false
+          else ->
+              throw UnsupportedOperationException(
+                  "Repository-backed fallback is unavailable for this app version facade path.",
+              )
+        }
+      } as ServiceVersionRepository
+    }
+
     fun defaultUseCase(
         serviceVersionRepository: ServiceVersionRepository,
         defaultStoreUrl: String,
