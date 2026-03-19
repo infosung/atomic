@@ -159,6 +159,30 @@ class AtomicAppOauthRedirectAutoConfigurationContractTest {
     assertEquals(AppOauthRelayCodeService::class.java, beanMethod.returnType)
   }
 
+  @Test
+  fun `auto configuration should keep oauth controller override guard on exported bean`() {
+    val beanMethod =
+        AtomicAppOauthRedirectAutoConfiguration::class
+            .java
+            .declaredMethods
+            .single(::isOauthRedirectControllerBeanMethod)
+
+    assertTrue(beanMethod.isAnnotationPresent(ConditionalOnMissingBean::class.java))
+    assertEquals(AppOauthRedirectController::class.java, beanMethod.returnType)
+  }
+
+  @Test
+  fun `auto configuration should keep oauth exception handler override guard on exported bean`() {
+    val beanMethod =
+        AtomicAppOauthRedirectAutoConfiguration::class
+            .java
+            .declaredMethods
+            .single(::isOauthRedirectHttpExceptionHandlerBeanMethod)
+
+    assertTrue(beanMethod.isAnnotationPresent(ConditionalOnMissingBean::class.java))
+    assertEquals(AppOauthRedirectHttpExceptionHandler::class.java, beanMethod.returnType)
+  }
+
   private fun isOauthRedirectServiceBeanMethod(method: Method): Boolean {
     return method.name.startsWith("appOauthRedirectService") &&
         method.returnType == AppOauthRedirectService::class.java &&
@@ -186,5 +210,22 @@ class AtomicAppOauthRedirectAutoConfigurationContractTest {
                 ConsumeOauthRelayCodeUseCase::class.java,
             ),
         )
+  }
+
+  private fun isOauthRedirectControllerBeanMethod(method: Method): Boolean {
+    return method.name == "appOauthRedirectController" &&
+        method.returnType == AppOauthRedirectController::class.java &&
+        method.parameterTypes.contentEquals(
+            arrayOf(
+                AppOauthRedirectService::class.java,
+                AtomicAppOauthRedirectProperties::class.java,
+            ),
+        )
+  }
+
+  private fun isOauthRedirectHttpExceptionHandlerBeanMethod(method: Method): Boolean {
+    return method.name == "appOauthRedirectHttpExceptionHandler" &&
+        method.returnType == AppOauthRedirectHttpExceptionHandler::class.java &&
+        method.parameterTypes.isEmpty()
   }
 }

@@ -1,96 +1,13 @@
 package com.infosung.atomic.app.version.autoconfigure
 
-import com.infosung.atomic.app.version.AppVersionCheckService
-import com.infosung.atomic.app.version.AppVersionController
-import com.infosung.atomic.app.version.AppVersionHttpExceptionHandler
-import com.infosung.atomic.app.version.ServiceVersionEntity
-import com.infosung.atomic.app.version.ServiceVersionRepository
-import com.infosung.atomic.app.version.adapter.out.persistence.JpaLoadVersionPolicyAdapter
-import com.infosung.atomic.app.version.application.port.`in`.CheckAppVersionUseCase
-import com.infosung.atomic.app.version.application.port.out.LoadVersionPolicyPort
-import com.infosung.atomic.app.version.application.service.CheckAppVersionService
 import org.springframework.boot.autoconfigure.AutoConfiguration
-import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
-import org.springframework.boot.context.properties.EnableConfigurationProperties
-import org.springframework.boot.persistence.autoconfigure.EntityScan
-import org.springframework.context.annotation.Bean
-import org.springframework.data.jpa.repository.config.EnableJpaRepositories
-import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.context.annotation.Import
 
-/** Auto-configuration for common app version API. */
+/** Stable umbrella auto-configuration entrypoint for the app-version module. */
 @AutoConfiguration
-@ConditionalOnClass(
-    name =
-        [
-            "org.springframework.web.bind.annotation.RestController",
-            "org.springframework.data.jpa.repository.JpaRepository",
-            "jakarta.persistence.Entity",
-        ],
+@Import(
+    AtomicAppVersionPersistenceAutoConfiguration::class,
+    AtomicAppVersionCoreAutoConfiguration::class,
+    AtomicAppVersionWebAutoConfiguration::class,
 )
-@ConditionalOnProperty(
-    prefix = "atomic.app.version",
-    name = ["enabled"],
-    havingValue = "true",
-)
-@EnableConfigurationProperties(AtomicAppVersionProperties::class)
-@EntityScan(basePackageClasses = [ServiceVersionEntity::class])
-@EnableJpaRepositories(basePackageClasses = [ServiceVersionRepository::class])
-class AtomicAppVersionAutoConfiguration {
-  @Bean
-  @ConditionalOnMissingBean
-  internal fun loadVersionPolicyPort(
-      serviceVersionRepository: ServiceVersionRepository,
-  ): LoadVersionPolicyPort {
-    return JpaLoadVersionPolicyAdapter(serviceVersionRepository = serviceVersionRepository)
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  internal fun checkAppVersionUseCase(
-      loadVersionPolicyPort: LoadVersionPolicyPort,
-      properties: AtomicAppVersionProperties,
-  ): CheckAppVersionUseCase {
-    return CheckAppVersionService(
-        loadVersionPolicyPort = loadVersionPolicyPort,
-        defaultStoreUrl = properties.defaultStoreUrl,
-    )
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  internal fun appVersionCheckService(
-      serviceVersionRepository: ServiceVersionRepository,
-      properties: AtomicAppVersionProperties,
-      checkAppVersionUseCase: CheckAppVersionUseCase,
-  ): AppVersionCheckService {
-    return AppVersionCheckService(
-        serviceVersionRepository = serviceVersionRepository,
-        defaultStoreUrl = properties.defaultStoreUrl,
-        checkAppVersionUseCase = checkAppVersionUseCase,
-    )
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  fun appVersionSchemaUpgradePreflight(
-      jdbcTemplate: JdbcTemplate,
-  ): AppVersionSchemaUpgradePreflight {
-    return AppVersionSchemaUpgradePreflight(jdbcTemplate = jdbcTemplate)
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  fun appVersionController(
-      appVersionCheckService: AppVersionCheckService,
-  ): AppVersionController {
-    return AppVersionController(appVersionCheckService = appVersionCheckService)
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  fun appVersionHttpExceptionHandler(): AppVersionHttpExceptionHandler {
-    return AppVersionHttpExceptionHandler()
-  }
-}
+class AtomicAppVersionAutoConfiguration
