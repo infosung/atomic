@@ -157,6 +157,25 @@ class OauthRedirectPublicContractTest {
   }
 
   @Test
+  fun `oauth relay code service constructor contract should keep public relay store entry point`() {
+    val hasPublicRelayConstructor =
+        AppOauthRelayCodeService::class.java.constructors.any {
+          it.parameterTypes.contentEquals(
+              arrayOf(
+                  OauthRelayCodeStore::class.java,
+                  AtomicAppOauthRedirectProperties::class.java,
+                  TimeProvider::class.java,
+              ),
+          )
+        }
+
+    assertTrue(
+        hasPublicRelayConstructor,
+        "AppOauthRelayCodeService should keep the public relay-store constructor for host wiring.",
+    )
+  }
+
+  @Test
   fun `entity relay code store should reject unsafe table names`() {
     val exception =
         assertFailsWith<IllegalArgumentException> {

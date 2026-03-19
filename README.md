@@ -435,6 +435,7 @@ Prerequisites:
   - `atomic-app/oauth-redirect`: `META-INF/atomic/sql/postgresql/atomic_oauth_relay_code.sql`
 - `service_version` and `image` physical table/column names are now fixed in code to match those shipped SQL assets.
 - Login API should consume relay payload using `AppOauthRelayCodeService.consumeRelayCode(relayCode)`.
+- `AppOauthRelayCodeService` remains the compatibility-stable relay seam; any relay issue/consume/store beans you may see in the context are internal composition details for this line.
 
 ### 6) Heartbeat module (`atomic.heartbeat`)
 

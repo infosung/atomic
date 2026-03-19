@@ -342,6 +342,7 @@ Behavior:
 - login API consumes relay payload using `AppOauthRelayCodeService.consumeRelayCode(relayCode)`.
 - the relay module stops at this handoff; your app still issues its own session/JWT/cookie after relay consumption.
 - internal implementation is organized as application ports/use-cases plus outbound adapters plus web adapter support, but the compatibility-stable host override surface remains `AppOauthRedirectService`.
+- relay code issue/consume is also internally split into application use-cases plus a relay-store outbound port, but the compatibility-stable relay seam remains `AppOauthRelayCodeService`.
 - internal port/use-case beans may appear in the Spring context for composition, but host apps should not customize them directly; they are implementation details rather than the compatibility-stable host customization seam in this line.
 - the exported `AppOauthRedirectController` and `AppOauthRedirectHttpExceptionHandler` types remain as compatibility wrappers over the internal web adapter boundary in this line.
 - browser initiation is the intended model for non-web clients too: mobile and desktop apps should normally start the provider flow in the system browser or a system-browser-based tab, let the server receive the provider callback, and then return to an allowlisted app URI with `relayCode`.

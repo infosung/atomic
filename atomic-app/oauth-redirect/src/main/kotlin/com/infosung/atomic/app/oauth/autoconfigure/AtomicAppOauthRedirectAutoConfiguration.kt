@@ -9,12 +9,16 @@ import com.infosung.atomic.app.oauth.CacheOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.EntityOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.InMemoryOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.OauthRedirectComposition
+import com.infosung.atomic.app.oauth.OauthRelayCodeComposition
 import com.infosung.atomic.app.oauth.OauthRelayCodeStore
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildAppleCallbackRedirectUseCase
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildAuthorizationRedirectUseCase
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildOauthCallbackRedirectUseCase
+import com.infosung.atomic.app.oauth.application.port.`in`.ConsumeOauthRelayCodeUseCase
+import com.infosung.atomic.app.oauth.application.port.`in`.IssueOauthRelayCodeUseCase
 import com.infosung.atomic.app.oauth.application.port.out.IssueOauthRelayCodePort
 import com.infosung.atomic.app.oauth.application.port.out.OauthProviderOperationsPort
+import com.infosung.atomic.app.oauth.application.port.out.StoreOauthRelayCodePort
 import com.infosung.atomic.app.oauth.application.port.out.ValidateOauthRedirectUriPort
 import com.infosung.atomic.app.oauth.application.port.out.VerifyOauthStatePort
 import com.infosung.atomic.app.oauth.application.service.BuildAppleCallbackRedirectService
@@ -203,15 +207,51 @@ class AtomicAppOauthRedirectAutoConfiguration {
 
   @Bean
   @ConditionalOnMissingBean
-  fun appOauthRelayCodeService(
+  internal fun storeOauthRelayCodePort(
       oauthRelayCodeStore: OauthRelayCodeStore,
+  ): StoreOauthRelayCodePort {
+    return OauthRelayCodeComposition.storeOauthRelayCodePort(oauthRelayCodeStore)
+  }
+
+  @Bean
+  @ConditionalOnMissingBean
+  internal fun issueOauthRelayCodeUseCase(
+      storeOauthRelayCodePort: StoreOauthRelayCodePort,
       properties: AtomicAppOauthRedirectProperties,
       timeProviderProvider: ObjectProvider<TimeProvider>,
+  ): IssueOauthRelayCodeUseCase {
+    return OauthRelayCodeComposition.issueOauthRelayCodeUseCase(
+        storeOauthRelayCodePort = storeOauthRelayCodePort,
+        properties = properties,
+        timeProvider = timeProviderProvider.getIfAvailable { TimeProvider() },
+    )
+  }
+
+  @Bean
+  @ConditionalOnMissingBean
+  internal fun consumeOauthRelayCodeUseCase(
+      storeOauthRelayCodePort: StoreOauthRelayCodePort,
+      timeProviderProvider: ObjectProvider<TimeProvider>,
+  ): ConsumeOauthRelayCodeUseCase {
+    return OauthRelayCodeComposition.consumeOauthRelayCodeUseCase(
+        storeOauthRelayCodePort = storeOauthRelayCodePort,
+        timeProvider = timeProviderProvider.getIfAvailable { TimeProvider() },
+    )
+  }
+
+  @Bean
+  @ConditionalOnMissingBean
+  internal fun appOauthRelayCodeService(
+      oauthRelayCodeStore: OauthRelayCodeStore,
+      properties: AtomicAppOauthRedirectProperties,
+      issueOauthRelayCodeUseCase: IssueOauthRelayCodeUseCase,
+      consumeOauthRelayCodeUseCase: ConsumeOauthRelayCodeUseCase,
   ): AppOauthRelayCodeService {
     return AppOauthRelayCodeService(
         relayCodeStore = oauthRelayCodeStore,
         properties = properties,
-        timeProvider = timeProviderProvider.getIfAvailable { TimeProvider() },
+        issueOauthRelayCodeUseCase = issueOauthRelayCodeUseCase,
+        consumeOauthRelayCodeUseCase = consumeOauthRelayCodeUseCase,
     )
   }
 
