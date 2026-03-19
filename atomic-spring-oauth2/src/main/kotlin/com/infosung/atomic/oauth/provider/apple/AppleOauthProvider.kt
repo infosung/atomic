@@ -145,22 +145,22 @@ class AppleOauthProvider(
 
     log.debug("Verifying Apple id token.")
     val requiredAudience = audValidator?.invoke(request.audience) ?: request.audience
-    val verifiedJwt =
-        idTokenParser.verifyIdToken(
+    val verifiedClaims =
+        idTokenParser.verifyIdTokenClaims(
             jwt = idToken,
             requiredAudience = requiredAudience,
             expectedNonce = request.nonce,
         )
-    val claimsMap = verifiedJwt.claims
+    val claimsMap = verifiedClaims.claims
 
     val userId =
-        verifiedJwt.subject
+        verifiedClaims.subject?.takeIf { it.isNotBlank() }
             ?: throw InvalidOauthRequestException("Apple id token does not include subject.")
     log.debug("Resolved Apple OAuth identity for userId={}.", userId)
 
     val email = getEmail(claimsMap)
-    val displayName = claimsMap["name"] as? String
-    val pictureUrl = claimsMap["picture"] as? String
+    val displayName = verifiedClaims.stringClaim("name")
+    val pictureUrl = verifiedClaims.stringClaim("picture")
 
     return buildIdentityResult(
         request = request,

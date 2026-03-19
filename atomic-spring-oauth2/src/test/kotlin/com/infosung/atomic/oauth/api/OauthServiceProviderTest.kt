@@ -8,6 +8,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class OauthServiceProviderTest {
   @Test
@@ -43,6 +44,20 @@ class OauthServiceProviderTest {
         assertFailsWith<OauthException> { provider.requireService(OauthProviderName.KAKAO) }
     assertNotNull(exception.message)
     assertEquals(true, exception.message!!.contains("KAKAO"))
+  }
+
+  @Test
+  fun `provider registry should fail fast when duplicate provider names are registered`() {
+    val firstGoogle = StubOauthProvider(OauthProviderName.GOOGLE)
+    val secondGoogle = StubOauthProvider(OauthProviderName.GOOGLE)
+
+    val exception =
+        assertFailsWith<IllegalArgumentException> {
+          OauthServiceProvider(listOf(firstGoogle, secondGoogle))
+        }
+
+    assertNotNull(exception.message)
+    assertTrue(exception.message!!.contains("GOOGLE"))
   }
 
   private class StubOauthProvider(

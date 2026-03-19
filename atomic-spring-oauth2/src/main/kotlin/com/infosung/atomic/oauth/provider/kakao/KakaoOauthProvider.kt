@@ -232,22 +232,22 @@ class KakaoOauthProvider(
 
     log.debug("Verifying Kakao id token.")
     val requiredAudience = audValidator?.invoke(request.audience) ?: request.audience
-    val verifiedJwt =
-        idTokenParser.verifyIdToken(
+    val verifiedClaims =
+        idTokenParser.verifyIdTokenClaims(
             jwt = idToken,
             requiredAudience = requiredAudience,
             expectedNonce = request.nonce,
         )
-    val claimsMap = verifiedJwt.claims
+    val claimsMap = verifiedClaims.claims
 
     val userId =
-        verifiedJwt.subject
+        verifiedClaims.subject?.takeIf { it.isNotBlank() }
             ?: throw InvalidOauthRequestException("Kakao id token does not include subject.")
     log.debug("Resolved Kakao OAuth identity from id token for userId={}.", userId)
 
     val email = getEmailFromClaims(claimsMap)
-    val displayName = claimsMap["nickname"] as? String
-    val pictureUrl = claimsMap["picture"] as? String
+    val displayName = verifiedClaims.stringClaim("nickname")
+    val pictureUrl = verifiedClaims.stringClaim("picture")
     return buildIdentityResult(
         request = request,
         userId = userId,

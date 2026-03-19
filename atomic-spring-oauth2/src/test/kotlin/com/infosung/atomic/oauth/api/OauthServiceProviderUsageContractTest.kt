@@ -7,6 +7,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class OauthServiceProviderUsageContractTest {
   @Test
@@ -37,6 +38,21 @@ class OauthServiceProviderUsageContractTest {
     val exception =
         assertFailsWith<OauthException> { provider.requireService(OauthProviderName.APPLE) }
     assertEquals("OAuth provider is not registered: APPLE", exception.message)
+  }
+
+  @Test
+  fun `duplicate provider registrations should fail at startup instead of silently shadowing`() {
+    val exception =
+        assertFailsWith<IllegalArgumentException> {
+          OauthServiceProvider(
+              listOf(
+                  StubOauthProvider(OauthProviderName.APPLE),
+                  StubOauthProvider(OauthProviderName.APPLE),
+              ),
+          )
+        }
+
+    assertTrue(exception.message!!.contains("APPLE"))
   }
 
   private class StubOauthProvider(

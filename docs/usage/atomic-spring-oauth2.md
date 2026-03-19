@@ -209,6 +209,9 @@ Compatibility note:
 
 - `readState(...)` / `verifyState(...)` still return Spring Security `Jwt` for existing integrations.
 - New code should prefer `readStateClaims(...)` / `verifyStateClaims(...)` to avoid raw claim-key coupling.
+- `IdTokenParser.verifyIdToken(...)` still returns Spring Security `Jwt` for existing integrations.
+- New provider code should prefer `IdTokenParser.verifyIdTokenClaims(...)` to read typed issuer/subject/audience/nonce before falling back to provider-specific claims.
+- `OauthServiceProvider` now fails fast when duplicate `OauthProviderName` registrations are supplied, instead of silently shadowing one provider with another.
 
 ## State Verification Patterns
 

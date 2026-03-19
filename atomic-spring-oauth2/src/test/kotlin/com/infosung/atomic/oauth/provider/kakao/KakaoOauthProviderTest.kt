@@ -268,6 +268,43 @@ class KakaoOauthProviderTest {
   }
 
   @Test
+  fun `resolveIdentity with id token should keep provider specific missing subject failure`() {
+    val issuer = "https://kauth.kakao.com"
+    val audience = "kakao-client"
+    val keyPair = JwtTestFixtures.generateRsaKeyPair()
+    val parser =
+        JwtTestFixtures.createIdTokenParser(
+            issuer = issuer,
+            allowedAudiences = setOf(audience),
+            publicKey = keyPair.public as java.security.interfaces.RSAPublicKey,
+        )
+    val token =
+        JwtTestFixtures.createSignedJwt(
+            privateKey = keyPair.private,
+            kid = "kakao-key",
+            issuer = issuer,
+            audience = audience,
+            subject = null,
+            additionalClaims = mapOf("nonce" to "nonce-3"),
+        )
+
+    val provider = createProvider(idTokenParser = parser)
+
+    val exception =
+        assertFailsWith<InvalidOauthRequestException> {
+          provider.resolveIdentity(
+              OauthIdentityRequest(
+                  strategy = OauthIdentityStrategy.ID_TOKEN,
+                  idToken = token,
+                  nonce = "nonce-3",
+              ),
+          )
+        }
+
+    assertEquals("Kakao id token does not include subject.", exception.message)
+  }
+
+  @Test
   fun `resolveIdentity with user info api should use oidc endpoint`() {
     val builder = RestClient.builder()
     val server = MockRestServiceServer.bindTo(builder).build()
@@ -384,20 +421,21 @@ class KakaoOauthProviderTest {
   private fun createProvider(
       restClient: RestClient = RestClient.create(),
       stateManager: OauthStateManager = createStateManager(),
+      idTokenParser: com.infosung.atomic.oauth.idtoken.IdTokenParser =
+          JwtTestFixtures.createIdTokenParser(
+              issuer = "https://kauth.kakao.com",
+              allowedAudiences = setOf("kakao-client"),
+              publicKey =
+                  JwtTestFixtures.generateRsaKeyPair().public
+                      as java.security.interfaces.RSAPublicKey,
+          ),
   ): KakaoOauthProvider {
     return KakaoOauthProvider(
         client = restClient,
         clientId = "kakao-client",
         clientSecret = "secret",
         serverRedirectUri = "https://api.example.com/oauth/kakao/callback",
-        idTokenParser =
-            JwtTestFixtures.createIdTokenParser(
-                issuer = "https://kauth.kakao.com",
-                allowedAudiences = setOf("kakao-client"),
-                publicKey =
-                    JwtTestFixtures.generateRsaKeyPair().public
-                        as java.security.interfaces.RSAPublicKey,
-            ),
+        idTokenParser = idTokenParser,
         stateManager = stateManager,
     )
   }

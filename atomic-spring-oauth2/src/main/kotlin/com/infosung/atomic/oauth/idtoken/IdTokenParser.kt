@@ -50,10 +50,60 @@ class IdTokenParser(
       requiredAudience: String? = null,
       expectedNonce: String? = null,
   ): Jwt {
+    return decodeAndValidateIdToken(
+        jwt = jwt,
+        requiredAudience = requiredAudience,
+        expectedNonce = expectedNonce,
+    )
+  }
+
+  /**
+   * Verifies id token and returns a transport-agnostic typed claims model.
+   *
+   * @throws HttpJwtVerifyException If verification fails.
+   */
+  fun verifyIdTokenClaims(
+      jwt: String,
+      requiredAudience: String? = null,
+      expectedNonce: String? = null,
+  ): OauthIdTokenClaims {
+    val verifiedJwt =
+        decodeAndValidateIdToken(
+            jwt = jwt,
+            requiredAudience = requiredAudience,
+            expectedNonce = expectedNonce,
+        )
+    val claims =
+        OauthIdTokenClaims(
+            issuer =
+                verifiedJwt.issuer?.toString()
+                    ?: throw HttpJwtVerifyException("Id token does not include issuer."),
+            subject = verifiedJwt.subject,
+            audiences = verifiedJwt.audience,
+            issuedAt = verifiedJwt.issuedAt,
+            expiresAt = verifiedJwt.expiresAt,
+            nonce = verifiedJwt.claims["nonce"]?.toString(),
+            claims = verifiedJwt.claims.toMap(),
+        )
+    log.debug(
+        "Mapped verified id token to typed claims: subject={}, audienceCount={}, hasNonce={}.",
+        claims.subject,
+        claims.audiences.size,
+        !claims.nonce.isNullOrBlank(),
+    )
+    return claims
+  }
+
+  private fun decodeAndValidateIdToken(
+      jwt: String,
+      requiredAudience: String? = null,
+      expectedNonce: String? = null,
+  ): Jwt {
     log.debug(
         "Verifying id token with issuer={} and allowedAudienceCount={}.",
         iss,
-        allowedAudiences.size)
+        allowedAudiences.size,
+    )
 
     val decoded =
         try {

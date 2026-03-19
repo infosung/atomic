@@ -28,7 +28,7 @@ object JwtTestFixtures {
       kid: String,
       issuer: String,
       audience: String,
-      subject: String = "user-1",
+      subject: String? = "user-1",
       email: String? = null,
       additionalClaims: Map<String, Any?> = emptyMap(),
   ): String {
@@ -36,10 +36,13 @@ object JwtTestFixtures {
     val claimsBuilder =
         JWTClaimsSet.Builder()
             .issuer(issuer)
-            .subject(subject)
             .issueTime(Date.from(now.minusSeconds(60)))
             .expirationTime(Date.from(now.plusSeconds(3600)))
             .audience(audience)
+
+    if (subject != null) {
+      claimsBuilder.subject(subject)
+    }
 
     if (email != null) {
       claimsBuilder.claim("email", email)
