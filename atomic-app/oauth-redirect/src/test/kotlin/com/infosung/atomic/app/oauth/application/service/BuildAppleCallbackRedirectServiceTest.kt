@@ -2,6 +2,7 @@ package com.infosung.atomic.app.oauth.application.service
 
 import com.infosung.atomic.app.oauth.OauthRedirectClientTarget
 import com.infosung.atomic.app.oauth.OauthRelayPayload
+import com.infosung.atomic.app.oauth.application.model.OauthVerifiedState
 import com.infosung.atomic.app.oauth.application.port.out.IssueOauthRelayCodePort
 import com.infosung.atomic.app.oauth.application.port.out.OauthProviderOperationsPort
 import com.infosung.atomic.app.oauth.application.port.out.ValidateOauthRedirectUriPort
@@ -10,7 +11,6 @@ import com.infosung.atomic.oauth.api.OauthProviderName
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
-import org.springframework.security.oauth2.jwt.Jwt
 
 class BuildAppleCallbackRedirectServiceTest {
   @Test
@@ -21,8 +21,8 @@ class BuildAppleCallbackRedirectServiceTest {
             oauthProviderOperationsPort = FakeOauthProviderOperationsPort(),
             verifyOauthStatePort =
                 FakeVerifyOauthStatePort(
-                    jwt =
-                        stateJwt(
+                    verifiedState =
+                        verifiedState(
                             redirectUri = "http://127.0.0.1:49152/oauth/callback",
                             callbackBindingKey = "atomicCallbackBinding",
                             callbackBindingToken = "binding-token",
@@ -53,9 +53,10 @@ class BuildAppleCallbackRedirectServiceTest {
     assertEquals(OauthProviderName.APPLE, result.providerName)
     assertEquals(OauthRedirectClientTarget.LOOPBACK, result.redirectTargetType)
     assertNotNull(relayPort.lastPayload)
+    val raw = relayPort.lastPayload!!.raw
     assertEquals("id-token", relayPort.lastPayload!!.idToken)
-    assertEquals("code-123", relayPort.lastPayload!!.raw?.get("code"))
-    assertEquals("ko-KR", relayPort.lastPayload!!.raw?.get("locale"))
+    assertEquals("code-123", raw.get("code"))
+    assertEquals("ko-KR", raw.get("locale"))
   }
 
   private class FakeOauthProviderOperationsPort : OauthProviderOperationsPort {
@@ -63,9 +64,12 @@ class BuildAppleCallbackRedirectServiceTest {
   }
 
   private class FakeVerifyOauthStatePort(
-      private val jwt: Jwt,
+      private val verifiedState: OauthVerifiedState,
   ) : VerifyOauthStatePort {
-    override fun verifyState(signedState: String, expectedProvider: OauthProviderName): Jwt = jwt
+    override fun verifyState(
+        signedState: String,
+        expectedProvider: OauthProviderName,
+    ): OauthVerifiedState = verifiedState
   }
 
   private class FakeIssueOauthRelayCodePort : IssueOauthRelayCodePort {
@@ -83,19 +87,15 @@ class BuildAppleCallbackRedirectServiceTest {
     override fun validateRedirectUri(redirectUri: String): String = validatedRedirectUri
   }
 
-  private fun stateJwt(
+  private fun verifiedState(
       redirectUri: String,
       callbackBindingKey: String,
       callbackBindingToken: String,
-  ): Jwt {
-    return Jwt.withTokenValue("state-jwt")
-        .header("alg", "HS256")
-        .claim("provider", "APPLE")
-        .claim("redirect_uri", redirectUri)
-        .claim(
-            "attributes",
-            mapOf(callbackBindingKey to callbackBindingToken),
-        )
-        .build()
+  ): OauthVerifiedState {
+    return OauthVerifiedState(
+        provider = OauthProviderName.APPLE,
+        redirectUri = redirectUri,
+        attributes = mapOf(callbackBindingKey to callbackBindingToken),
+    )
   }
 }

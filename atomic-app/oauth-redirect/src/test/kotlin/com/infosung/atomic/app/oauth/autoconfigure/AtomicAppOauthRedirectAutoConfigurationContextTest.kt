@@ -7,6 +7,8 @@ import com.infosung.atomic.app.oauth.AppOauthRelayCodeService
 import com.infosung.atomic.app.oauth.CacheOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.InMemoryOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.OauthRelayCodeStore
+import com.infosung.atomic.app.oauth.OauthRelayPayload
+import com.infosung.atomic.app.oauth.application.port.out.IssueOauthRelayCodePort
 import com.infosung.atomic.oauth.api.OauthAuthorizationRequest
 import com.infosung.atomic.oauth.api.OauthIdentityRequest
 import com.infosung.atomic.oauth.api.OauthIdentityResult
@@ -20,6 +22,7 @@ import com.infosung.atomic.oauth.api.OauthTokenResult
 import com.infosung.atomic.oauth.api.OauthTokenRevokeRequest
 import com.infosung.atomic.oauth.state.InMemoryOauthStateStore
 import com.infosung.atomic.oauth.state.OauthStateManager
+import java.time.Instant
 import java.util.concurrent.Callable
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -199,6 +202,59 @@ class AtomicAppOauthRedirectAutoConfigurationContextTest {
           assertTrue(context.startupFailure == null)
           assertEquals(1, context.getBeansOfType(AppOauthRedirectService::class.java).size)
           assertEquals(1, context.getBeansOfType(AppOauthRedirectController::class.java).size)
+        }
+  }
+
+  @Test
+  fun `custom oauth relay facade bean should suppress default relay facade and back issue port`() {
+    val trackingStore = TrackingOauthRelayCodeStore()
+
+    contextRunner
+        .withPropertyValues(
+            "atomic.app.oauth.redirect.enabled=true",
+            "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes=https://app.example.com/oauth",
+            "atomic.app.oauth.redirect.store.type=in-memory",
+        )
+        .withBean(
+            OauthServiceProvider::class.java,
+            { OauthServiceProvider(listOf(TestOauthProvider())) },
+        )
+        .withBean(
+            OauthStateManager::class.java,
+            {
+              OauthStateManager(
+                  signingSecret = "0123456789abcdef0123456789abcdef",
+                  store = InMemoryOauthStateStore(),
+              )
+            },
+        )
+        .withBean(
+            AppOauthRelayCodeService::class.java,
+            {
+              AppOauthRelayCodeService(
+                  relayCodeStore = trackingStore,
+                  properties =
+                      AtomicAppOauthRedirectProperties().apply {
+                        allowedRedirectUriPrefixes = listOf("https://app.example.com/oauth")
+                      },
+              )
+            },
+        )
+        .run { context ->
+          assertTrue(context.startupFailure == null)
+          assertEquals(1, context.getBeansOfType(AppOauthRelayCodeService::class.java).size)
+          assertNotNull(context.getBean(AppOauthRedirectService::class.java))
+          assertNotNull(context.getBean(AppOauthRedirectController::class.java))
+
+          val issuePort = context.getBean(IssueOauthRelayCodePort::class.java)
+          val relayCode =
+              issuePort.issueRelayCode(
+                  OauthRelayPayload(provider = OauthProviderName.GOOGLE, accessToken = "token-1"),
+              )
+
+          assertTrue(relayCode.isNotBlank())
+          assertEquals(1, trackingStore.savedRelayCodes.size)
+          assertEquals(relayCode, trackingStore.savedRelayCodes.single())
         }
   }
 
@@ -754,5 +810,15 @@ class AtomicAppOauthRedirectAutoConfigurationContextTest {
       private val value: Any,
   ) : Cache.ValueWrapper {
     override fun get(): Any = value
+  }
+
+  private class TrackingOauthRelayCodeStore : OauthRelayCodeStore {
+    val savedRelayCodes = mutableListOf<String>()
+
+    override fun save(relayCode: String, payload: OauthRelayPayload, expiresAt: Instant) {
+      savedRelayCodes += relayCode
+    }
+
+    override fun pop(relayCode: String, now: Instant): OauthRelayPayload? = null
   }
 }

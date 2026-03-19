@@ -21,9 +21,6 @@ import com.infosung.atomic.app.oauth.application.port.out.OauthProviderOperation
 import com.infosung.atomic.app.oauth.application.port.out.StoreOauthRelayCodePort
 import com.infosung.atomic.app.oauth.application.port.out.ValidateOauthRedirectUriPort
 import com.infosung.atomic.app.oauth.application.port.out.VerifyOauthStatePort
-import com.infosung.atomic.app.oauth.application.service.BuildAppleCallbackRedirectService
-import com.infosung.atomic.app.oauth.application.service.BuildAuthorizationRedirectService
-import com.infosung.atomic.app.oauth.application.service.BuildOauthCallbackRedirectService
 import com.infosung.atomic.contract.time.TimeProvider
 import com.infosung.atomic.oauth.api.OauthServiceProvider
 import com.infosung.atomic.oauth.state.InMemoryOauthStateStore
@@ -297,11 +294,10 @@ class AtomicAppOauthRedirectAutoConfiguration {
       validateOauthRedirectUriPort: ValidateOauthRedirectUriPort,
       properties: AtomicAppOauthRedirectProperties,
   ): BuildAuthorizationRedirectUseCase {
-    return BuildAuthorizationRedirectService(
+    return OauthRedirectComposition.buildAuthorizationRedirectUseCase(
         oauthProviderOperationsPort = oauthProviderOperationsPort,
         validateOauthRedirectUriPort = validateOauthRedirectUriPort,
-        callbackBindingEnabled = properties.callbackBinding.isCookieValidationEnabled(),
-        callbackBindingStateAttributeKey = properties.callbackBinding.stateAttributeKey.trim(),
+        properties = properties,
     )
   }
 
@@ -314,15 +310,12 @@ class AtomicAppOauthRedirectAutoConfiguration {
       validateOauthRedirectUriPort: ValidateOauthRedirectUriPort,
       properties: AtomicAppOauthRedirectProperties,
   ): BuildOauthCallbackRedirectUseCase {
-    return BuildOauthCallbackRedirectService(
+    return OauthRedirectComposition.buildOauthCallbackRedirectUseCase(
         oauthProviderOperationsPort = oauthProviderOperationsPort,
         verifyOauthStatePort = verifyOauthStatePort,
         issueOauthRelayCodePort = issueOauthRelayCodePort,
         validateOauthRedirectUriPort = validateOauthRedirectUriPort,
-        callbackBindingEnabled = properties.callbackBinding.isCookieValidationEnabled(),
-        callbackBindingStateAttributeKey = properties.callbackBinding.stateAttributeKey.trim(),
-        relayCodeQueryParameterName = properties.relayCodeQueryParameterName,
-        callbackEndpointPath = properties.callbackEndpointPath,
+        properties = properties,
     )
   }
 
@@ -335,14 +328,12 @@ class AtomicAppOauthRedirectAutoConfiguration {
       validateOauthRedirectUriPort: ValidateOauthRedirectUriPort,
       properties: AtomicAppOauthRedirectProperties,
   ): BuildAppleCallbackRedirectUseCase {
-    return BuildAppleCallbackRedirectService(
+    return OauthRedirectComposition.buildAppleCallbackRedirectUseCase(
         oauthProviderOperationsPort = oauthProviderOperationsPort,
         verifyOauthStatePort = verifyOauthStatePort,
         issueOauthRelayCodePort = issueOauthRelayCodePort,
         validateOauthRedirectUriPort = validateOauthRedirectUriPort,
-        callbackBindingEnabled = properties.callbackBinding.isCookieValidationEnabled(),
-        callbackBindingStateAttributeKey = properties.callbackBinding.stateAttributeKey.trim(),
-        relayCodeQueryParameterName = properties.relayCodeQueryParameterName,
+        properties = properties,
     )
   }
 

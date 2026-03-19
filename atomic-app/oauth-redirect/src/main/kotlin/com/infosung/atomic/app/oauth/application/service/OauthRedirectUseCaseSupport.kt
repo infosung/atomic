@@ -2,11 +2,11 @@ package com.infosung.atomic.app.oauth.application.service
 
 import com.infosung.atomic.app.oauth.OauthRelayPayload
 import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRequestException
+import com.infosung.atomic.app.oauth.application.model.OauthVerifiedState
 import com.infosung.atomic.oauth.api.OauthProviderName
 import com.infosung.atomic.oauth.api.OauthTokenResult
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
-import org.springframework.security.oauth2.jwt.Jwt
 
 internal object OauthRedirectUseCaseSupport {
   fun buildCallbackBindingStateAttributes(
@@ -24,7 +24,7 @@ internal object OauthRedirectUseCaseSupport {
   }
 
   fun validateCallbackBinding(
-      stateJwt: Jwt,
+      verifiedState: OauthVerifiedState,
       callbackBindingEnabled: Boolean,
       callbackBindingStateAttributeKey: String,
       callbackBindingToken: String?,
@@ -33,7 +33,7 @@ internal object OauthRedirectUseCaseSupport {
       return
     }
     val expectedToken =
-        readStateAttributes(stateJwt)[callbackBindingStateAttributeKey]?.trim()?.takeIf {
+        verifiedState.attributes[callbackBindingStateAttributeKey]?.trim()?.takeIf {
           it.isNotBlank()
         } ?: throw OauthRedirectRequestException("OAuth callback binding state is missing.")
     val actualToken =
@@ -44,8 +44,8 @@ internal object OauthRedirectUseCaseSupport {
     }
   }
 
-  fun readRedirectUri(stateJwt: Jwt): String {
-    return stateJwt.claims["redirect_uri"]?.toString()
+  fun readRedirectUri(verifiedState: OauthVerifiedState): String {
+    return verifiedState.redirectUri
         ?: throw OauthRedirectRequestException("State does not include redirect_uri.")
   }
 
@@ -76,7 +76,7 @@ internal object OauthRedirectUseCaseSupport {
   fun toRelayPayload(
       provider: OauthProviderName,
       tokenResult: OauthTokenResult,
-      stateJwt: Jwt,
+      verifiedState: OauthVerifiedState,
   ): OauthRelayPayload {
     return OauthRelayPayload(
         provider = provider,
@@ -87,15 +87,8 @@ internal object OauthRedirectUseCaseSupport {
         expiresInSeconds = tokenResult.expiresInSeconds,
         scopes = tokenResult.scopes,
         raw = tokenResult.raw,
-        nonce = stateJwt.claims["nonce"]?.toString(),
-        stateAttributes = readStateAttributes(stateJwt),
+        nonce = verifiedState.nonce,
+        stateAttributes = verifiedState.attributes,
     )
-  }
-
-  @Suppress("UNCHECKED_CAST")
-  fun readStateAttributes(stateJwt: Jwt): Map<String, String> {
-    val raw = stateJwt.claims["attributes"] ?: return emptyMap()
-    val map = raw as? Map<*, *> ?: return emptyMap()
-    return map.entries.associate { (key, value) -> key.toString() to value.toString() }
   }
 }

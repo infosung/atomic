@@ -37,13 +37,13 @@ internal class BuildOauthCallbackRedirectService(
       throw OauthRedirectRequestException(
           "Use POST ${resolveAppleCallbackPath()} for Apple callback.")
     }
-    val stateJwt =
+    val verifiedState =
         verifyOauthStatePort.verifyState(
             signedState = state,
             expectedProvider = providerName,
         )
     OauthRedirectUseCaseSupport.validateCallbackBinding(
-        stateJwt = stateJwt,
+        verifiedState = verifiedState,
         callbackBindingEnabled = callbackBindingEnabled,
         callbackBindingStateAttributeKey = callbackBindingStateAttributeKey,
         callbackBindingToken = callbackBindingToken,
@@ -60,14 +60,14 @@ internal class BuildOauthCallbackRedirectService(
         )
     val redirectUri =
         validateOauthRedirectUriPort.validateRedirectUri(
-            OauthRedirectUseCaseSupport.readRedirectUri(stateJwt),
+            OauthRedirectUseCaseSupport.readRedirectUri(verifiedState),
         )
     val relayCode =
         issueOauthRelayCodePort.issueRelayCode(
             OauthRedirectUseCaseSupport.toRelayPayload(
                 provider = tokenExchange.providerName,
                 tokenResult = tokenExchange.tokenResult,
-                stateJwt = stateJwt,
+                verifiedState = verifiedState,
             ),
         )
     val queryParameterName =

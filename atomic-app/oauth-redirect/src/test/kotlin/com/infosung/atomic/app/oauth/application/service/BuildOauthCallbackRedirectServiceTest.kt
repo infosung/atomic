@@ -3,6 +3,7 @@ package com.infosung.atomic.app.oauth.application.service
 import com.infosung.atomic.app.oauth.OauthRedirectClientTarget
 import com.infosung.atomic.app.oauth.OauthRelayPayload
 import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRequestException
+import com.infosung.atomic.app.oauth.application.model.OauthVerifiedState
 import com.infosung.atomic.app.oauth.application.port.out.IssueOauthRelayCodePort
 import com.infosung.atomic.app.oauth.application.port.out.OauthProviderOperationsPort
 import com.infosung.atomic.app.oauth.application.port.out.OauthProviderTokenExchange
@@ -15,7 +16,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
-import org.springframework.security.oauth2.jwt.Jwt
 
 class BuildOauthCallbackRedirectServiceTest {
   @Test
@@ -26,9 +26,9 @@ class BuildOauthCallbackRedirectServiceTest {
             oauthProviderOperationsPort = FakeOauthProviderOperationsPort(),
             verifyOauthStatePort =
                 FakeVerifyOauthStatePort(
-                    jwt =
-                        stateJwt(
-                            provider = "GOOGLE",
+                    verifiedState =
+                        verifiedState(
+                            provider = OauthProviderName.GOOGLE,
                             redirectUri = "myapp://oauth/callback",
                             callbackBindingKey = "atomicCallbackBinding",
                             callbackBindingToken = "binding-token",
@@ -67,9 +67,9 @@ class BuildOauthCallbackRedirectServiceTest {
             oauthProviderOperationsPort = FakeOauthProviderOperationsPort(),
             verifyOauthStatePort =
                 FakeVerifyOauthStatePort(
-                    jwt =
-                        stateJwt(
-                            provider = "GOOGLE",
+                    verifiedState =
+                        verifiedState(
+                            provider = OauthProviderName.GOOGLE,
                             redirectUri = "https://frontend.example.com/oauth/callback",
                             callbackBindingKey = "atomicCallbackBinding",
                             callbackBindingToken = "binding-token",
@@ -110,9 +110,12 @@ class BuildOauthCallbackRedirectServiceTest {
   }
 
   private class FakeVerifyOauthStatePort(
-      private val jwt: Jwt,
+      private val verifiedState: OauthVerifiedState,
   ) : VerifyOauthStatePort {
-    override fun verifyState(signedState: String, expectedProvider: OauthProviderName): Jwt = jwt
+    override fun verifyState(
+        signedState: String,
+        expectedProvider: OauthProviderName,
+    ): OauthVerifiedState = verifiedState
   }
 
   private class FakeIssueOauthRelayCodePort : IssueOauthRelayCodePort {
@@ -130,20 +133,16 @@ class BuildOauthCallbackRedirectServiceTest {
     override fun validateRedirectUri(redirectUri: String): String = validatedRedirectUri
   }
 
-  private fun stateJwt(
-      provider: String,
+  private fun verifiedState(
+      provider: OauthProviderName,
       redirectUri: String,
       callbackBindingKey: String,
       callbackBindingToken: String,
-  ): Jwt {
-    return Jwt.withTokenValue("state-jwt")
-        .header("alg", "HS256")
-        .claim("provider", provider)
-        .claim("redirect_uri", redirectUri)
-        .claim(
-            "attributes",
-            mapOf(callbackBindingKey to callbackBindingToken),
-        )
-        .build()
+  ): OauthVerifiedState {
+    return OauthVerifiedState(
+        provider = provider,
+        redirectUri = redirectUri,
+        attributes = mapOf(callbackBindingKey to callbackBindingToken),
+    )
   }
 }
