@@ -13,10 +13,10 @@ import tools.jackson.databind.ObjectMapper
  * were never consumed.
  */
 class EntityOauthRelayCodeStore(
-    private val jdbcOperations: JdbcOperations,
-    private val transactionTemplate: TransactionTemplate,
-    private val objectMapper: ObjectMapper,
-    private val timeProvider: TimeProvider = TimeProvider(),
+    jdbcOperations: JdbcOperations,
+    transactionTemplate: TransactionTemplate,
+    objectMapper: ObjectMapper,
+    timeProvider: TimeProvider = TimeProvider(),
     tableName: String,
 ) :
     EntityOauthRelayCodeStoreAdapter(

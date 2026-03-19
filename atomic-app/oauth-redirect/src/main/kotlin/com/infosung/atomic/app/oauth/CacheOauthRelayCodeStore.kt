@@ -13,12 +13,12 @@ import tools.jackson.databind.ObjectMapper
  * expired and never-consumed relay entries do not accumulate.
  */
 class CacheOauthRelayCodeStore(
-    private val cacheManager: CacheManager,
-    private val cacheName: String,
-    private val keyPrefix: String,
-    private val ttlSeconds: Long,
-    private val objectMapper: ObjectMapper,
-    private val timeProvider: TimeProvider = TimeProvider(),
+    cacheManager: CacheManager,
+    cacheName: String,
+    keyPrefix: String,
+    ttlSeconds: Long,
+    objectMapper: ObjectMapper,
+    timeProvider: TimeProvider = TimeProvider(),
 ) :
     CacheOauthRelayCodeStoreAdapter(
         cacheManager = cacheManager,
