@@ -1,8 +1,12 @@
 package com.infosung.atomic.app.version
 
-import com.infosung.atomic.contract.exception.HttpStatusException
+import com.infosung.atomic.app.version.adapter.`in`.web.AppVersionController
+import com.infosung.atomic.app.version.adapter.`in`.web.AppVersionHttpExceptionHandler
+import com.infosung.atomic.app.version.application.exception.InvalidAppVersionException
+import com.infosung.atomic.app.version.application.exception.VersionPolicyNotFoundException
+import com.infosung.atomic.app.version.application.port.`in`.CheckAppVersionUseCase
+import com.infosung.atomic.app.version.domain.VersionCheckDecision
 import com.infosung.atomic.contract.header.ApiHeaderNames
-import com.infosung.atomic.contract.response.BaseResponse
 import kotlin.test.Test
 import org.mockito.Mockito.doThrow
 import org.mockito.Mockito.mock
@@ -10,40 +14,28 @@ import org.mockito.Mockito.verify
 import org.mockito.Mockito.verifyNoInteractions
 import org.mockito.Mockito.`when`
 import org.springframework.http.MediaType
-import org.springframework.http.ResponseEntity
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.content
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
-import org.springframework.web.bind.annotation.ExceptionHandler
-import org.springframework.web.bind.annotation.RestControllerAdvice
 
 class AppVersionControllerHttpContractTest {
   @Test
   fun `version endpoint should return documented response envelope`() {
-    val service = mock(AppVersionCheckService::class.java)
-    val controller = AppVersionController(service)
+    val useCase = mock(CheckAppVersionUseCase::class.java)
+    val controller = AppVersionController(useCase)
     val mockMvc = newMockMvc(controller = controller, endpointPath = "/api/v1/version/check")
     val result =
-        VersionCheckResult(
+        VersionCheckDecision(
             currentVersion = "1.2.4",
             userVersion = "1.2.3",
             requiredUpdate = true,
             storeUrl = "https://play.google.com/store/apps/details?id=atomic",
         )
 
-    `when`(
-            service.checkVersion(
-                VersionCheckRequest(
-                    service = "MY_SERVICE",
-                    platform = "ANDROID",
-                    appVersion = "1.2.3",
-                ),
-            ),
-        )
-        .thenReturn(result)
+    `when`(useCase.check("MY_SERVICE", "ANDROID", "1.2.3")).thenReturn(result)
 
     mockMvc
         .perform(
@@ -64,33 +56,18 @@ class AppVersionControllerHttpContractTest {
                 .value("https://play.google.com/store/apps/details?id=atomic"),
         )
 
-    verify(service)
-        .checkVersion(
-            VersionCheckRequest(
-                service = "MY_SERVICE",
-                platform = "ANDROID",
-                appVersion = "1.2.3",
-            ),
-        )
+    verify(useCase).check("MY_SERVICE", "ANDROID", "1.2.3")
   }
 
   @Test
   fun `configured endpoint path should be honored`() {
-    val service = mock(AppVersionCheckService::class.java)
-    val controller = AppVersionController(service)
+    val useCase = mock(CheckAppVersionUseCase::class.java)
+    val controller = AppVersionController(useCase)
     val mockMvc = newMockMvc(controller = controller, endpointPath = "/internal/api/version/check")
 
-    `when`(
-            service.checkVersion(
-                VersionCheckRequest(
-                    service = "MY_SERVICE",
-                    platform = "ANDROID",
-                    appVersion = "1.2.3",
-                ),
-            ),
-        )
+    `when`(useCase.check("MY_SERVICE", "ANDROID", "1.2.3"))
         .thenReturn(
-            VersionCheckResult(
+            VersionCheckDecision(
                 currentVersion = "1.2.3",
                 userVersion = "1.2.3",
                 requiredUpdate = false,
@@ -121,8 +98,8 @@ class AppVersionControllerHttpContractTest {
 
   @Test
   fun `missing service header should return documented 400 error envelope`() {
-    val service = mock(AppVersionCheckService::class.java)
-    val controller = AppVersionController(service)
+    val useCase = mock(CheckAppVersionUseCase::class.java)
+    val controller = AppVersionController(useCase)
     val mockMvc = newMockMvc(controller = controller, endpointPath = "/api/v1/version/check")
 
     mockMvc
@@ -136,13 +113,13 @@ class AppVersionControllerHttpContractTest {
         .andExpect(jsonPath("$.code").value("HttpStatusException"))
         .andExpect(jsonPath("$.message").value("Service name is required."))
 
-    verifyNoInteractions(service)
+    verifyNoInteractions(useCase)
   }
 
   @Test
   fun `blank app version header should return documented 400 error envelope`() {
-    val service = mock(AppVersionCheckService::class.java)
-    val controller = AppVersionController(service)
+    val useCase = mock(CheckAppVersionUseCase::class.java)
+    val controller = AppVersionController(useCase)
     val mockMvc = newMockMvc(controller = controller, endpointPath = "/api/v1/version/check")
 
     mockMvc
@@ -157,24 +134,18 @@ class AppVersionControllerHttpContractTest {
         .andExpect(jsonPath("$.code").value("HttpStatusException"))
         .andExpect(jsonPath("$.message").value("App version is required."))
 
-    verifyNoInteractions(service)
+    verifyNoInteractions(useCase)
   }
 
   @Test
   fun `invalid semantic version should return documented 400 error envelope`() {
-    val service = mock(AppVersionCheckService::class.java)
-    val controller = AppVersionController(service)
+    val useCase = mock(CheckAppVersionUseCase::class.java)
+    val controller = AppVersionController(useCase)
     val mockMvc = newMockMvc(controller = controller, endpointPath = "/api/v1/version/check")
 
-    doThrow(HttpStatusException(status = 400, message = "Version must be semantic format: x.y.z"))
-        .`when`(service)
-        .checkVersion(
-            VersionCheckRequest(
-                service = "MY_SERVICE",
-                platform = "ANDROID",
-                appVersion = "1.2",
-            ),
-        )
+    doThrow(InvalidAppVersionException("Version must be semantic format: x.y.z"))
+        .`when`(useCase)
+        .check("MY_SERVICE", "ANDROID", "1.2")
 
     mockMvc
         .perform(
@@ -191,19 +162,13 @@ class AppVersionControllerHttpContractTest {
 
   @Test
   fun `missing version policy should return documented 404 error envelope`() {
-    val service = mock(AppVersionCheckService::class.java)
-    val controller = AppVersionController(service)
+    val useCase = mock(CheckAppVersionUseCase::class.java)
+    val controller = AppVersionController(useCase)
     val mockMvc = newMockMvc(controller = controller, endpointPath = "/api/v1/version/check")
 
-    doThrow(HttpStatusException(status = 404, message = "No version policy found."))
-        .`when`(service)
-        .checkVersion(
-            VersionCheckRequest(
-                service = "MY_SERVICE",
-                platform = "ANDROID",
-                appVersion = "1.2.3",
-            ),
-        )
+    doThrow(VersionPolicyNotFoundException("MY_SERVICE", "ANDROID"))
+        .`when`(useCase)
+        .check("MY_SERVICE", "ANDROID", "1.2.3")
 
     mockMvc
         .perform(
@@ -215,7 +180,10 @@ class AppVersionControllerHttpContractTest {
         .andExpect(status().isNotFound)
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
         .andExpect(jsonPath("$.code").value("HttpStatusException"))
-        .andExpect(jsonPath("$.message").value("No version policy found."))
+        .andExpect(
+            jsonPath("$.message")
+                .value("No service version policy found for service=MY_SERVICE, platform=ANDROID"),
+        )
   }
 
   private fun newMockMvc(
@@ -223,16 +191,8 @@ class AppVersionControllerHttpContractTest {
       endpointPath: String,
   ): MockMvc {
     return MockMvcBuilders.standaloneSetup(controller)
-        .setControllerAdvice(TestHttpStatusExceptionHandler())
+        .setControllerAdvice(AppVersionHttpExceptionHandler())
         .addPlaceholderValue("atomic.app.version.endpoint-path", endpointPath)
         .build()
-  }
-
-  @RestControllerAdvice
-  private class TestHttpStatusExceptionHandler {
-    @ExceptionHandler(HttpStatusException::class)
-    fun httpStatusException(e: HttpStatusException): ResponseEntity<BaseResponse<Any>> {
-      return ResponseEntity.status(e.status).body(BaseResponse.error(e))
-    }
   }
 }

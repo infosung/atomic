@@ -1,7 +1,6 @@
-package com.infosung.atomic.app.version
+package com.infosung.atomic.app.version.adapter.`in`.web
 
-/** Version check response payload. */
-data class VersionCheckResult(
+data class AppVersionCheckResponseDto(
     val currentVersion: String,
     val userVersion: String,
     val requiredUpdate: Boolean,

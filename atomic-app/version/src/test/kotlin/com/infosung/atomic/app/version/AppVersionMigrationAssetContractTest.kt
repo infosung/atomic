@@ -1,5 +1,8 @@
 package com.infosung.atomic.app.version
 
+import com.infosung.atomic.app.version.adapter.out.persistence.ServiceVersionEntity
+import com.infosung.atomic.app.version.adapter.out.persistence.ServiceVersionRepository
+import com.infosung.atomic.app.version.application.port.`in`.CheckAppVersionUseCase
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -36,7 +39,7 @@ import org.testcontainers.junit.jupiter.Testcontainers
 class AppVersionMigrationAssetContractTest {
   @Autowired private lateinit var serviceVersionRepository: ServiceVersionRepository
   @Autowired private lateinit var jdbcTemplate: JdbcTemplate
-  @Autowired private lateinit var service: AppVersionCheckService
+  @Autowired private lateinit var useCase: CheckAppVersionUseCase
 
   @Test
   fun `official service version sql asset should support rollout safe version checks`() {
@@ -61,12 +64,10 @@ class AppVersionMigrationAssetContractTest {
     )
 
     val result =
-        service.checkVersion(
-            VersionCheckRequest(
-                service = "MY_SERVICE",
-                platform = "ANDROID",
-                appVersion = "1.2.3",
-            ),
+        useCase.check(
+            service = "MY_SERVICE",
+            platform = "ANDROID",
+            appVersion = "1.2.3",
         )
 
     assertEquals("2.0.0", result.currentVersion)
@@ -173,11 +174,14 @@ class AppVersionMigrationAssetContractTest {
   @EnableJpaRepositories(basePackageClasses = [ServiceVersionRepository::class])
   class TestConfiguration {
     @Bean
-    fun appVersionCheckService(
+    fun checkAppVersionUseCase(
         serviceVersionRepository: ServiceVersionRepository
-    ): AppVersionCheckService {
-      return AppVersionCheckService(
-          serviceVersionRepository = serviceVersionRepository,
+    ): CheckAppVersionUseCase {
+      return com.infosung.atomic.app.version.application.service.CheckAppVersionService(
+          loadVersionPolicyPort =
+              com.infosung.atomic.app.version.adapter.out.persistence.JpaLoadVersionPolicyAdapter(
+                  serviceVersionRepository,
+              ),
           defaultStoreUrl = "https://default.store",
       )
     }

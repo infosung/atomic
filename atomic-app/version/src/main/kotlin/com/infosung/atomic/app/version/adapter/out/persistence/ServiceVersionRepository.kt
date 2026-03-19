@@ -1,4 +1,4 @@
-package com.infosung.atomic.app.version
+package com.infosung.atomic.app.version.adapter.out.persistence
 
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository

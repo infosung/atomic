@@ -112,7 +112,7 @@ dependencies {
 | Goal | Modules | First Setup |
 |---|---|---|
 | Standard API response + shared contracts | `starter` + `contract` | Use `BaseResponse`, `HttpStatusException` |
-| App-ready version API | `app.version` | enable `atomic.app.version.enabled`, provision `service_version` schema, seed version rows, and keep host customization on the exported `AppVersionCheckService` bean |
+| App-ready version API | `app.version` | enable `atomic.app.version.enabled`, provision `service_version` schema, seed version rows, and keep host customization on the exported `CheckAppVersionUseCase` bean |
 | App-ready image upload/delete API | `app.storage.api` + `starter` + `storage` | enable `atomic.app.image.enabled`, provision `image` schema, and configure storage backends |
 | App-ready OAuth redirect/callback relay | `app.oauth.redirect` + `starter` + `spring.oauth2` | enable `atomic.app.oauth.redirect.enabled`, consume `relayCode` in login API, configure store prerequisites (default `store.type=entity`), set non-empty `allowed-redirect-uri-prefixes`, and let your app issue its own session/token after relay consumption |
 | Convenience bundle for multiple app APIs | `app` + any prerequisites still required by enabled features | enable only the specific `atomic.app.*.enabled` tracks you need |

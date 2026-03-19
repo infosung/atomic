@@ -208,10 +208,9 @@ Version API rollout-safe semantics:
 Version API customization note:
 
 - the current development line layers internal version evaluation behind application ports/use-cases
-- application-layer errors are translated back to the documented HTTP contract at the facade/controller boundary
-- the supported host override point remains the exported `AppVersionCheckService` bean
-- internal `application`, `domain`, and `adapter` packages are not a supported public extension contract
-- auto-configuration may wire internal port/use-case beans, but host apps should not treat those beans as compatibility-stable override surface in this line
+- application-layer errors are translated back to the documented HTTP contract at the web adapter boundary
+- the supported host override point is the exported `CheckAppVersionUseCase` bean
+- `application`, `domain`, and `adapter` package boundaries are now the intended topology; host apps should still avoid depending on internal support/composition types outside those layers
 - documented `400` / `404` wire semantics remain unchanged for the controller API
 
 ## Image API

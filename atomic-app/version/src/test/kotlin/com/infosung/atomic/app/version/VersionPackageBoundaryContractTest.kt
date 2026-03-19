@@ -1,5 +1,9 @@
 package com.infosung.atomic.app.version
 
+import com.infosung.atomic.app.version.adapter.`in`.web.AppVersionController
+import com.infosung.atomic.app.version.adapter.`in`.web.AppVersionHttpExceptionHandler
+import com.infosung.atomic.app.version.adapter.out.persistence.ServiceVersionEntity
+import com.infosung.atomic.app.version.adapter.out.persistence.ServiceVersionRepository
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -7,30 +11,42 @@ import kotlin.test.assertTrue
 
 class VersionPackageBoundaryContractTest {
   @Test
-  fun `version root web seams should delegate into adapter in web package`() {
-    val controllerAdapterField = AppVersionController::class.java.getDeclaredField("webAdapter")
-    val handlerAdapterField =
-        AppVersionHttpExceptionHandler::class.java.getDeclaredField("webAdapter")
-
+  fun `version legal style topology should place web and persistence types in adapter packages`() {
     assertEquals(
         "com.infosung.atomic.app.version.adapter.in.web",
-        controllerAdapterField.type.packageName,
+        AppVersionController::class.java.packageName,
     )
     assertEquals(
         "com.infosung.atomic.app.version.adapter.in.web",
-        handlerAdapterField.type.packageName,
+        AppVersionHttpExceptionHandler::class.java.packageName,
+    )
+    assertEquals(
+        "com.infosung.atomic.app.version.adapter.out.persistence",
+        ServiceVersionEntity::class.java.packageName,
+    )
+    assertEquals(
+        "com.infosung.atomic.app.version.adapter.out.persistence",
+        ServiceVersionRepository::class.java.packageName,
     )
   }
 
   @Test
-  fun `version root web entry types should remain exported compatibility seams`() {
+  fun `version adapter entry types should be exported from their target packages`() {
     assertEquals(
-        "com.infosung.atomic.app.version.AppVersionController",
+        "com.infosung.atomic.app.version.adapter.in.web.AppVersionController",
         AppVersionController::class.java.name,
     )
     assertEquals(
-        "com.infosung.atomic.app.version.AppVersionHttpExceptionHandler",
+        "com.infosung.atomic.app.version.adapter.in.web.AppVersionHttpExceptionHandler",
         AppVersionHttpExceptionHandler::class.java.name,
+    )
+    assertEquals(
+        "com.infosung.atomic.app.version.adapter.out.persistence.ServiceVersionEntity",
+        ServiceVersionEntity::class.java.name,
+    )
+    assertEquals(
+        "com.infosung.atomic.app.version.adapter.out.persistence.ServiceVersionRepository",
+        ServiceVersionRepository::class.java.name,
     )
     assertNotNull(AppVersionController::class.java.constructors.singleOrNull())
     assertTrue(AppVersionHttpExceptionHandler::class.java.declaredConstructors.isNotEmpty())

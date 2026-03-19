@@ -1,5 +1,7 @@
 package com.infosung.atomic.app.version
 
+import com.infosung.atomic.app.version.adapter.out.persistence.ServiceVersionEntity
+import com.infosung.atomic.app.version.adapter.out.persistence.ServiceVersionRepository
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertNotNull

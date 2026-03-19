@@ -127,7 +127,7 @@ dependencies {
 
 ### Compatibility Notes
 
-- Version API host customization should continue to target the exported `AppVersionCheckService` bean. Internal `application`, `domain`, and `adapter` packages are layered implementation detail, not a supported extension contract.
+- Version API host customization should target the exported `CheckAppVersionUseCase` bean. The module is now packaged in `application`, `domain`, and `adapter` layers, and host apps should avoid depending on internal implementation/support types beyond that use-case seam.
 - OAuth redirect stops at relayCode handoff. Your app still owns the login/session exchange after `AppOauthRelayCodeService.consumeRelayCode(relayCode)` succeeds.
 - Internally the module is layered as application use-cases plus outbound adapters plus web adapter support. The supported host override seam remains the exported `AppOauthRedirectService` bean, and the exported `AppOauthRedirectController` / `AppOauthRedirectHttpExceptionHandler` types stay as compatibility wrappers over that web boundary.
 - `atomic.spring.oauth2` keeps legacy `Jwt`-returning seams for compatibility, but new integrations should prefer typed `OauthStateClaims` / typed id-token claim models where available. Provider registry startup now fails fast on duplicate `OauthProviderName` registration instead of silently shadowing one bean.

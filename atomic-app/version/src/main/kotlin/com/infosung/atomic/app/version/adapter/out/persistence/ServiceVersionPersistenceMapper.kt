@@ -1,6 +1,5 @@
 package com.infosung.atomic.app.version.adapter.out.persistence
 
-import com.infosung.atomic.app.version.ServiceVersionEntity
 import com.infosung.atomic.app.version.domain.SemanticVersion
 import com.infosung.atomic.app.version.domain.VersionPolicy
 
