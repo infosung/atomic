@@ -176,6 +176,37 @@ class OauthRedirectPublicContractTest {
   }
 
   @Test
+  fun `in memory relay store public constructor contract should remain stable`() {
+    assertEquals(
+        listOf("cleanupInterval", "timeProvider"),
+        InMemoryOauthRelayCodeStore::class.primaryConstructor!!.parameters.mapNotNull { it.name },
+    )
+    assertEquals(
+        "com.infosung.atomic.app.oauth.InMemoryOauthRelayCodeStore",
+        InMemoryOauthRelayCodeStore::class.java.name,
+    )
+  }
+
+  @Test
+  fun `cache relay store public constructor contract should remain stable`() {
+    assertEquals(
+        listOf(
+            "cacheManager",
+            "cacheName",
+            "keyPrefix",
+            "ttlSeconds",
+            "objectMapper",
+            "timeProvider",
+        ),
+        CacheOauthRelayCodeStore::class.primaryConstructor!!.parameters.mapNotNull { it.name },
+    )
+    assertEquals(
+        "com.infosung.atomic.app.oauth.CacheOauthRelayCodeStore",
+        CacheOauthRelayCodeStore::class.java.name,
+    )
+  }
+
+  @Test
   fun `entity relay code store should reject unsafe table names`() {
     val exception =
         assertFailsWith<IllegalArgumentException> {

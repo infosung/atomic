@@ -80,6 +80,30 @@ class AtomicAppVersionAutoConfigurationContractTest {
     assertEquals(AppVersionCheckService::class.java, beanMethod.returnType)
   }
 
+  @Test
+  fun `auto configuration should keep app version controller override guard on exported bean`() {
+    val beanMethod =
+        AtomicAppVersionAutoConfiguration::class
+            .java
+            .declaredMethods
+            .single(::isAppVersionControllerBeanMethod)
+
+    assertTrue(beanMethod.isAnnotationPresent(ConditionalOnMissingBean::class.java))
+    assertEquals(AppVersionController::class.java, beanMethod.returnType)
+  }
+
+  @Test
+  fun `auto configuration should keep app version exception handler override guard on exported bean`() {
+    val beanMethod =
+        AtomicAppVersionAutoConfiguration::class
+            .java
+            .declaredMethods
+            .single(::isAppVersionHttpExceptionHandlerBeanMethod)
+
+    assertTrue(beanMethod.isAnnotationPresent(ConditionalOnMissingBean::class.java))
+    assertEquals(AppVersionHttpExceptionHandler::class.java, beanMethod.returnType)
+  }
+
   private fun isAppVersionServiceBeanMethod(method: Method): Boolean {
     return method.name.startsWith("appVersionCheckService") &&
         method.returnType == AppVersionCheckService::class.java &&
@@ -90,5 +114,17 @@ class AtomicAppVersionAutoConfigurationContractTest {
                 CheckAppVersionUseCase::class.java,
             ),
         )
+  }
+
+  private fun isAppVersionControllerBeanMethod(method: Method): Boolean {
+    return method.name == "appVersionController" &&
+        method.returnType == AppVersionController::class.java &&
+        method.parameterTypes.contentEquals(arrayOf(AppVersionCheckService::class.java))
+  }
+
+  private fun isAppVersionHttpExceptionHandlerBeanMethod(method: Method): Boolean {
+    return method.name == "appVersionHttpExceptionHandler" &&
+        method.returnType == AppVersionHttpExceptionHandler::class.java &&
+        method.parameterTypes.isEmpty()
   }
 }

@@ -4,6 +4,7 @@ import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
+import com.infosung.atomic.app.oauth.adapter.out.redirect.AllowedRedirectUriPolicySupport
 import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRequestException
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -73,7 +74,7 @@ class AllowedRedirectUriPolicyTest {
 
   @Test
   fun `validateRedirectUri should log matched allowlist pattern for accepted redirect`() {
-    val logger = LoggerFactory.getLogger(AllowedRedirectUriPolicy::class.java) as Logger
+    val logger = LoggerFactory.getLogger(AllowedRedirectUriPolicySupport::class.java) as Logger
     val originalLevel = logger.level
     logger.level = Level.DEBUG
     val appender = ListAppender<ILoggingEvent>()
