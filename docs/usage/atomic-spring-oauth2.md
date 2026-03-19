@@ -186,12 +186,13 @@ class OauthRedirectController(
     // exchangeCode performs provider/state validation.
     val tokenResult = oauthProvider.exchangeCode(OauthTokenExchangeRequest(code = code, state = state))
 
-    // Optional: use a read-only state manager (no store) for controller-side claim reading.
+    // Optional: use a read-only state manager (no store) for controller-side state reading.
     val providerName = OauthProviderName.valueOf(provider.uppercase())
-    val stateJwt = stateReader.readState(signedState = state, expectedProvider = providerName)
+    val stateClaims =
+        stateReader.readStateClaims(signedState = state, expectedProvider = providerName)
     val clientRedirectUri =
-        stateJwt.claims["redirect_uri"] as? String
-            ?: throw InvalidOauthRequestException("redirect_uri is missing in state")
+        stateClaims.redirectUri
+            ?: throw InvalidOauthRequestException("redirectUri is missing in state")
 
     // Store tokenResult server-side and issue one-time relay code.
     // Example: relayCodeStore.save(relayCode, tokenResult, ttl = 300s)
@@ -204,19 +205,27 @@ class OauthRedirectController(
 Use relayCode in your login API to consume stored OAuth payload.
 Avoid redirecting raw `id_token` or `access_token` via query parameters.
 
+Compatibility note:
+
+- `readState(...)` / `verifyState(...)` still return Spring Security `Jwt` for existing integrations.
+- New code should prefer `readStateClaims(...)` / `verifyStateClaims(...)` to avoid raw claim-key coupling.
+- `IdTokenParser.verifyIdToken(...)` still returns Spring Security `Jwt` for existing integrations.
+- New provider code should prefer `IdTokenParser.verifyIdTokenClaims(...)` to read typed issuer/subject/audience/nonce before falling back to provider-specific claims.
+- `OauthServiceProvider` now fails fast when duplicate `OauthProviderName` registrations are supplied, instead of silently shadowing one provider with another.
+
 ## State Verification Patterns
 
 ### Pattern A: Simpler (No Store)
 
 - Configure `OauthStateManager` without `OauthStateStore`.
-- `exchangeCode` and `stateReader.readState` both validate signature/expiry/provider.
+- `exchangeCode` and `stateReader.readStateClaims` both validate signature/expiry/provider.
 - Best when you need quick integration and can tolerate non-single-use state semantics.
 
 ### Pattern B: Single-Use State (Recommended for Production)
 
 - Use one `OauthStateManager` with `OauthStateStore` in provider path.
 - Use another read-only `OauthStateManager` (same secret/issuer/ttl, `store = null`) in controller for reading `redirect_uri` after exchange.
-- `readState(...)` itself does not consume store entries, so dual-manager is optional but can make responsibility separation explicit.
+- `readStateClaims(...)` itself does not consume store entries, so dual-manager is optional but can make responsibility separation explicit.
 
 ## Provider Capability Notes
 

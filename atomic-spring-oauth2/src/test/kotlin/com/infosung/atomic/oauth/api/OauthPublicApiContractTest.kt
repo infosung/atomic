@@ -1,5 +1,8 @@
 package com.infosung.atomic.oauth.api
 
+import com.infosung.atomic.oauth.idtoken.IdTokenParser
+import com.infosung.atomic.oauth.idtoken.OauthIdTokenClaims
+import com.infosung.atomic.oauth.state.OauthStateClaims
 import com.infosung.atomic.oauth.state.OauthStateManager
 import java.lang.reflect.Modifier
 import kotlin.reflect.full.primaryConstructor
@@ -77,10 +80,26 @@ class OauthPublicApiContractTest {
             "rawProfile",
         ),
     )
+    assertConstructorFields(
+        OauthStateClaims::class,
+        listOf(
+            "issuer",
+            "stateId",
+            "issuedAt",
+            "expiresAt",
+            "provider",
+            "redirectUri",
+            "nonce",
+            "attributes"),
+    )
+    assertConstructorFields(
+        OauthIdTokenClaims::class,
+        listOf("issuer", "subject", "audiences", "issuedAt", "expiresAt", "nonce", "claims"),
+    )
   }
 
   @Test
-  fun `oauth service provider and state manager public methods should remain stable`() {
+  fun `oauth service provider, state manager, and id token parser public methods should remain stable`() {
     assertEquals(
         listOf(
             "getService(OauthProviderName):OauthProvider",
@@ -94,9 +113,18 @@ class OauthPublicApiContractTest {
             "isReplayProtectionEnabled():boolean",
             "issueState(OauthProviderName, String, String, Map):String",
             "readState(String, OauthProviderName, String, String):Jwt",
+            "readStateClaims(String, OauthProviderName, String, String):OauthStateClaims",
             "verifyState(String, OauthProviderName, String, String):Jwt",
+            "verifyStateClaims(String, OauthProviderName, String, String):OauthStateClaims",
         ),
         publicSignatures(OauthStateManager::class.java),
+    )
+    assertEquals(
+        listOf(
+            "verifyIdToken(String, String, String):Jwt",
+            "verifyIdTokenClaims(String, String, String):OauthIdTokenClaims",
+        ),
+        publicSignatures(IdTokenParser::class.java),
     )
   }
 

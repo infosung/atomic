@@ -1,6 +1,6 @@
 package com.infosung.atomic.app.oauth
 
-import com.infosung.atomic.contract.exception.HttpStatusException
+import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRequestException
 import java.net.URI
 import java.util.Locale
 import org.slf4j.LoggerFactory
@@ -24,7 +24,7 @@ internal object AllowedRedirectUriPolicy {
     val normalizedRedirectUri = redirectUri.trim()
     if (normalizedRedirectUri.isBlank()) {
       log.warn("Rejected oauth redirect because redirectUri is blank.")
-      throw HttpStatusException(status = 400, message = "redirectUri is required.")
+      throw OauthRedirectRequestException("redirectUri is required.")
     }
 
     val candidateUri =
@@ -48,8 +48,7 @@ internal object AllowedRedirectUriPolicy {
               "Redirect validation failed because allowlist configuration is invalid: {}",
               e.message,
           )
-          throw HttpStatusException(
-              status = 400, message = e.message ?: "Invalid allowlist.", cause = e)
+          throw OauthRedirectRequestException(e.message ?: "Invalid allowlist.", e)
         }
 
     val matchedPattern = allowedPatterns.firstOrNull { it.matches(candidateUri) }
@@ -59,7 +58,7 @@ internal object AllowedRedirectUriPolicy {
           normalizedRedirectUri,
           allowedPatterns.size,
       )
-      throw HttpStatusException(status = 400, message = "redirectUri is not allowed.")
+      throw OauthRedirectRequestException("redirectUri is not allowed.")
     }
 
     log.debug(
@@ -82,14 +81,12 @@ internal object AllowedRedirectUriPolicy {
       value: String,
       message: String,
   ): URI {
-    val uri =
-        runCatching { URI(value) }.getOrNull()
-            ?: throw HttpStatusException(status = 400, message = message)
+    val uri = runCatching { URI(value) }.getOrNull() ?: throw OauthRedirectRequestException(message)
     if (!uri.isAbsolute || uri.scheme.isNullOrBlank()) {
-      throw HttpStatusException(status = 400, message = message)
+      throw OauthRedirectRequestException(message)
     }
     if (!uri.userInfo.isNullOrBlank()) {
-      throw HttpStatusException(status = 400, message = message)
+      throw OauthRedirectRequestException(message)
     }
     return uri
   }

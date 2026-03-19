@@ -104,6 +104,30 @@ class OauthStateManager(
       expectedRedirectUri: String? = null,
       expectedNonce: String? = null,
   ): Jwt {
+    return toJwt(
+        signedState = signedState,
+        claims =
+            verifyStateClaims(
+                signedState = signedState,
+                expectedProvider = expectedProvider,
+                expectedRedirectUri = expectedRedirectUri,
+                expectedNonce = expectedNonce,
+            ),
+    )
+  }
+
+  /**
+   * Verifies signed OAuth state token and returns a transport-agnostic typed state model.
+   *
+   * @throws InvalidOauthStateException If signature/issuer/time/provider/redirect/nonce checks
+   *   fail.
+   */
+  fun verifyStateClaims(
+      signedState: String,
+      expectedProvider: OauthProviderName? = null,
+      expectedRedirectUri: String? = null,
+      expectedNonce: String? = null,
+  ): OauthStateClaims {
     return resolveState(
         signedState = signedState,
         expectedProvider = expectedProvider,
@@ -127,6 +151,31 @@ class OauthStateManager(
       expectedRedirectUri: String? = null,
       expectedNonce: String? = null,
   ): Jwt {
+    return toJwt(
+        signedState = signedState,
+        claims =
+            readStateClaims(
+                signedState = signedState,
+                expectedProvider = expectedProvider,
+                expectedRedirectUri = expectedRedirectUri,
+                expectedNonce = expectedNonce,
+            ),
+    )
+  }
+
+  /**
+   * Reads and verifies signed OAuth state token without consuming store entry and returns typed
+   * claims.
+   *
+   * @throws InvalidOauthStateException If signature/issuer/time/provider/redirect/nonce checks
+   *   fail.
+   */
+  fun readStateClaims(
+      signedState: String,
+      expectedProvider: OauthProviderName? = null,
+      expectedRedirectUri: String? = null,
+      expectedNonce: String? = null,
+  ): OauthStateClaims {
     return resolveState(
         signedState = signedState,
         expectedProvider = expectedProvider,
@@ -145,7 +194,7 @@ class OauthStateManager(
       expectedRedirectUri: String? = null,
       expectedNonce: String? = null,
       consumeStore: Boolean,
-  ): Jwt {
+  ): OauthStateClaims {
     val jwt = parseAndVerifySignature(signedState)
     val claims = jwt.jwtClaimsSet
     val now = Instant.now(clock)
@@ -195,25 +244,52 @@ class OauthStateManager(
     }
 
     log.debug(
-        "Verified OAuth state. stateId={}, provider={}, usedStore={}, consumed={}",
+        "Verified OAuth state claims. stateId={}, provider={}, usedStore={}, consumed={}, hasRedirectUri={}, hasNonce={}, attributesCount={}",
         stateId,
         provider,
         store != null,
         consumeStore,
+        !redirectUri.isNullOrBlank(),
+        !nonce.isNullOrBlank(),
+        attributes.size,
     )
-    val claimMap =
-        linkedMapOf<String, Any>("iss" to tokenIssuer, "iat" to issuedAt, "exp" to expiresAt)
-    claimMap["jti"] = stateId
-    provider?.let { claimMap["provider"] = it.name }
-    redirectUri?.let { claimMap["redirect_uri"] = it }
-    nonce?.let { claimMap["nonce"] = it }
-    if (attributes.isNotEmpty()) {
-      claimMap["attributes"] = attributes
-    }
-    val headerMap = linkedMapOf<String, Any>("alg" to jwt.header.algorithm.name)
-    jwt.header.type?.let { headerMap["typ"] = it.toString() }
+    return OauthStateClaims(
+        issuer = tokenIssuer,
+        stateId = stateId,
+        issuedAt = issuedAt,
+        expiresAt = expiresAt,
+        provider = provider,
+        redirectUri = redirectUri,
+        nonce = nonce,
+        attributes = attributes,
+    )
+  }
 
-    return Jwt(signedState, issuedAt, expiresAt, headerMap, claimMap)
+  private fun toJwt(
+      signedState: String,
+      claims: OauthStateClaims,
+  ): Jwt {
+    val claimMap =
+        linkedMapOf<String, Any>(
+            "iss" to claims.issuer,
+            "iat" to claims.issuedAt,
+            "exp" to claims.expiresAt,
+            "jti" to claims.stateId,
+        )
+    claims.provider?.let { claimMap["provider"] = it.name }
+    claims.redirectUri?.let { claimMap["redirect_uri"] = it }
+    claims.nonce?.let { claimMap["nonce"] = it }
+    if (claims.attributes.isNotEmpty()) {
+      claimMap["attributes"] = claims.attributes
+    }
+    return Jwt(
+        signedState,
+        claims.issuedAt,
+        claims.expiresAt,
+        linkedMapOf<String, Any>(
+            "alg" to JWSAlgorithm.HS256.name, "typ" to JOSEObjectType.JWT.type),
+        claimMap,
+    )
   }
 
   private fun sign(claimsSet: JWTClaimsSet): String {

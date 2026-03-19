@@ -31,6 +31,39 @@ class OauthStateManagerTest {
             nonce = "nonce-1",
             attributes = mapOf("flow" to "mobile", "tenant" to "infosung"),
         )
+    val stateClaims =
+        manager.verifyStateClaims(
+            signedState = state,
+            expectedProvider = OauthProviderName.GOOGLE,
+            expectedRedirectUri = "https://example.com/callback",
+            expectedNonce = "nonce-1",
+        )
+
+    assertEquals("atomic-test", stateClaims.issuer)
+    assertEquals(OauthProviderName.GOOGLE, stateClaims.provider)
+    assertEquals("https://example.com/callback", stateClaims.redirectUri)
+    assertEquals("nonce-1", stateClaims.nonce)
+    assertEquals("mobile", stateClaims.attributes["flow"])
+    assertEquals("infosung", stateClaims.attributes["tenant"])
+    assertTrue(stateClaims.expiresAt.isAfter(stateClaims.issuedAt))
+  }
+
+  @Test
+  fun `legacy verifyState should continue exposing equivalent jwt claims`() {
+    val manager =
+        OauthStateManager(
+            signingSecret = signingSecret,
+            issuer = "atomic-test",
+            ttlSeconds = 300,
+        )
+
+    val state =
+        manager.issueState(
+            provider = OauthProviderName.GOOGLE,
+            redirectUri = "https://example.com/callback",
+            nonce = "nonce-1",
+            attributes = mapOf("flow" to "mobile"),
+        )
     val stateJwt =
         manager.verifyState(
             signedState = state,
@@ -45,8 +78,6 @@ class OauthStateManagerTest {
     assertEquals("https://example.com/callback", stateJwt.claims["redirect_uri"])
     assertEquals("nonce-1", stateJwt.claims["nonce"])
     assertEquals("mobile", attributes?.get("flow"))
-    assertEquals("infosung", attributes?.get("tenant"))
-    assertTrue(stateJwt.expiresAt!!.isAfter(stateJwt.issuedAt))
   }
 
   @Test

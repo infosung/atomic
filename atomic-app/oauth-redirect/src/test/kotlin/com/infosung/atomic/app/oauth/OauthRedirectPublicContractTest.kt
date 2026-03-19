@@ -3,6 +3,8 @@ package com.infosung.atomic.app.oauth
 import com.infosung.atomic.app.oauth.autoconfigure.AtomicAppOauthRedirectProperties
 import com.infosung.atomic.contract.time.TimeProvider
 import com.infosung.atomic.oauth.api.OauthProviderName
+import com.infosung.atomic.oauth.api.OauthServiceProvider
+import com.infosung.atomic.oauth.state.OauthStateManager
 import java.lang.reflect.Modifier
 import java.lang.reflect.Proxy
 import java.sql.ResultSet
@@ -98,6 +100,52 @@ class OauthRedirectPublicContractTest {
   }
 
   @Test
+  fun `oauth redirect facade public methods should remain stable`() {
+    assertEquals(
+        listOf(
+            "buildAppleCallbackRedirectUrl(String, String, String, String, Map, String):String",
+            "buildAuthorizationRedirectUrl(String, String, String, String, String, String, Map, String):String",
+            "buildCallbackRedirectUrl(String, String, String, Map, String):String",
+        ),
+        publicSignatures(AppOauthRedirectService::class.java),
+    )
+  }
+
+  @Test
+  fun `oauth redirect facade constructor contract should keep public four argument entry point`() {
+    val hasPublicFourArgumentConstructor =
+        AppOauthRedirectService::class.java.constructors.any {
+          it.parameterTypes.contentEquals(
+              arrayOf(
+                  OauthServiceProvider::class.java,
+                  OauthStateManager::class.java,
+                  AppOauthRelayCodeService::class.java,
+                  AtomicAppOauthRedirectProperties::class.java,
+              ),
+          )
+        }
+
+    assertTrue(
+        hasPublicFourArgumentConstructor,
+        "AppOauthRedirectService should keep the public four-argument constructor for host wiring.",
+    )
+  }
+
+  @Test
+  fun `oauth redirect web entry types should remain exported root classes`() {
+    assertTrue(Modifier.isPublic(AppOauthRedirectController::class.java.modifiers))
+    assertTrue(Modifier.isPublic(AppOauthRedirectHttpExceptionHandler::class.java.modifiers))
+    assertEquals(
+        "com.infosung.atomic.app.oauth.AppOauthRedirectController",
+        AppOauthRedirectController::class.java.name,
+    )
+    assertEquals(
+        "com.infosung.atomic.app.oauth.AppOauthRedirectHttpExceptionHandler",
+        AppOauthRedirectHttpExceptionHandler::class.java.name,
+    )
+  }
+
+  @Test
   fun `oauth relay code service public methods should remain stable`() {
     assertEquals(
         listOf(
@@ -105,6 +153,25 @@ class OauthRedirectPublicContractTest {
             "issueRelayCode(OauthRelayPayload):String",
         ),
         publicSignatures(AppOauthRelayCodeService::class.java),
+    )
+  }
+
+  @Test
+  fun `oauth relay code service constructor contract should keep public relay store entry point`() {
+    val hasPublicRelayConstructor =
+        AppOauthRelayCodeService::class.java.constructors.any {
+          it.parameterTypes.contentEquals(
+              arrayOf(
+                  OauthRelayCodeStore::class.java,
+                  AtomicAppOauthRedirectProperties::class.java,
+                  TimeProvider::class.java,
+              ),
+          )
+        }
+
+    assertTrue(
+        hasPublicRelayConstructor,
+        "AppOauthRelayCodeService should keep the public relay-store constructor for host wiring.",
     )
   }
 

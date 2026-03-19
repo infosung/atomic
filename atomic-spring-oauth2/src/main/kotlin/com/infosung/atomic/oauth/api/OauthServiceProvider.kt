@@ -7,8 +7,7 @@ import org.slf4j.LoggerFactory
 /** Registry and lookup service for configured [OauthProvider] implementations. */
 class OauthServiceProvider(providers: Collection<OauthProvider>) {
   private val log = LoggerFactory.getLogger(this::class.java)
-  private val servicesByName: Map<OauthProviderName, OauthProvider> =
-      providers.associateBy { it.providerName }
+  private val servicesByName: Map<OauthProviderName, OauthProvider> = associateProviders(providers)
 
   /** Finds provider by enum type. */
   fun getService(type: OauthProviderName): OauthProvider? {
@@ -45,5 +44,18 @@ class OauthServiceProvider(providers: Collection<OauthProvider>) {
 
   private fun parseProviderName(value: String): OauthProviderName? {
     return runCatching { OauthProviderName.valueOf(value.uppercase(Locale.ROOT)) }.getOrNull()
+  }
+
+  private fun associateProviders(
+      providers: Collection<OauthProvider>
+  ): Map<OauthProviderName, OauthProvider> {
+    val duplicates =
+        providers.groupBy { it.providerName }.filterValues { it.size > 1 }.keys.sortedBy { it.name }
+    if (duplicates.isNotEmpty()) {
+      val duplicateNames = duplicates.joinToString(", ") { it.name }
+      log.error("Duplicate OAuth provider registrations detected: providers={}.", duplicateNames)
+      throw IllegalArgumentException("Duplicate OAuth providers are not allowed: $duplicateNames")
+    }
+    return providers.associateBy { it.providerName }
   }
 }

@@ -341,6 +341,11 @@ Behavior:
 - frontend sends `relayCode` to your login API.
 - login API consumes relay payload using `AppOauthRelayCodeService.consumeRelayCode(relayCode)`.
 - the relay module stops at this handoff; your app still issues its own session/JWT/cookie after relay consumption.
+- internal implementation is organized as application ports/use-cases plus outbound adapters plus web adapter support, but the compatibility-stable host override surface remains `AppOauthRedirectService`.
+- relay code issue/consume is also internally split into application use-cases plus a relay-store outbound port, but the compatibility-stable relay seam remains `AppOauthRelayCodeService`.
+- state verification is also translated at the adapter boundary into an application-owned verified-state model before callback use-cases read `redirect_uri`, `nonce`, or callback-binding attributes.
+- internal port/use-case beans may appear in the Spring context for composition, but host apps should not customize them directly; they are implementation details rather than the compatibility-stable host customization seam in this line.
+- the exported `AppOauthRedirectController` and `AppOauthRedirectHttpExceptionHandler` types remain as compatibility wrappers over the internal web adapter boundary in this line.
 - browser initiation is the intended model for non-web clients too: mobile and desktop apps should normally start the provider flow in the system browser or a system-browser-based tab, let the server receive the provider callback, and then return to an allowlisted app URI with `relayCode`.
 - redirect endpoint input `redirectUri` must be an absolute URI and must not include user-info.
 - callback binding validates redirect/callback continuity using one-time state attribute + cookie token.
@@ -361,6 +366,8 @@ Supported client handoff patterns:
 | Web | browser | `https://frontend.example.com/oauth/...` | final browser redirect stays on the web origin |
 | Mobile | system browser / Custom Tabs / SFSafariViewController | `myapp://oauth/...` or `myapp:/oauth/...` or verified app/universal link | exact emitted URI shape must be allowlisted |
 | Desktop | system browser | `http://127.0.0.1:{port}/oauth/...` or desktop custom scheme | loopback host/port/path prefix must be allowlisted exactly; use a fixed pre-allowlisted port in this line |
+
+- `redirectTargetType` logging is URI-shape based, not OS-intent aware. Non-loopback `https://...` targets, including verified app/universal links, are logged as `WEB` because they remain HTTPS redirects at the library boundary.
 
 Concrete relayCode consume flows:
 
@@ -456,6 +463,7 @@ Relay store notes:
 - when `store.fail-fast=false`, selected store errors (missing deps, invalid cache-name/ttl, unavailable cache, unsupported atomic cache backend) do not fail startup and fall back to in-memory store.
 - in-memory fallback is process-local per instance and can break one-time relay semantics in multi-instance deployments.
 - oauth redirect readiness now checks explicit `OauthStateManager.isReplayProtectionEnabled()` capability instead of reflecting internal fields.
+- oauth redirect now prefers typed state claims from `atomic.spring.oauth2` and only keeps public facade/web wrappers for compatibility.
 - entity store expects table columns:
   - `relay_code` (PK, string)
   - `payload_json` (text/json string)

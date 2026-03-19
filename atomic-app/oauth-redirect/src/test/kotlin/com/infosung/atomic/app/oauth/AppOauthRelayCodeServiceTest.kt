@@ -1,5 +1,8 @@
 package com.infosung.atomic.app.oauth
 
+import com.infosung.atomic.app.oauth.application.exception.OauthRelayCodeRequestException
+import com.infosung.atomic.app.oauth.application.port.`in`.ConsumeOauthRelayCodeUseCase
+import com.infosung.atomic.app.oauth.application.port.`in`.IssueOauthRelayCodeUseCase
 import com.infosung.atomic.app.oauth.autoconfigure.AtomicAppOauthRedirectProperties
 import com.infosung.atomic.contract.exception.HttpStatusException
 import com.infosung.atomic.contract.time.TimeProvider
@@ -108,5 +111,30 @@ class AppOauthRelayCodeServiceTest {
         "atomic.app.oauth.redirect.relay-code-ttl-seconds must be greater than zero.",
         exception.message,
     )
+  }
+
+  @Test
+  fun `consume should translate relay application exception to documented http status`() {
+    val service =
+        AppOauthRelayCodeService(
+            relayCodeStore = InMemoryOauthRelayCodeStore(),
+            properties = AtomicAppOauthRedirectProperties(),
+            issueOauthRelayCodeUseCase = StubIssueOauthRelayCodeUseCase(),
+            consumeOauthRelayCodeUseCase =
+                ConsumeOauthRelayCodeUseCase {
+                  throw OauthRelayCodeRequestException(
+                      "relayCode is invalid, expired, or already used.",
+                  )
+                },
+        )
+
+    val exception = assertFailsWith<HttpStatusException> { service.consumeRelayCode("relay-1") }
+
+    assertEquals(400, exception.status)
+    assertEquals("relayCode is invalid, expired, or already used.", exception.message)
+  }
+
+  private class StubIssueOauthRelayCodeUseCase : IssueOauthRelayCodeUseCase {
+    override fun issue(payload: OauthRelayPayload): String = "relay-code"
   }
 }

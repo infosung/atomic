@@ -1,5 +1,11 @@
 package com.infosung.atomic.app.oauth
 
+import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRequestException
+import com.infosung.atomic.app.oauth.application.port.`in`.AuthorizationRedirectResult
+import com.infosung.atomic.app.oauth.application.port.`in`.BuildAppleCallbackRedirectUseCase
+import com.infosung.atomic.app.oauth.application.port.`in`.BuildAuthorizationRedirectUseCase
+import com.infosung.atomic.app.oauth.application.port.`in`.BuildOauthCallbackRedirectUseCase
+import com.infosung.atomic.app.oauth.application.port.`in`.CallbackRedirectResult
 import com.infosung.atomic.app.oauth.autoconfigure.AtomicAppOauthRedirectProperties
 import com.infosung.atomic.contract.exception.HttpStatusException
 import com.infosung.atomic.oauth.api.OauthAuthorizationRequest
@@ -8,6 +14,7 @@ import com.infosung.atomic.oauth.api.OauthProviderName
 import com.infosung.atomic.oauth.api.OauthServiceProvider
 import com.infosung.atomic.oauth.api.OauthTokenExchangeRequest
 import com.infosung.atomic.oauth.api.OauthTokenResult
+import com.infosung.atomic.oauth.state.OauthStateClaims
 import com.infosung.atomic.oauth.state.OauthStateManager
 import java.time.Instant
 import kotlin.test.Test
@@ -19,9 +26,116 @@ import org.mockito.Mockito.mock
 import org.mockito.Mockito.never
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
-import org.springframework.security.oauth2.jwt.Jwt
 
 class AppOauthRedirectServiceTest {
+  @Test
+  fun `buildAuthorizationRedirectUrl should map application exception to documented http 400`() {
+    val service =
+        AppOauthRedirectService(
+            oauthServiceProvider = mock(OauthServiceProvider::class.java),
+            oauthStateManager = mock(OauthStateManager::class.java),
+            relayCodeService =
+                AppOauthRelayCodeService(
+                    relayCodeStore = InMemoryOauthRelayCodeStore(),
+                    properties = AtomicAppOauthRedirectProperties(),
+                ),
+            properties = AtomicAppOauthRedirectProperties(),
+            buildAuthorizationRedirectUseCase =
+                object : BuildAuthorizationRedirectUseCase {
+                  override fun build(
+                      provider: String,
+                      redirectUri: String,
+                      nonce: String?,
+                      prompt: String?,
+                      loginHint: String?,
+                      responseMode: String?,
+                      additionalParameters: Map<String, String>,
+                      callbackBindingToken: String?,
+                  ): AuthorizationRedirectResult {
+                    throw OauthRedirectRequestException("redirectUri is invalid.")
+                  }
+                },
+            buildOauthCallbackRedirectUseCase = unusedCallbackUseCase(),
+            buildAppleCallbackRedirectUseCase = unusedAppleCallbackUseCase(),
+        )
+
+    val error =
+        assertFailsWith<HttpStatusException> {
+          service.buildAuthorizationRedirectUrl(
+              provider = "google",
+              redirectUri = "bad",
+              nonce = null,
+              prompt = null,
+              loginHint = null,
+              responseMode = null,
+              additionalParameters = emptyMap(),
+          )
+        }
+
+    assertEquals(400, error.status)
+    assertEquals("redirectUri is invalid.", error.message)
+  }
+
+  @Test
+  fun `buildCallbackRedirectUrl should map application exception to documented http 400`() {
+    val service =
+        AppOauthRedirectService(
+            oauthServiceProvider = mock(OauthServiceProvider::class.java),
+            oauthStateManager = mock(OauthStateManager::class.java),
+            relayCodeService =
+                AppOauthRelayCodeService(
+                    relayCodeStore = InMemoryOauthRelayCodeStore(),
+                    properties = AtomicAppOauthRedirectProperties(),
+                ),
+            properties = AtomicAppOauthRedirectProperties(),
+            buildAuthorizationRedirectUseCase =
+                object : BuildAuthorizationRedirectUseCase {
+                  override fun build(
+                      provider: String,
+                      redirectUri: String,
+                      nonce: String?,
+                      prompt: String?,
+                      loginHint: String?,
+                      responseMode: String?,
+                      additionalParameters: Map<String, String>,
+                      callbackBindingToken: String?,
+                  ): AuthorizationRedirectResult {
+                    return AuthorizationRedirectResult(
+                        providerName = OauthProviderName.GOOGLE,
+                        authorizationUrl = "https://provider.example.com/auth",
+                        redirectTargetType = OauthRedirectClientTarget.WEB,
+                    )
+                  }
+                },
+            buildOauthCallbackRedirectUseCase =
+                object : BuildOauthCallbackRedirectUseCase {
+                  override fun build(
+                      provider: String,
+                      code: String,
+                      state: String,
+                      additionalParameters: Map<String, String>,
+                      callbackBindingToken: String?,
+                  ): CallbackRedirectResult {
+                    throw OauthRedirectRequestException("OAuth callback binding cookie is missing.")
+                  }
+                },
+            buildAppleCallbackRedirectUseCase = unusedAppleCallbackUseCase(),
+        )
+
+    val error =
+        assertFailsWith<HttpStatusException> {
+          service.buildCallbackRedirectUrl(
+              provider = "google",
+              code = "code-123",
+              state = "state-123",
+              additionalParameters = emptyMap(),
+          )
+        }
+
+    assertEquals(400, error.status)
+    assertEquals("OAuth callback binding cookie is missing.", error.message)
+  }
+
   @Test
   fun `buildAuthorizationRedirectUrl should reject non-absolute redirectUri`() {
     val oauthServiceProvider = mock(OauthServiceProvider::class.java)
@@ -304,8 +418,8 @@ class AppOauthRedirectServiceTest {
             relayCodeService = relayCodeService,
             properties = properties,
         )
-    val stateJwt =
-        stateJwt(
+    val stateClaims =
+        stateClaims(
             provider = "GOOGLE",
             redirectUri = "https://client.example.com/oauth",
             callbackBindingKey = properties.callbackBinding.stateAttributeKey,
@@ -314,14 +428,14 @@ class AppOauthRedirectServiceTest {
     `when`(oauthServiceProvider.getService("google")).thenReturn(oauthProvider)
     `when`(oauthProvider.providerName).thenReturn(OauthProviderName.GOOGLE)
     `when`(
-            stateManager.verifyState(
+            stateManager.verifyStateClaims(
                 "state-value",
                 OauthProviderName.GOOGLE,
                 null,
                 null,
             ),
         )
-        .thenReturn(stateJwt)
+        .thenReturn(stateClaims)
     `when`(
             oauthProvider.exchangeCode(
                 OauthTokenExchangeRequest(
@@ -353,7 +467,7 @@ class AppOauthRedirectServiceTest {
     assertEquals(OauthProviderName.GOOGLE, payload.provider)
     assertEquals("access-token", payload.accessToken)
     assertEquals("id-token", payload.idToken)
-    verify(stateManager).verifyState("state-value", OauthProviderName.GOOGLE, null, null)
+    verify(stateManager).verifyStateClaims("state-value", OauthProviderName.GOOGLE, null, null)
     verify(stateManager, never()).readState("state-value", OauthProviderName.GOOGLE, null, null)
   }
 
@@ -396,8 +510,8 @@ class AppOauthRedirectServiceTest {
             relayCodeService = relayCodeService,
             properties = properties,
         )
-    val stateJwt =
-        stateJwt(
+    val stateClaims =
+        stateClaims(
             provider = "GOOGLE",
             redirectUri = redirectUri,
             callbackBindingKey = properties.callbackBinding.stateAttributeKey,
@@ -406,14 +520,14 @@ class AppOauthRedirectServiceTest {
     `when`(oauthServiceProvider.getService("google")).thenReturn(oauthProvider)
     `when`(oauthProvider.providerName).thenReturn(OauthProviderName.GOOGLE)
     `when`(
-            stateManager.verifyState(
+            stateManager.verifyStateClaims(
                 "state-value",
                 OauthProviderName.GOOGLE,
                 null,
                 null,
             ),
         )
-        .thenReturn(stateJwt)
+        .thenReturn(stateClaims)
     `when`(
             oauthProvider.exchangeCode(
                 OauthTokenExchangeRequest(
@@ -492,7 +606,7 @@ class AppOauthRedirectServiceTest {
     `when`(oauthServiceProvider.getService("google")).thenReturn(oauthProvider)
     `when`(oauthProvider.providerName).thenReturn(OauthProviderName.GOOGLE)
     `when`(
-            stateManager.verifyState(
+            stateManager.verifyStateClaims(
                 "state-value",
                 OauthProviderName.GOOGLE,
                 null,
@@ -533,8 +647,8 @@ class AppOauthRedirectServiceTest {
             relayCodeService = relayCodeService,
             properties = properties,
         )
-    val stateJwt =
-        stateJwt(
+    val stateClaims =
+        stateClaims(
             provider = "APPLE",
             redirectUri = "https://client.example.com/oauth",
             callbackBindingKey = properties.callbackBinding.stateAttributeKey,
@@ -542,8 +656,8 @@ class AppOauthRedirectServiceTest {
         )
     `when`(oauthServiceProvider.getService("APPLE")).thenReturn(appleProvider)
     `when`(appleProvider.providerName).thenReturn(OauthProviderName.APPLE)
-    `when`(stateManager.verifyState("state-value", OauthProviderName.APPLE, null, null))
-        .thenReturn(stateJwt)
+    `when`(stateManager.verifyStateClaims("state-value", OauthProviderName.APPLE, null, null))
+        .thenReturn(stateClaims)
 
     val redirectUrl =
         service.buildAppleCallbackRedirectUrl(
@@ -581,8 +695,8 @@ class AppOauthRedirectServiceTest {
             relayCodeService = relayCodeService,
             properties = properties,
         )
-    val stateJwt =
-        stateJwt(
+    val stateClaims =
+        stateClaims(
             provider = "GOOGLE",
             redirectUri = "https://client.example.com/oauth",
             callbackBindingKey = properties.callbackBinding.stateAttributeKey,
@@ -591,14 +705,14 @@ class AppOauthRedirectServiceTest {
     `when`(oauthServiceProvider.getService("google")).thenReturn(oauthProvider)
     `when`(oauthProvider.providerName).thenReturn(OauthProviderName.GOOGLE)
     `when`(
-            stateManager.verifyState(
+            stateManager.verifyStateClaims(
                 "state-value",
                 OauthProviderName.GOOGLE,
                 null,
                 null,
             ),
         )
-        .thenReturn(stateJwt)
+        .thenReturn(stateClaims)
 
     val exception =
         assertFailsWith<HttpStatusException> {
@@ -633,8 +747,8 @@ class AppOauthRedirectServiceTest {
             relayCodeService = relayCodeService,
             properties = properties,
         )
-    val stateJwt =
-        stateJwt(
+    val stateClaims =
+        stateClaims(
             provider = "GOOGLE",
             redirectUri = "https://client.example.com/oauth",
             callbackBindingKey = properties.callbackBinding.stateAttributeKey,
@@ -643,14 +757,14 @@ class AppOauthRedirectServiceTest {
     `when`(oauthServiceProvider.getService("google")).thenReturn(oauthProvider)
     `when`(oauthProvider.providerName).thenReturn(OauthProviderName.GOOGLE)
     `when`(
-            stateManager.verifyState(
+            stateManager.verifyStateClaims(
                 "state-value",
                 OauthProviderName.GOOGLE,
                 null,
                 null,
             ),
         )
-        .thenReturn(stateJwt)
+        .thenReturn(stateClaims)
 
     val exception =
         assertFailsWith<HttpStatusException> {
@@ -686,29 +800,27 @@ class AppOauthRedirectServiceTest {
             properties = properties,
         )
     val now = Instant.now()
-    val stateJwt =
-        Jwt(
-            "state-token",
-            now,
-            now.plusSeconds(300),
-            mapOf("alg" to "HS256"),
-            mapOf(
-                "provider" to "GOOGLE",
-                "redirect_uri" to "https://client.example.com/oauth",
-                "attributes" to emptyMap<String, String>(),
-            ),
+    val stateClaims =
+        OauthStateClaims(
+            issuer = "atomic-test",
+            stateId = "state-1",
+            issuedAt = now,
+            expiresAt = now.plusSeconds(300),
+            provider = OauthProviderName.GOOGLE,
+            redirectUri = "https://client.example.com/oauth",
+            attributes = emptyMap(),
         )
     `when`(oauthServiceProvider.getService("google")).thenReturn(oauthProvider)
     `when`(oauthProvider.providerName).thenReturn(OauthProviderName.GOOGLE)
     `when`(
-            stateManager.verifyState(
+            stateManager.verifyStateClaims(
                 "state-value",
                 OauthProviderName.GOOGLE,
                 null,
                 null,
             ),
         )
-        .thenReturn(stateJwt)
+        .thenReturn(stateClaims)
 
     val exception =
         assertFailsWith<HttpStatusException> {
@@ -725,23 +837,21 @@ class AppOauthRedirectServiceTest {
     assertEquals("OAuth callback binding state is missing.", exception.message)
   }
 
-  private fun stateJwt(
+  private fun stateClaims(
       provider: String,
       redirectUri: String,
       callbackBindingKey: String,
       callbackBindingToken: String,
-  ): Jwt {
+  ): OauthStateClaims {
     val now = Instant.now()
-    return Jwt(
-        "state-token",
-        now,
-        now.plusSeconds(300),
-        mapOf("alg" to "HS256"),
-        mapOf(
-            "provider" to provider,
-            "redirect_uri" to redirectUri,
-            "attributes" to mapOf(callbackBindingKey to callbackBindingToken),
-        ),
+    return OauthStateClaims(
+        issuer = "atomic-test",
+        stateId = "state-token",
+        issuedAt = now,
+        expiresAt = now.plusSeconds(300),
+        provider = OauthProviderName.valueOf(provider),
+        redirectUri = redirectUri,
+        attributes = mapOf(callbackBindingKey to callbackBindingToken),
     )
   }
 
@@ -753,5 +863,34 @@ class AppOauthRedirectServiceTest {
 
   companion object {
     private const val CALLBACK_BINDING_TOKEN = "callback-binding-token"
+  }
+
+  private fun unusedCallbackUseCase(): BuildOauthCallbackRedirectUseCase {
+    return object : BuildOauthCallbackRedirectUseCase {
+      override fun build(
+          provider: String,
+          code: String,
+          state: String,
+          additionalParameters: Map<String, String>,
+          callbackBindingToken: String?,
+      ): CallbackRedirectResult {
+        throw AssertionError("callback use-case should not be called in this test")
+      }
+    }
+  }
+
+  private fun unusedAppleCallbackUseCase(): BuildAppleCallbackRedirectUseCase {
+    return object : BuildAppleCallbackRedirectUseCase {
+      override fun build(
+          state: String,
+          idToken: String,
+          code: String?,
+          user: String?,
+          additionalParameters: Map<String, String>,
+          callbackBindingToken: String?,
+      ): CallbackRedirectResult {
+        throw AssertionError("apple callback use-case should not be called in this test")
+      }
+    }
   }
 }

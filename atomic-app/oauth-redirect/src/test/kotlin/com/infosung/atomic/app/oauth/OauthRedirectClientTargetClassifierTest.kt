@@ -15,6 +15,16 @@ class OauthRedirectClientTargetClassifierTest {
   }
 
   @Test
+  fun `classify should keep https app link uri in web target bucket`() {
+    assertEquals(
+        OauthRedirectClientTarget.WEB,
+        OauthRedirectClientTargetClassifier.classify(
+            redirectUri = "https://app.example.com/mobile/oauth/callback",
+        ),
+    )
+  }
+
+  @Test
   fun `classify should treat custom scheme uri as app link target`() {
     assertEquals(
         OauthRedirectClientTarget.APP_LINK,

@@ -129,6 +129,8 @@ dependencies {
 
 - Version API host customization should continue to target the exported `AppVersionCheckService` bean. Internal `application`, `domain`, and `adapter` packages are layered implementation detail, not a supported extension contract.
 - OAuth redirect stops at relayCode handoff. Your app still owns the login/session exchange after `AppOauthRelayCodeService.consumeRelayCode(relayCode)` succeeds.
+- Internally the module is layered as application use-cases plus outbound adapters plus web adapter support. The supported host override seam remains the exported `AppOauthRedirectService` bean, and the exported `AppOauthRedirectController` / `AppOauthRedirectHttpExceptionHandler` types stay as compatibility wrappers over that web boundary.
+- `atomic.spring.oauth2` keeps legacy `Jwt`-returning seams for compatibility, but new integrations should prefer typed `OauthStateClaims` / typed id-token claim models where available. Provider registry startup now fails fast on duplicate `OauthProviderName` registration instead of silently shadowing one bean.
 
 ## Reference application.yml (feature template)
 
@@ -434,6 +436,7 @@ Prerequisites:
   - `atomic-app/oauth-redirect`: `META-INF/atomic/sql/postgresql/atomic_oauth_relay_code.sql`
 - `service_version` and `image` physical table/column names are now fixed in code to match those shipped SQL assets.
 - Login API should consume relay payload using `AppOauthRelayCodeService.consumeRelayCode(relayCode)`.
+- `AppOauthRelayCodeService` remains the compatibility-stable relay seam; any relay issue/consume/store beans you may see in the context are internal composition details for this line.
 
 ### 6) Heartbeat module (`atomic.heartbeat`)
 
@@ -458,12 +461,14 @@ OAuth relay option (without token in callback query):
 - callback redirects frontend with `relayCode` only (no raw `id_token`/`access_token` in URL).
 - login API consumes relay payload via `AppOauthRelayCodeService.consumeRelayCode(relayCode)`.
 - the relay module does not issue your app session or JWT for you; treat `relayCode` consumption as an input to your own login flow.
+- internally, oauth redirect now consumes typed OAuth state claims from `atomic.spring.oauth2` and translates them into an application-owned verified-state model before callback use-cases read redirect URI, nonce, or callback-binding attributes.
 - for mobile/desktop clients, the intended path is system browser login -> server callback -> allowlisted app URI/deep link with `relayCode`.
 - supported client handoff patterns:
   - web: browser -> server callback -> `https://frontend.example.com/...?...relayCode=...`
   - mobile: system browser / Custom Tabs / SFSafariViewController -> server callback -> allowlisted deep link or app link such as `myapp://oauth/...?...relayCode=...`
   - desktop: system browser -> server callback -> allowlisted loopback URI (`http://127.0.0.1:{port}/...`) or desktop custom scheme
   - desktop loopback support assumes a fixed, pre-allowlisted listener port in this line; random ephemeral callback ports are not matched by the current allowlist policy
+  - `redirectTargetType` logging is URI-shape based, so verified app/universal links that still use `https://...` are logged in the same `WEB` bucket as ordinary web redirects
 - concrete relay consumption pattern:
   - web frontend receives `relayCode` and posts it to your backend login API
   - mobile/desktop client receives `relayCode` through deep link, app link, loopback, or custom scheme and posts it to your backend login API
@@ -543,7 +548,13 @@ Typical override points:
   - `googleOauthProvider`, `kakaoOauthProvider`, `appleOauthProvider` (bean names)
 - App
   - `appVersionCheckService`, `appVersionController`
+  - `appOauthRedirectService`, `appOauthRedirectController`
   - `appImageApiService`, `appStorageController`
+
+For oauth redirect specifically, treat `AppOauthRedirectService` as the compatibility-stable host
+override seam. Internal oauth port/use-case beans may exist in the context for composition, but
+host apps should not customize them directly; they are not a supported compatibility-stable
+extension surface in this line.
 
 ## What Was Ambiguous Before (Review Summary)
 

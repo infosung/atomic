@@ -182,6 +182,49 @@ class AppleOauthProviderTest {
   }
 
   @Test
+  fun `resolveIdentity should keep provider specific missing subject failure`() {
+    val issuer = "https://appleid.apple.com"
+    val audience = "apple-client"
+    val keyPair = JwtTestFixtures.generateRsaKeyPair()
+    val parser =
+        JwtTestFixtures.createIdTokenParser(
+            issuer = issuer,
+            allowedAudiences = setOf(audience),
+            publicKey = keyPair.public as java.security.interfaces.RSAPublicKey,
+        )
+    val token =
+        JwtTestFixtures.createSignedJwt(
+            privateKey = keyPair.private,
+            kid = "apple-key-1",
+            issuer = issuer,
+            audience = audience,
+            subject = null,
+            additionalClaims = mapOf("nonce" to "nonce-3"),
+        )
+
+    val provider =
+        AppleOauthProvider(
+            clientId = audience,
+            serverRedirectUri = "https://api.example.com/oauth/apple/callback",
+            idTokenParser = parser,
+            stateManager = createStateManager(),
+        )
+
+    val exception =
+        assertFailsWith<InvalidOauthRequestException> {
+          provider.resolveIdentity(
+              OauthIdentityRequest(
+                  strategy = OauthIdentityStrategy.ID_TOKEN,
+                  idToken = token,
+                  nonce = "nonce-3",
+              ),
+          )
+        }
+
+    assertEquals("Apple id token does not include subject.", exception.message)
+  }
+
+  @Test
   fun `resolveIdentity should support id-only payload mode`() {
     val issuer = "https://appleid.apple.com"
     val audience = "apple-client"
