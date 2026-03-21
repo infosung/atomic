@@ -178,27 +178,9 @@ class AppOauthRedirectController(
     return try {
       block()
     } catch (e: OauthRedirectRemoteFailureException) {
-      log.warn(
-          "Upstream oauth callback failed at web adapter: provider={}, message={}",
-          provider,
-          e.message,
-      )
-      throw HttpStatusException(
-          status = 500,
-          message = e.message ?: "Upstream OAuth callback failed for provider: $provider",
-          cause = e,
-      )
+      throwUpstreamCallbackFailure(provider = provider, cause = e)
     } catch (e: HttpIOException) {
-      log.warn(
-          "Upstream oauth callback failed at web adapter: provider={}, message={}",
-          provider,
-          e.message,
-      )
-      throw HttpStatusException(
-          status = 500,
-          message = e.message ?: "Upstream OAuth callback failed for provider: $provider",
-          cause = e,
-      )
+      throwUpstreamCallbackFailure(provider = provider, cause = e)
     } catch (e: OauthRedirectApplicationException) {
       log.warn(
           "Rejected oauth callback at web adapter: provider={}, message={}", provider, e.message)
@@ -238,29 +220,9 @@ class AppOauthRedirectController(
     return try {
       block()
     } catch (e: OauthRedirectRemoteFailureException) {
-      log.warn(
-          "Upstream {} failed at web adapter: provider={}, message={}",
-          action,
-          provider,
-          e.message,
-      )
-      throw HttpStatusException(
-          status = 500,
-          message = e.message ?: "Upstream OAuth provider request failed for provider: $provider",
-          cause = e,
-      )
+      throwUpstreamApplicationFailure(provider = provider, action = action, cause = e)
     } catch (e: HttpIOException) {
-      log.warn(
-          "Upstream {} failed at web adapter: provider={}, message={}",
-          action,
-          provider,
-          e.message,
-      )
-      throw HttpStatusException(
-          status = 500,
-          message = e.message ?: "Upstream OAuth provider request failed for provider: $provider",
-          cause = e,
-      )
+      throwUpstreamApplicationFailure(provider = provider, action = action, cause = e)
     } catch (e: OauthRedirectApplicationException) {
       log.warn("Rejected {} at web adapter: provider={}, message={}", action, provider, e.message)
       throw HttpStatusException(
@@ -272,6 +234,37 @@ class AppOauthRedirectController(
       log.warn("Rejected {} at web adapter: provider={}, message={}", action, provider, e.message)
       throw e
     }
+  }
+
+  private fun throwUpstreamCallbackFailure(provider: String, cause: Exception): Nothing {
+    log.warn(
+        "Upstream oauth callback failed at web adapter: provider={}, message={}",
+        provider,
+        cause.message,
+    )
+    throw HttpStatusException(
+        status = 500,
+        message = cause.message ?: "Upstream OAuth callback failed for provider: $provider",
+        cause = cause,
+    )
+  }
+
+  private fun throwUpstreamApplicationFailure(
+      provider: String,
+      action: String,
+      cause: Exception,
+  ): Nothing {
+    log.warn(
+        "Upstream {} failed at web adapter: provider={}, message={}",
+        action,
+        provider,
+        cause.message,
+    )
+    throw HttpStatusException(
+        status = 500,
+        message = cause.message ?: "Upstream OAuth provider request failed for provider: $provider",
+        cause = cause,
+    )
   }
 
   private fun resolveCallbackBindingTokenForRedirect(
