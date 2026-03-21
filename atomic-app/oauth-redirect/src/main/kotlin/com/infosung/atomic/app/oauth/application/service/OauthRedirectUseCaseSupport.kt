@@ -1,8 +1,8 @@
 package com.infosung.atomic.app.oauth.application.service
 
-import com.infosung.atomic.app.oauth.OauthRelayPayload
 import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRequestException
 import com.infosung.atomic.app.oauth.application.model.OauthVerifiedState
+import com.infosung.atomic.app.oauth.domain.OauthRelayPayload
 import com.infosung.atomic.oauth.api.OauthProviderName
 import com.infosung.atomic.oauth.api.OauthTokenResult
 import java.net.URLEncoder

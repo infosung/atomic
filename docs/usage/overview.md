@@ -142,7 +142,7 @@ OAuth redirect handoff summary:
 - web: browser -> server callback -> allowlisted `https://...` frontend redirect with `relayCode`
 - mobile: system browser or browser-based tab -> server callback -> allowlisted app link / deep link with `relayCode`
 - desktop: system browser -> server callback -> allowlisted loopback URI or custom scheme with `relayCode`
-- after that redirect, your app or frontend still has to send `relayCode` to its own login API and complete session/token issuance after `AppOauthRelayCodeService.consumeRelayCode(relayCode)`
+- after that redirect, your app or frontend still has to send `relayCode` to its own login API and complete session/token issuance after `ConsumeOauthRelayCodeUseCase.consume(relayCode)`
 
 ## 6. Configuration Policy
 

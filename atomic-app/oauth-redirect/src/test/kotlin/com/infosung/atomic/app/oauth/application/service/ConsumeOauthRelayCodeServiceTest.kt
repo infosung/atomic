@@ -1,8 +1,8 @@
 package com.infosung.atomic.app.oauth.application.service
 
-import com.infosung.atomic.app.oauth.OauthRelayPayload
 import com.infosung.atomic.app.oauth.application.exception.OauthRelayCodeRequestException
 import com.infosung.atomic.app.oauth.application.port.out.StoreOauthRelayCodePort
+import com.infosung.atomic.app.oauth.domain.OauthRelayPayload
 import com.infosung.atomic.contract.time.TimeProvider
 import com.infosung.atomic.oauth.api.OauthProviderName
 import java.time.Clock

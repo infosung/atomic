@@ -1,9 +1,9 @@
 package com.infosung.atomic.app.oauth.application.port.`in`
 
-import com.infosung.atomic.app.oauth.OauthRedirectClientTarget
+import com.infosung.atomic.app.oauth.adapter.out.redirect.OauthRedirectClientTarget
 import com.infosung.atomic.oauth.api.OauthProviderName
 
-internal interface BuildOauthCallbackRedirectUseCase {
+interface BuildOauthCallbackRedirectUseCase {
   fun build(
       provider: String,
       code: String,
@@ -13,7 +13,7 @@ internal interface BuildOauthCallbackRedirectUseCase {
   ): CallbackRedirectResult
 }
 
-internal data class CallbackRedirectResult(
+data class CallbackRedirectResult(
     val providerName: OauthProviderName,
     val frontendRedirectUrl: String,
     val redirectTargetType: OauthRedirectClientTarget,

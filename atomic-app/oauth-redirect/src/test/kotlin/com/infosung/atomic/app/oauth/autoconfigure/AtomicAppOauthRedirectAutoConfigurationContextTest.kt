@@ -1,14 +1,17 @@
 package com.infosung.atomic.app.oauth.autoconfigure
 
-import com.infosung.atomic.app.oauth.AppOauthRedirectController
-import com.infosung.atomic.app.oauth.AppOauthRedirectHttpExceptionHandler
-import com.infosung.atomic.app.oauth.AppOauthRedirectService
-import com.infosung.atomic.app.oauth.AppOauthRelayCodeService
-import com.infosung.atomic.app.oauth.CacheOauthRelayCodeStore
-import com.infosung.atomic.app.oauth.InMemoryOauthRelayCodeStore
-import com.infosung.atomic.app.oauth.OauthRelayCodeStore
-import com.infosung.atomic.app.oauth.OauthRelayPayload
+import com.infosung.atomic.app.oauth.adapter.`in`.web.AppOauthRedirectController
+import com.infosung.atomic.app.oauth.adapter.`in`.web.AppOauthRedirectHttpExceptionHandler
+import com.infosung.atomic.app.oauth.adapter.out.relay.store.CacheOauthRelayCodeStore
+import com.infosung.atomic.app.oauth.adapter.out.relay.store.InMemoryOauthRelayCodeStore
+import com.infosung.atomic.app.oauth.adapter.out.relay.store.OauthRelayCodeStore
+import com.infosung.atomic.app.oauth.application.port.`in`.BuildAppleCallbackRedirectUseCase
+import com.infosung.atomic.app.oauth.application.port.`in`.BuildAuthorizationRedirectUseCase
+import com.infosung.atomic.app.oauth.application.port.`in`.BuildOauthCallbackRedirectUseCase
+import com.infosung.atomic.app.oauth.application.port.`in`.ConsumeOauthRelayCodeUseCase
+import com.infosung.atomic.app.oauth.application.port.`in`.IssueOauthRelayCodeUseCase
 import com.infosung.atomic.app.oauth.application.port.out.IssueOauthRelayCodePort
+import com.infosung.atomic.app.oauth.domain.OauthRelayPayload
 import com.infosung.atomic.oauth.api.OauthAuthorizationRequest
 import com.infosung.atomic.oauth.api.OauthIdentityRequest
 import com.infosung.atomic.oauth.api.OauthIdentityResult
@@ -45,13 +48,13 @@ class AtomicAppOauthRedirectAutoConfigurationContextTest {
               AutoConfigurations.of(AtomicAppOauthRedirectAutoConfiguration::class.java))
 
   @Test
-  fun `disabled oauth redirect should not register relay or controller beans`() {
+  fun `disabled oauth redirect should not register relay or web beans`() {
     contextRunner.run { context ->
       assertFalse(context.containsBean("appOauthRedirectPropertiesValidator"))
       assertFalse(context.containsBean("oauthRelayCodeStore"))
       assertTrue(context.getBeansOfType(OauthRelayCodeStore::class.java).isEmpty())
-      assertTrue(context.getBeansOfType(AppOauthRelayCodeService::class.java).isEmpty())
-      assertTrue(context.getBeansOfType(AppOauthRedirectService::class.java).isEmpty())
+      assertTrue(context.getBeansOfType(IssueOauthRelayCodeUseCase::class.java).isEmpty())
+      assertTrue(context.getBeansOfType(ConsumeOauthRelayCodeUseCase::class.java).isEmpty())
       assertTrue(context.getBeansOfType(AppOauthRedirectController::class.java).isEmpty())
       assertTrue(context.getBeansOfType(AppOauthRedirectHttpExceptionHandler::class.java).isEmpty())
     }
@@ -77,30 +80,7 @@ class AtomicAppOauthRedirectAutoConfigurationContextTest {
   }
 
   @Test
-  fun `enabled oauth redirect should fail startup when oauth state manager is missing`() {
-    contextRunner
-        .withPropertyValues(
-            "atomic.app.oauth.redirect.enabled=true",
-            "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes=https://app.example.com/oauth",
-            "atomic.app.oauth.redirect.store.type=in-memory",
-        )
-        .withBean(
-            OauthServiceProvider::class.java,
-            { OauthServiceProvider(listOf(TestOauthProvider())) },
-        )
-        .run { context ->
-          val failure = context.startupFailure
-          assertNotNull(failure)
-          assertTrue(
-              failure.message?.contains(
-                  "atomic.app.oauth.redirect.enabled=true requires OauthServiceProvider and store-backed OauthStateManager beans.",
-              ) == true,
-          )
-        }
-  }
-
-  @Test
-  fun `enabled in memory mode with oauth beans should register controller and service`() {
+  fun `enabled in memory mode with oauth beans should register supported seams and web adapters`() {
     contextRunner
         .withPropertyValues(
             "atomic.app.oauth.redirect.enabled=true",
@@ -121,14 +101,16 @@ class AtomicAppOauthRedirectAutoConfigurationContextTest {
             },
         )
         .run { context ->
-          assertNotNull(context.getBean(AppOauthRedirectService::class.java))
+          assertNotNull(context.getBean(OauthRelayCodeStore::class.java))
+          assertNotNull(context.getBean(IssueOauthRelayCodeUseCase::class.java))
+          assertNotNull(context.getBean(ConsumeOauthRelayCodeUseCase::class.java))
           assertNotNull(context.getBean(AppOauthRedirectController::class.java))
           assertNotNull(context.getBean(AppOauthRedirectHttpExceptionHandler::class.java))
         }
   }
 
   @Test
-  fun `enabled oauth redirect should accept explicit replay protection capability without reflection coupling`() {
+  fun `enabled oauth redirect should accept explicit replay protection capability without direct state-store bean`() {
     contextRunner
         .withPropertyValues(
             "atomic.app.oauth.redirect.enabled=true",
@@ -149,14 +131,54 @@ class AtomicAppOauthRedirectAutoConfigurationContextTest {
         )
         .run { context ->
           assertTrue(context.startupFailure == null)
-          assertNotNull(context.getBean(AppOauthRedirectService::class.java))
+          assertNotNull(context.getBean(OauthRelayCodeStore::class.java))
           assertNotNull(context.getBean(AppOauthRedirectController::class.java))
-          assertNotNull(context.getBean(AppOauthRedirectHttpExceptionHandler::class.java))
         }
   }
 
   @Test
-  fun `custom oauth redirect facade bean should suppress default facade bean and still register controller`() {
+  fun `custom relay store bean should suppress default store and back relay use cases`() {
+    val trackingStore = TrackingOauthRelayCodeStore()
+
+    contextRunner
+        .withPropertyValues(
+            "atomic.app.oauth.redirect.enabled=true",
+            "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes=https://app.example.com/oauth",
+            "atomic.app.oauth.redirect.store.type=in-memory",
+        )
+        .withBean(
+            OauthServiceProvider::class.java,
+            { OauthServiceProvider(listOf(TestOauthProvider())) },
+        )
+        .withBean(
+            OauthStateManager::class.java,
+            {
+              OauthStateManager(
+                  signingSecret = "0123456789abcdef0123456789abcdef",
+                  store = InMemoryOauthStateStore(),
+              )
+            },
+        )
+        .withBean(OauthRelayCodeStore::class.java, { trackingStore })
+        .run { context ->
+          assertTrue(context.startupFailure == null)
+          assertEquals(1, context.getBeansOfType(OauthRelayCodeStore::class.java).size)
+          assertEquals(1, context.getBeansOfType(IssueOauthRelayCodeUseCase::class.java).size)
+          assertEquals(1, context.getBeansOfType(ConsumeOauthRelayCodeUseCase::class.java).size)
+
+          val relayCode =
+              context
+                  .getBean(IssueOauthRelayCodeUseCase::class.java)
+                  .issue(OauthRelayPayload(provider = OauthProviderName.GOOGLE, accessToken = "t1"))
+
+          assertTrue(relayCode.isNotBlank())
+          assertEquals(1, trackingStore.savedRelayCodes.size)
+          assertEquals(relayCode, trackingStore.savedRelayCodes.single())
+        }
+  }
+
+  @Test
+  fun `custom relay issue use case bean should suppress default issue use case and back issue port`() {
     contextRunner
         .withPropertyValues(
             "atomic.app.oauth.redirect.enabled=true",
@@ -177,31 +199,19 @@ class AtomicAppOauthRedirectAutoConfigurationContextTest {
             },
         )
         .withBean(
-            AppOauthRedirectService::class.java,
-            {
-              AppOauthRedirectService(
-                  oauthServiceProvider = OauthServiceProvider(listOf(TestOauthProvider())),
-                  oauthStateManager =
-                      OauthStateManager(
-                          signingSecret = "0123456789abcdef0123456789abcdef",
-                          store = InMemoryOauthStateStore(),
-                      ),
-                  relayCodeService =
-                      AppOauthRelayCodeService(
-                          relayCodeStore = InMemoryOauthRelayCodeStore(),
-                          properties = AtomicAppOauthRedirectProperties(),
-                      ),
-                  properties =
-                      AtomicAppOauthRedirectProperties().apply {
-                        allowedRedirectUriPrefixes = listOf("https://app.example.com/oauth")
-                      },
-              )
-            },
+            IssueOauthRelayCodeUseCase::class.java,
+            { IssueOauthRelayCodeUseCase { "custom-relay-code" } },
         )
         .run { context ->
           assertTrue(context.startupFailure == null)
-          assertEquals(1, context.getBeansOfType(AppOauthRedirectService::class.java).size)
-          assertEquals(1, context.getBeansOfType(AppOauthRedirectController::class.java).size)
+          assertEquals(1, context.getBeansOfType(IssueOauthRelayCodeUseCase::class.java).size)
+
+          val relayCode =
+              context
+                  .getBean(IssueOauthRelayCodePort::class.java)
+                  .issueRelayCode(OauthRelayPayload(provider = OauthProviderName.GOOGLE))
+
+          assertEquals("custom-relay-code", relayCode)
         }
   }
 
@@ -230,7 +240,12 @@ class AtomicAppOauthRedirectAutoConfigurationContextTest {
             AppOauthRedirectController::class.java,
             {
               AppOauthRedirectController(
-                  appOauthRedirectService = mock(AppOauthRedirectService::class.java),
+                  buildAuthorizationRedirectUseCase =
+                      mock(BuildAuthorizationRedirectUseCase::class.java),
+                  buildOauthCallbackRedirectUseCase =
+                      mock(BuildOauthCallbackRedirectUseCase::class.java),
+                  buildAppleCallbackRedirectUseCase =
+                      mock(BuildAppleCallbackRedirectUseCase::class.java),
                   properties =
                       AtomicAppOauthRedirectProperties().apply {
                         allowedRedirectUriPrefixes = listOf("https://app.example.com/oauth")
@@ -241,7 +256,6 @@ class AtomicAppOauthRedirectAutoConfigurationContextTest {
         .run { context ->
           assertTrue(context.startupFailure == null)
           assertEquals(1, context.getBeansOfType(AppOauthRedirectController::class.java).size)
-          assertNotNull(context.getBean(AppOauthRedirectService::class.java))
           assertNotNull(context.getBean(AppOauthRedirectHttpExceptionHandler::class.java))
         }
   }
@@ -278,186 +292,6 @@ class AtomicAppOauthRedirectAutoConfigurationContextTest {
               context.getBeansOfType(AppOauthRedirectHttpExceptionHandler::class.java).size,
           )
           assertNotNull(context.getBean(AppOauthRedirectController::class.java))
-          assertNotNull(context.getBean(AppOauthRedirectService::class.java))
-        }
-  }
-
-  @Test
-  fun `custom oauth relay facade bean should suppress default relay facade and back issue port`() {
-    val trackingStore = TrackingOauthRelayCodeStore()
-
-    contextRunner
-        .withPropertyValues(
-            "atomic.app.oauth.redirect.enabled=true",
-            "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes=https://app.example.com/oauth",
-            "atomic.app.oauth.redirect.store.type=in-memory",
-        )
-        .withBean(
-            OauthServiceProvider::class.java,
-            { OauthServiceProvider(listOf(TestOauthProvider())) },
-        )
-        .withBean(
-            OauthStateManager::class.java,
-            {
-              OauthStateManager(
-                  signingSecret = "0123456789abcdef0123456789abcdef",
-                  store = InMemoryOauthStateStore(),
-              )
-            },
-        )
-        .withBean(
-            AppOauthRelayCodeService::class.java,
-            {
-              AppOauthRelayCodeService(
-                  relayCodeStore = trackingStore,
-                  properties =
-                      AtomicAppOauthRedirectProperties().apply {
-                        allowedRedirectUriPrefixes = listOf("https://app.example.com/oauth")
-                      },
-              )
-            },
-        )
-        .run { context ->
-          assertTrue(context.startupFailure == null)
-          assertEquals(1, context.getBeansOfType(AppOauthRelayCodeService::class.java).size)
-          assertNotNull(context.getBean(AppOauthRedirectService::class.java))
-          assertNotNull(context.getBean(AppOauthRedirectController::class.java))
-
-          val issuePort = context.getBean(IssueOauthRelayCodePort::class.java)
-          val relayCode =
-              issuePort.issueRelayCode(
-                  OauthRelayPayload(provider = OauthProviderName.GOOGLE, accessToken = "token-1"),
-              )
-
-          assertTrue(relayCode.isNotBlank())
-          assertEquals(1, trackingStore.savedRelayCodes.size)
-          assertEquals(relayCode, trackingStore.savedRelayCodes.single())
-        }
-  }
-
-  @Test
-  fun `enabled oauth redirect should fail startup when oauth state manager has no replay protection`() {
-    contextRunner
-        .withPropertyValues(
-            "atomic.app.oauth.redirect.enabled=true",
-            "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes=https://app.example.com/oauth",
-            "atomic.app.oauth.redirect.store.type=in-memory",
-        )
-        .withBean(
-            OauthServiceProvider::class.java,
-            { OauthServiceProvider(listOf(TestOauthProvider())) },
-        )
-        .withBean(
-            OauthStateManager::class.java,
-            { OauthStateManager("0123456789abcdef0123456789abcdef") },
-        )
-        .run { context ->
-          val failure = context.startupFailure
-          assertNotNull(failure)
-          assertTrue(
-              failure.message?.contains(
-                  "atomic.app.oauth.redirect.enabled=true requires OauthServiceProvider and store-backed OauthStateManager beans.",
-              ) == true,
-          )
-        }
-  }
-
-  @Test
-  fun `disabled callback binding should make cookie settings optional`() {
-    contextRunner
-        .withPropertyValues(
-            "atomic.app.oauth.redirect.enabled=true",
-            "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes=https://app.example.com/oauth",
-            "atomic.app.oauth.redirect.store.type=in-memory",
-            "atomic.app.oauth.redirect.callback-binding.enabled=false",
-            "atomic.app.oauth.redirect.callback-binding.state-attribute-key= ",
-            "atomic.app.oauth.redirect.callback-binding.cookie-name= ",
-            "atomic.app.oauth.redirect.callback-binding.cookie-same-site= ",
-            "atomic.app.oauth.redirect.callback-binding.cookie-path=/oauth/callback",
-            "atomic.app.oauth.redirect.callback-binding.cookie-secure=false",
-            "atomic.app.oauth.redirect.callback-binding.cookie-max-age-seconds=0",
-        )
-        .withBean(
-            OauthServiceProvider::class.java,
-            { OauthServiceProvider(listOf(TestOauthProvider())) },
-        )
-        .withBean(
-            OauthStateManager::class.java,
-            {
-              OauthStateManager(
-                  signingSecret = "0123456789abcdef0123456789abcdef",
-                  store = InMemoryOauthStateStore(),
-              )
-            },
-        )
-        .run { context ->
-          assertTrue(context.startupFailure == null)
-          assertNotNull(context.getBean("appOauthRedirectPropertiesValidator"))
-        }
-  }
-
-  @Test
-  fun `disabled callback binding mode should make cookie settings optional`() {
-    contextRunner
-        .withPropertyValues(
-            "atomic.app.oauth.redirect.enabled=true",
-            "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes=https://app.example.com/oauth",
-            "atomic.app.oauth.redirect.store.type=in-memory",
-            "atomic.app.oauth.redirect.callback-binding.mode=disabled",
-            "atomic.app.oauth.redirect.callback-binding.state-attribute-key= ",
-            "atomic.app.oauth.redirect.callback-binding.cookie-name= ",
-            "atomic.app.oauth.redirect.callback-binding.cookie-same-site= ",
-            "atomic.app.oauth.redirect.callback-binding.cookie-path=/oauth/callback",
-            "atomic.app.oauth.redirect.callback-binding.cookie-secure=false",
-            "atomic.app.oauth.redirect.callback-binding.cookie-max-age-seconds=0",
-        )
-        .withBean(
-            OauthServiceProvider::class.java,
-            { OauthServiceProvider(listOf(TestOauthProvider())) },
-        )
-        .withBean(
-            OauthStateManager::class.java,
-            {
-              OauthStateManager(
-                  signingSecret = "0123456789abcdef0123456789abcdef",
-                  store = InMemoryOauthStateStore(),
-              )
-            },
-        )
-        .run { context ->
-          assertTrue(context.startupFailure == null)
-          assertNotNull(context.getBean("appOauthRedirectPropertiesValidator"))
-        }
-  }
-
-  @Test
-  fun `default entity store should fail startup when required dependencies are missing`() {
-    contextRunner
-        .withPropertyValues(
-            "atomic.app.oauth.redirect.enabled=true",
-            "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes=https://app.example.com/oauth",
-        )
-        .withBean(
-            OauthServiceProvider::class.java,
-            { OauthServiceProvider(listOf(TestOauthProvider())) },
-        )
-        .withBean(
-            OauthStateManager::class.java,
-            {
-              OauthStateManager(
-                  signingSecret = "0123456789abcdef0123456789abcdef",
-                  store = InMemoryOauthStateStore(),
-              )
-            },
-        )
-        .run { context ->
-          val failure = context.startupFailure
-          assertNotNull(failure)
-          assertTrue(
-              failure.message?.contains(
-                  "atomic.app.oauth.redirect.store.type=entity requires DataSource, PlatformTransactionManager, and ObjectMapper beans.",
-              ) == true,
-          )
         }
   }
 
@@ -480,38 +314,6 @@ class AtomicAppOauthRedirectAutoConfigurationContextTest {
   }
 
   @Test
-  fun `enabled oauth redirect should fail startup when allowlist entry is malformed`() {
-    contextRunner
-        .withPropertyValues(
-            "atomic.app.oauth.redirect.enabled=true",
-            "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes=https://app.example.com/oauth?bad=1",
-            "atomic.app.oauth.redirect.store.type=in-memory",
-        )
-        .withBean(
-            OauthServiceProvider::class.java,
-            { OauthServiceProvider(listOf(TestOauthProvider())) },
-        )
-        .withBean(
-            OauthStateManager::class.java,
-            {
-              OauthStateManager(
-                  signingSecret = "0123456789abcdef0123456789abcdef",
-                  store = InMemoryOauthStateStore(),
-              )
-            },
-        )
-        .run { context ->
-          val failure = context.startupFailure
-          assertNotNull(failure)
-          assertTrue(
-              failure.message?.contains(
-                  "Allowed redirect URI must not include query or fragment.",
-              ) == true,
-          )
-        }
-  }
-
-  @Test
   fun `enabled callback binding should fail startup for invalid cookie path`() {
     contextRunner
         .withPropertyValues(
@@ -519,27 +321,6 @@ class AtomicAppOauthRedirectAutoConfigurationContextTest {
             "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes=https://app.example.com/oauth",
             "atomic.app.oauth.redirect.store.type=in-memory",
             "atomic.app.oauth.redirect.callback-binding.enabled=true",
-            "atomic.app.oauth.redirect.callback-binding.cookie-path=/oauth/callback",
-        )
-        .run { context ->
-          val failure = context.startupFailure
-          assertNotNull(failure)
-          assertTrue(
-              failure.message?.contains(
-                  "atomic.app.oauth.redirect.callback-binding.cookie-path must be '/' when callback binding is enabled.",
-              ) == true,
-          )
-        }
-  }
-
-  @Test
-  fun `relaxed callback binding mode should still fail startup for invalid cookie path`() {
-    contextRunner
-        .withPropertyValues(
-            "atomic.app.oauth.redirect.enabled=true",
-            "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes=https://app.example.com/oauth",
-            "atomic.app.oauth.redirect.store.type=in-memory",
-            "atomic.app.oauth.redirect.callback-binding.mode=relaxed",
             "atomic.app.oauth.redirect.callback-binding.cookie-path=/oauth/callback",
         )
         .run { context ->
@@ -614,140 +395,6 @@ class AtomicAppOauthRedirectAutoConfigurationContextTest {
         }
   }
 
-  @Test
-  fun `cache store with unsupported cache backend and fail fast disabled should fallback to in memory store`() {
-    contextRunner
-        .withPropertyValues(
-            "atomic.app.oauth.redirect.enabled=true",
-            "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes=https://app.example.com/oauth",
-            "atomic.app.oauth.redirect.store.type=cache",
-            "atomic.app.oauth.redirect.store.fail-fast=false",
-            "atomic.app.oauth.redirect.store.cache.cache-name=atomicOauthRelayCode",
-        )
-        .withBean(
-            OauthServiceProvider::class.java,
-            { OauthServiceProvider(listOf(TestOauthProvider())) },
-        )
-        .withBean(
-            OauthStateManager::class.java,
-            {
-              OauthStateManager(
-                  signingSecret = "0123456789abcdef0123456789abcdef",
-                  store = InMemoryOauthStateStore(),
-              )
-            },
-        )
-        .withBean(
-            CacheManager::class.java,
-            { SingleCacheManager(UnsupportedAtomicCache("atomicOauthRelayCode")) },
-        )
-        .withBean(tools.jackson.databind.ObjectMapper::class.java, { jacksonObjectMapper() })
-        .run { context ->
-          assertTrue(context.startupFailure == null)
-          assertIs<InMemoryOauthRelayCodeStore>(context.getBean(OauthRelayCodeStore::class.java))
-        }
-  }
-
-  @Test
-  fun `cache store with unsupported cache backend and fail fast enabled should fail startup`() {
-    contextRunner
-        .withPropertyValues(
-            "atomic.app.oauth.redirect.enabled=true",
-            "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes=https://app.example.com/oauth",
-            "atomic.app.oauth.redirect.store.type=cache",
-            "atomic.app.oauth.redirect.store.fail-fast=true",
-            "atomic.app.oauth.redirect.store.cache.cache-name=atomicOauthRelayCode",
-        )
-        .withBean(
-            OauthServiceProvider::class.java,
-            { OauthServiceProvider(listOf(TestOauthProvider())) },
-        )
-        .withBean(
-            OauthStateManager::class.java,
-            {
-              OauthStateManager(
-                  signingSecret = "0123456789abcdef0123456789abcdef",
-                  store = InMemoryOauthStateStore(),
-              )
-            },
-        )
-        .withBean(
-            CacheManager::class.java,
-            { SingleCacheManager(UnsupportedAtomicCache("atomicOauthRelayCode")) },
-        )
-        .withBean(tools.jackson.databind.ObjectMapper::class.java, { jacksonObjectMapper() })
-        .run { context ->
-          val failure = context.startupFailure
-          assertNotNull(failure)
-          assertTrue(
-              failure.message?.contains(
-                  "Configured cache 'atomicOauthRelayCode' does not support atomic relay consume.",
-              ) == true,
-          )
-        }
-  }
-
-  @Test
-  fun `cache store with fail fast enabled should fail startup when dependencies are missing`() {
-    contextRunner
-        .withPropertyValues(
-            "atomic.app.oauth.redirect.enabled=true",
-            "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes=https://app.example.com/oauth",
-            "atomic.app.oauth.redirect.store.type=cache",
-            "atomic.app.oauth.redirect.store.fail-fast=true",
-        )
-        .withBean(
-            OauthServiceProvider::class.java,
-            { OauthServiceProvider(listOf(TestOauthProvider())) },
-        )
-        .withBean(
-            OauthStateManager::class.java,
-            {
-              OauthStateManager(
-                  signingSecret = "0123456789abcdef0123456789abcdef",
-                  store = InMemoryOauthStateStore(),
-              )
-            },
-        )
-        .run { context ->
-          val failure = context.startupFailure
-          assertNotNull(failure)
-          assertTrue(
-              failure.message?.contains(
-                  "atomic.app.oauth.redirect.store.type=cache requires CacheManager and ObjectMapper beans.",
-              ) == true,
-          )
-        }
-  }
-
-  @Test
-  fun `entity store with fail fast disabled should fallback to in memory store`() {
-    contextRunner
-        .withPropertyValues(
-            "atomic.app.oauth.redirect.enabled=true",
-            "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes=https://app.example.com/oauth",
-            "atomic.app.oauth.redirect.store.type=entity",
-            "atomic.app.oauth.redirect.store.fail-fast=false",
-        )
-        .withBean(
-            OauthServiceProvider::class.java,
-            { OauthServiceProvider(listOf(TestOauthProvider())) },
-        )
-        .withBean(
-            OauthStateManager::class.java,
-            {
-              OauthStateManager(
-                  signingSecret = "0123456789abcdef0123456789abcdef",
-                  store = InMemoryOauthStateStore(),
-              )
-            },
-        )
-        .run { context ->
-          assertTrue(context.startupFailure == null)
-          assertIs<InMemoryOauthRelayCodeStore>(context.getBean(OauthRelayCodeStore::class.java))
-        }
-  }
-
   private class TestOauthProvider : OauthProvider {
     override val providerName: OauthProviderName = OauthProviderName.GOOGLE
 
@@ -818,58 +465,6 @@ class AtomicAppOauthRedirectAutoConfigurationContextTest {
 
     override fun evict(key: Any) {
       throw UnsupportedOperationException("evict should not be used for atomic relay consume.")
-    }
-
-    override fun evictIfPresent(key: Any): Boolean = store.remove(key) != null
-
-    override fun clear() {
-      store.clear()
-    }
-
-    override fun invalidate(): Boolean = store.isNotEmpty().also { store.clear() }
-  }
-
-  private class UnsupportedAtomicCache(
-      private val cacheName: String,
-  ) : Cache {
-    private val store = mutableMapOf<Any, Any>()
-
-    override fun getName(): String = cacheName
-
-    override fun getNativeCache(): Any = Any()
-
-    override fun get(key: Any): Cache.ValueWrapper? = store[key]?.let { SimpleValueWrapper(it) }
-
-    override fun <T : Any> get(key: Any, type: Class<T>?): T? = type?.cast(store[key])
-
-    override fun <T : Any> get(key: Any, valueLoader: Callable<T>): T {
-      val existing = store[key]
-      if (existing != null) {
-        @Suppress("UNCHECKED_CAST")
-        return existing as T
-      }
-      val loaded = valueLoader.call()
-      if (loaded != null) {
-        store[key] = loaded as Any
-      }
-      return loaded
-    }
-
-    override fun put(key: Any, value: Any?) {
-      if (value != null) {
-        store[key] = value
-      } else {
-        store.remove(key)
-      }
-    }
-
-    override fun putIfAbsent(key: Any, value: Any?): Cache.ValueWrapper? {
-      val existing = store.putIfAbsent(key, value ?: NullValue)
-      return existing?.let { SimpleValueWrapper(it) }
-    }
-
-    override fun evict(key: Any) {
-      store.remove(key)
     }
 
     override fun evictIfPresent(key: Any): Boolean = store.remove(key) != null

@@ -1,13 +1,12 @@
 package com.infosung.atomic.app.oauth.autoconfigure
 
-import com.infosung.atomic.app.oauth.AppOauthRedirectController
-import com.infosung.atomic.app.oauth.AppOauthRedirectHttpExceptionHandler
-import com.infosung.atomic.app.oauth.AppOauthRedirectService
-import com.infosung.atomic.app.oauth.AppOauthRelayCodeService
+import com.infosung.atomic.app.oauth.adapter.`in`.web.AppOauthRedirectController
+import com.infosung.atomic.app.oauth.adapter.`in`.web.AppOauthRedirectHttpExceptionHandler
 import com.infosung.atomic.app.oauth.adapter.out.oauth.OauthServiceProviderAdapter
 import com.infosung.atomic.app.oauth.adapter.out.redirect.AllowedRedirectUriPortAdapter
-import com.infosung.atomic.app.oauth.adapter.out.relay.AppOauthRelayCodePortAdapter
+import com.infosung.atomic.app.oauth.adapter.out.relay.IssueOauthRelayCodeUseCasePortAdapter
 import com.infosung.atomic.app.oauth.adapter.out.relay.OauthRelayCodeStorePortAdapter
+import com.infosung.atomic.app.oauth.adapter.out.relay.store.OauthRelayCodeStore
 import com.infosung.atomic.app.oauth.adapter.out.state.OauthStateManagerAdapter
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildAppleCallbackRedirectUseCase
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildAuthorizationRedirectUseCase
@@ -35,15 +34,36 @@ import kotlin.test.assertTrue
 import org.mockito.Mockito.mock
 import org.springframework.beans.factory.support.StaticListableBeanFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
+import org.springframework.context.annotation.Import
 
 class AtomicAppOauthRedirectAutoConfigurationContractTest {
   @Test
-  fun `auto configuration factory methods should create ports use-cases facade controller and handler`() {
-    val autoConfiguration = AtomicAppOauthRedirectAutoConfiguration()
-    val oauthServiceProvider = mock(OauthServiceProvider::class.java)
-    val oauthStateManager = mock(OauthStateManager::class.java)
-    val relayCodeStore = mock(com.infosung.atomic.app.oauth.OauthRelayCodeStore::class.java)
-    val relayCodeService = mock(AppOauthRelayCodeService::class.java)
+  fun `umbrella auto configuration should import relay core and web splits`() {
+    val imported =
+        AtomicAppOauthRedirectAutoConfiguration::class
+            .java
+            .getAnnotation(Import::class.java)
+            .value
+            .toSet()
+
+    assertEquals(
+        setOf(
+            AtomicAppOauthRedirectRelayAutoConfiguration::class,
+            AtomicAppOauthRedirectCoreAutoConfiguration::class,
+            AtomicAppOauthRedirectWebAutoConfiguration::class,
+        ),
+        imported,
+    )
+  }
+
+  @Test
+  fun `split auto configuration factory methods should create stores ports use cases and web adapters`() {
+    val relayAutoConfiguration = AtomicAppOauthRedirectRelayAutoConfiguration()
+    val coreAutoConfiguration = AtomicAppOauthRedirectCoreAutoConfiguration()
+    val webAutoConfiguration = AtomicAppOauthRedirectWebAutoConfiguration()
+    val oauthServiceProvider: OauthServiceProvider = mock(OauthServiceProvider::class.java)
+    val oauthStateManager: OauthStateManager = mock(OauthStateManager::class.java)
+    val relayCodeStore: OauthRelayCodeStore = mock(OauthRelayCodeStore::class.java)
     val timeProviderProvider = StaticListableBeanFactory().getBeanProvider(TimeProvider::class.java)
     val properties =
         AtomicAppOauthRedirectProperties().apply {
@@ -51,63 +71,52 @@ class AtomicAppOauthRedirectAutoConfigurationContractTest {
           allowedRedirectUriPrefixes = listOf("https://app.example.com/oauth")
         }
 
-    val providerPort = autoConfiguration.oauthProviderOperationsPort(oauthServiceProvider)
-    val statePort = autoConfiguration.verifyOauthStatePort(oauthStateManager)
-    val relayStorePort = autoConfiguration.storeOauthRelayCodePort(relayCodeStore)
+    val providerPort = coreAutoConfiguration.oauthProviderOperationsPort(oauthServiceProvider)
+    val statePort = coreAutoConfiguration.verifyOauthStatePort(oauthStateManager)
+    val relayStorePort = relayAutoConfiguration.storeOauthRelayCodePort(relayCodeStore)
     val issueRelayUseCase =
-        autoConfiguration.issueOauthRelayCodeUseCase(
+        relayAutoConfiguration.issueOauthRelayCodeUseCase(
             relayStorePort,
             properties,
             timeProviderProvider,
         )
     val consumeRelayUseCase =
-        autoConfiguration.consumeOauthRelayCodeUseCase(
+        relayAutoConfiguration.consumeOauthRelayCodeUseCase(
             relayStorePort,
             timeProviderProvider,
         )
-    val relayService =
-        autoConfiguration.appOauthRelayCodeService(
-            relayCodeStore,
-            properties,
-            issueRelayUseCase,
-            consumeRelayUseCase,
-        )
-    val relayPort = autoConfiguration.issueOauthRelayCodePort(relayCodeService)
-    val redirectPort = autoConfiguration.validateOauthRedirectUriPort(properties)
+    val relayIssuePort = coreAutoConfiguration.issueOauthRelayCodePort(issueRelayUseCase)
+    val redirectPort = coreAutoConfiguration.validateOauthRedirectUriPort(properties)
     val authorizationUseCase =
-        autoConfiguration.buildAuthorizationRedirectUseCase(
+        coreAutoConfiguration.buildAuthorizationRedirectUseCase(
             providerPort,
             redirectPort,
             properties,
         )
     val callbackUseCase =
-        autoConfiguration.buildOauthCallbackRedirectUseCase(
+        coreAutoConfiguration.buildOauthCallbackRedirectUseCase(
             providerPort,
             statePort,
-            relayPort,
+            relayIssuePort,
             redirectPort,
             properties,
         )
     val appleCallbackUseCase =
-        autoConfiguration.buildAppleCallbackRedirectUseCase(
+        coreAutoConfiguration.buildAppleCallbackRedirectUseCase(
             providerPort,
             statePort,
-            relayPort,
+            relayIssuePort,
             redirectPort,
             properties,
         )
-    val service =
-        autoConfiguration.appOauthRedirectService(
-            oauthServiceProvider,
-            oauthStateManager,
-            relayCodeService,
-            properties,
+    val controller =
+        webAutoConfiguration.appOauthRedirectController(
             authorizationUseCase,
             callbackUseCase,
             appleCallbackUseCase,
+            properties,
         )
-    val controller = autoConfiguration.appOauthRedirectController(service, properties)
-    val handler = autoConfiguration.appOauthRedirectHttpExceptionHandler()
+    val handler = webAutoConfiguration.appOauthRedirectHttpExceptionHandler()
 
     assertIs<OauthProviderOperationsPort>(providerPort)
     assertIs<OauthServiceProviderAdapter>(providerPort)
@@ -119,9 +128,8 @@ class AtomicAppOauthRedirectAutoConfigurationContractTest {
     assertIs<IssueOauthRelayCodeService>(issueRelayUseCase)
     assertIs<ConsumeOauthRelayCodeUseCase>(consumeRelayUseCase)
     assertIs<ConsumeOauthRelayCodeService>(consumeRelayUseCase)
-    assertIs<AppOauthRelayCodeService>(relayService)
-    assertIs<IssueOauthRelayCodePort>(relayPort)
-    assertIs<AppOauthRelayCodePortAdapter>(relayPort)
+    assertIs<IssueOauthRelayCodePort>(relayIssuePort)
+    assertIs<IssueOauthRelayCodeUseCasePortAdapter>(relayIssuePort)
     assertIs<ValidateOauthRedirectUriPort>(redirectPort)
     assertIs<AllowedRedirectUriPortAdapter>(redirectPort)
     assertIs<BuildAuthorizationRedirectUseCase>(authorizationUseCase)
@@ -130,102 +138,75 @@ class AtomicAppOauthRedirectAutoConfigurationContractTest {
     assertIs<BuildOauthCallbackRedirectService>(callbackUseCase)
     assertIs<BuildAppleCallbackRedirectUseCase>(appleCallbackUseCase)
     assertIs<BuildAppleCallbackRedirectService>(appleCallbackUseCase)
-    assertIs<AppOauthRedirectService>(service)
     assertIs<AppOauthRedirectController>(controller)
     assertIs<AppOauthRedirectHttpExceptionHandler>(handler)
   }
 
   @Test
-  fun `auto configuration should keep oauth redirect facade override guard on exported bean`() {
-    val beanMethod =
-        AtomicAppOauthRedirectAutoConfiguration::class
-            .java
-            .declaredMethods
-            .single(::isOauthRedirectServiceBeanMethod)
+  fun `relay auto configuration should keep override guards on supported relay seams`() {
+    assertTrue(
+        relayBeanMethod("oauthRelayCodeStore", OauthRelayCodeStore::class.java)
+            .isAnnotationPresent(ConditionalOnMissingBean::class.java),
+    )
+    assertEquals(
+        OauthRelayCodeStore::class.java,
+        relayBeanMethod("oauthRelayCodeStore", OauthRelayCodeStore::class.java).returnType,
+    )
 
-    assertTrue(beanMethod.isAnnotationPresent(ConditionalOnMissingBean::class.java))
-    assertEquals(AppOauthRedirectService::class.java, beanMethod.returnType)
-  }
+    assertTrue(
+        relayBeanMethod("issueOauthRelayCodeUseCase", IssueOauthRelayCodeUseCase::class.java)
+            .isAnnotationPresent(ConditionalOnMissingBean::class.java),
+    )
+    assertEquals(
+        IssueOauthRelayCodeUseCase::class.java,
+        relayBeanMethod("issueOauthRelayCodeUseCase", IssueOauthRelayCodeUseCase::class.java)
+            .returnType,
+    )
 
-  @Test
-  fun `auto configuration should keep oauth relay facade override guard on exported bean`() {
-    val beanMethod =
-        AtomicAppOauthRedirectAutoConfiguration::class
-            .java
-            .declaredMethods
-            .single(::isOauthRelayCodeServiceBeanMethod)
-
-    assertTrue(beanMethod.isAnnotationPresent(ConditionalOnMissingBean::class.java))
-    assertEquals(AppOauthRelayCodeService::class.java, beanMethod.returnType)
-  }
-
-  @Test
-  fun `auto configuration should keep oauth controller override guard on exported bean`() {
-    val beanMethod =
-        AtomicAppOauthRedirectAutoConfiguration::class
-            .java
-            .declaredMethods
-            .single(::isOauthRedirectControllerBeanMethod)
-
-    assertTrue(beanMethod.isAnnotationPresent(ConditionalOnMissingBean::class.java))
-    assertEquals(AppOauthRedirectController::class.java, beanMethod.returnType)
-  }
-
-  @Test
-  fun `auto configuration should keep oauth exception handler override guard on exported bean`() {
-    val beanMethod =
-        AtomicAppOauthRedirectAutoConfiguration::class
-            .java
-            .declaredMethods
-            .single(::isOauthRedirectHttpExceptionHandlerBeanMethod)
-
-    assertTrue(beanMethod.isAnnotationPresent(ConditionalOnMissingBean::class.java))
-    assertEquals(AppOauthRedirectHttpExceptionHandler::class.java, beanMethod.returnType)
-  }
-
-  private fun isOauthRedirectServiceBeanMethod(method: Method): Boolean {
-    return method.name.startsWith("appOauthRedirectService") &&
-        method.returnType == AppOauthRedirectService::class.java &&
-        method.parameterTypes.contentEquals(
-            arrayOf(
-                OauthServiceProvider::class.java,
-                OauthStateManager::class.java,
-                AppOauthRelayCodeService::class.java,
-                AtomicAppOauthRedirectProperties::class.java,
-                BuildAuthorizationRedirectUseCase::class.java,
-                BuildOauthCallbackRedirectUseCase::class.java,
-                BuildAppleCallbackRedirectUseCase::class.java,
-            ),
-        )
-  }
-
-  private fun isOauthRelayCodeServiceBeanMethod(method: Method): Boolean {
-    return method.name.startsWith("appOauthRelayCodeService") &&
-        method.returnType == AppOauthRelayCodeService::class.java &&
-        method.parameterTypes.contentEquals(
-            arrayOf(
-                com.infosung.atomic.app.oauth.OauthRelayCodeStore::class.java,
-                AtomicAppOauthRedirectProperties::class.java,
-                IssueOauthRelayCodeUseCase::class.java,
+    assertTrue(
+        relayBeanMethod("consumeOauthRelayCodeUseCase", ConsumeOauthRelayCodeUseCase::class.java)
+            .isAnnotationPresent(ConditionalOnMissingBean::class.java),
+    )
+    assertEquals(
+        ConsumeOauthRelayCodeUseCase::class.java,
+        relayBeanMethod(
+                "consumeOauthRelayCodeUseCase",
                 ConsumeOauthRelayCodeUseCase::class.java,
-            ),
-        )
+            )
+            .returnType,
+    )
   }
 
-  private fun isOauthRedirectControllerBeanMethod(method: Method): Boolean {
-    return method.name == "appOauthRedirectController" &&
-        method.returnType == AppOauthRedirectController::class.java &&
-        method.parameterTypes.contentEquals(
-            arrayOf(
-                AppOauthRedirectService::class.java,
-                AtomicAppOauthRedirectProperties::class.java,
-            ),
-        )
+  @Test
+  fun `web auto configuration should keep override guards on exported web adapters`() {
+    assertTrue(
+        webBeanMethod("appOauthRedirectController")
+            .isAnnotationPresent(ConditionalOnMissingBean::class.java),
+    )
+    assertEquals(
+        AppOauthRedirectController::class.java,
+        webBeanMethod("appOauthRedirectController").returnType,
+    )
+
+    assertTrue(
+        webBeanMethod("appOauthRedirectHttpExceptionHandler")
+            .isAnnotationPresent(ConditionalOnMissingBean::class.java),
+    )
+    assertEquals(
+        AppOauthRedirectHttpExceptionHandler::class.java,
+        webBeanMethod("appOauthRedirectHttpExceptionHandler").returnType,
+    )
   }
 
-  private fun isOauthRedirectHttpExceptionHandlerBeanMethod(method: Method): Boolean {
-    return method.name == "appOauthRedirectHttpExceptionHandler" &&
-        method.returnType == AppOauthRedirectHttpExceptionHandler::class.java &&
-        method.parameterTypes.isEmpty()
+  private fun relayBeanMethod(name: String, returnType: Class<*>): Method {
+    return AtomicAppOauthRedirectRelayAutoConfiguration::class.java.declaredMethods.first {
+      it.name.startsWith(name) && it.returnType == returnType
+    }
+  }
+
+  private fun webBeanMethod(name: String): Method {
+    return AtomicAppOauthRedirectWebAutoConfiguration::class.java.declaredMethods.first {
+      it.name == name
+    }
   }
 }

@@ -1,6 +1,6 @@
 package com.infosung.atomic.app.oauth.application.port.`in`
 
-internal interface BuildAppleCallbackRedirectUseCase {
+interface BuildAppleCallbackRedirectUseCase {
   fun build(
       state: String,
       idToken: String,

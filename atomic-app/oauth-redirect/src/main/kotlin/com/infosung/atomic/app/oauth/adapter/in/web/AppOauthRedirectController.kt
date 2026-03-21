@@ -1,30 +1,46 @@
 package com.infosung.atomic.app.oauth.adapter.`in`.web
 
-import com.infosung.atomic.app.oauth.AppOauthRedirectService
+import com.infosung.atomic.app.oauth.application.exception.OauthRedirectApplicationException
+import com.infosung.atomic.app.oauth.application.port.`in`.BuildAppleCallbackRedirectUseCase
+import com.infosung.atomic.app.oauth.application.port.`in`.BuildAuthorizationRedirectUseCase
+import com.infosung.atomic.app.oauth.application.port.`in`.BuildOauthCallbackRedirectUseCase
 import com.infosung.atomic.app.oauth.autoconfigure.AtomicAppOauthRedirectProperties
 import com.infosung.atomic.contract.exception.HttpStatusException
+import com.infosung.atomic.oauth.api.OauthProviderName
+import com.infosung.atomic.oauth.exception.OauthException
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import java.security.SecureRandom
 import java.util.Base64
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
+import org.springframework.http.MediaType
 import org.springframework.http.ResponseCookie
+import org.springframework.stereotype.Controller
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestParam
 
-internal class OauthRedirectControllerWebAdapter(
-    private val appOauthRedirectService: AppOauthRedirectService,
+/** Web adapter for the app OAuth redirect/callback relay endpoints. */
+@Controller
+class AppOauthRedirectController(
+    private val buildAuthorizationRedirectUseCase: BuildAuthorizationRedirectUseCase,
+    private val buildOauthCallbackRedirectUseCase: BuildOauthCallbackRedirectUseCase,
+    private val buildAppleCallbackRedirectUseCase: BuildAppleCallbackRedirectUseCase,
     private val properties: AtomicAppOauthRedirectProperties,
 ) {
   private val log = LoggerFactory.getLogger(this::class.java)
   private val secureRandom = SecureRandom()
 
-  fun handleRedirect(
-      provider: String,
-      redirectUri: String,
-      nonce: String?,
-      prompt: String?,
-      loginHint: String?,
-      responseMode: String?,
+  @GetMapping("\${atomic.app.oauth.redirect.redirect-endpoint-path:/oauth/redirect}/{provider}")
+  fun redirect(
+      @PathVariable("provider") provider: String,
+      @RequestParam("redirectUri") redirectUri: String,
+      @RequestParam(name = "nonce", required = false) nonce: String?,
+      @RequestParam(name = "prompt", required = false) prompt: String?,
+      @RequestParam(name = "loginHint", required = false) loginHint: String?,
+      @RequestParam(name = "responseMode", required = false) responseMode: String?,
       request: HttpServletRequest,
       response: HttpServletResponse,
   ): String {
@@ -35,34 +51,38 @@ internal class OauthRedirectControllerWebAdapter(
             request = request,
             reservedKeys = setOf("redirectUri", "nonce", "prompt", "loginHint", "responseMode"),
         )
-    val authorizationUrl =
-        appOauthRedirectService.buildAuthorizationRedirectUrl(
-            provider = provider,
-            redirectUri = redirectUri,
-            nonce = nonce,
-            prompt = prompt,
-            loginHint = loginHint,
-            responseMode = responseMode,
-            additionalParameters = additionalParameters,
-            callbackBindingToken = callbackBindingToken.token,
-        )
+    val authorization =
+        mapApplicationErrors(provider = provider, action = "oauth authorization redirect") {
+          buildAuthorizationRedirectUseCase.build(
+              provider = provider,
+              redirectUri = redirectUri,
+              nonce = nonce,
+              prompt = prompt,
+              loginHint = loginHint,
+              responseMode = responseMode,
+              additionalParameters = additionalParameters,
+              callbackBindingToken = callbackBindingToken.token,
+          )
+        }
     if (callbackBindingToken.shouldSetCookie) {
       setCallbackBindingTokenIfEnabled(response = response, token = callbackBindingToken.token)
     }
     log.debug(
-        "OAuth redirect completed: provider={}, callbackBindingMode={}, callbackBindingCookieIssued={}, additionalParameterKeys={}",
+        "OAuth redirect completed at web adapter: provider={}, callbackBindingMode={}, callbackBindingCookieIssued={}, redirectTargetType={}, additionalParameterKeys={}",
         provider,
         callbackBindingMode,
         callbackBindingToken.shouldSetCookie,
+        authorization.redirectTargetType,
         additionalParameters.keys.sorted(),
     )
-    return "redirect:$authorizationUrl"
+    return "redirect:${authorization.authorizationUrl}"
   }
 
-  fun handleCallback(
-      provider: String,
-      code: String,
-      state: String,
+  @GetMapping("\${atomic.app.oauth.redirect.callback-endpoint-path:/oauth/callback}/{provider}")
+  fun callback(
+      @PathVariable("provider") provider: String,
+      @RequestParam("code") code: String,
+      @RequestParam("state") state: String,
       request: HttpServletRequest,
       response: HttpServletResponse,
   ): String {
@@ -73,37 +93,45 @@ internal class OauthRedirectControllerWebAdapter(
             request = request,
             reservedKeys = setOf("code", "state"),
         )
-    val frontendRedirectUrl =
-        appOauthRedirectService.buildCallbackRedirectUrl(
-            provider = provider,
-            code = code,
-            state = state,
-            additionalParameters = additionalParameters,
-            callbackBindingToken = callbackBindingToken,
-        )
+    val result =
+        mapCallbackErrors(provider = provider) {
+          buildOauthCallbackRedirectUseCase.build(
+              provider = provider,
+              code = code,
+              state = state,
+              additionalParameters = additionalParameters,
+              callbackBindingToken = callbackBindingToken,
+          )
+        }
     clearCallbackBindingTokenIfEnabled(response)
     log.debug(
-        "OAuth callback completed: provider={}, callbackBindingMode={}, callbackBindingCookieCleared={}, additionalParameterKeys={}",
+        "OAuth callback completed at web adapter: provider={}, callbackBindingMode={}, callbackBindingCookieCleared={}, redirectTargetType={}, additionalParameterKeys={}",
         provider,
         callbackBindingMode,
         properties.callbackBinding.shouldClearCookieOnSuccess(),
+        result.redirectTargetType,
         additionalParameters.keys.sorted(),
     )
-    return "redirect:$frontendRedirectUrl"
+    return "redirect:${result.frontendRedirectUrl}"
   }
 
-  fun handleCallbackAppleGet(): String {
+  @GetMapping("\${atomic.app.oauth.redirect.callback-endpoint-path:/oauth/callback}/apple")
+  fun callbackAppleGet(): String {
     throw HttpStatusException(
         status = 400,
         message = "Apple callback supports POST form_post only.",
     )
   }
 
-  fun handleCallbackApple(
-      state: String,
-      idToken: String,
-      code: String?,
-      user: String?,
+  @PostMapping(
+      "\${atomic.app.oauth.redirect.callback-endpoint-path:/oauth/callback}/apple",
+      consumes = [MediaType.APPLICATION_FORM_URLENCODED_VALUE],
+  )
+  fun callbackApple(
+      @RequestParam("state") state: String,
+      @RequestParam("id_token") idToken: String,
+      @RequestParam(name = "code", required = false) code: String?,
+      @RequestParam(name = "user", required = false) user: String?,
       request: HttpServletRequest,
       response: HttpServletResponse,
   ): String {
@@ -114,29 +142,89 @@ internal class OauthRedirectControllerWebAdapter(
             request = request,
             reservedKeys = setOf("state", "id_token", "code", "user"),
         )
-    val frontendRedirectUrl =
-        appOauthRedirectService.buildAppleCallbackRedirectUrl(
-            state = state,
-            idToken = idToken,
-            code = code,
-            user = user,
-            additionalParameters = additionalParameters,
-            callbackBindingToken = callbackBindingToken,
-        )
+    val result =
+        mapCallbackErrors(provider = OauthProviderName.APPLE.name) {
+          buildAppleCallbackRedirectUseCase.build(
+              state = state,
+              idToken = idToken,
+              code = code,
+              user = user,
+              additionalParameters = additionalParameters,
+              callbackBindingToken = callbackBindingToken,
+          )
+        }
     clearCallbackBindingTokenIfEnabled(response)
     log.debug(
-        "Apple OAuth callback completed: callbackBindingMode={}, callbackBindingCookieCleared={}, additionalParameterKeys={}",
+        "Apple OAuth callback completed at web adapter: callbackBindingMode={}, callbackBindingCookieCleared={}, redirectTargetType={}, additionalParameterKeys={}",
         callbackBindingMode,
         properties.callbackBinding.shouldClearCookieOnSuccess(),
+        result.redirectTargetType,
         additionalParameters.keys.sorted(),
     )
-    return "redirect:$frontendRedirectUrl"
+    return "redirect:${result.frontendRedirectUrl}"
   }
 
   private data class CallbackBindingTokenResult(
       val token: String?,
       val shouldSetCookie: Boolean,
   )
+
+  private inline fun <T> mapCallbackErrors(
+      provider: String,
+      block: () -> T,
+  ): T {
+    return try {
+      block()
+    } catch (e: OauthRedirectApplicationException) {
+      log.warn(
+          "Rejected oauth callback at web adapter: provider={}, message={}", provider, e.message)
+      throw HttpStatusException(
+          status = 400,
+          message = e.message ?: "Invalid OAuth callback request for provider: $provider",
+          cause = e,
+      )
+    } catch (e: HttpStatusException) {
+      log.warn(
+          "Rejected oauth callback at web adapter: provider={}, message={}", provider, e.message)
+      throw e
+    } catch (e: OauthException) {
+      log.warn(
+          "Rejected oauth callback at web adapter: provider={}, message={}", provider, e.message)
+      throw HttpStatusException(
+          status = 400,
+          message = e.message ?: "Invalid OAuth callback request for provider: $provider",
+          cause = e,
+      )
+    } catch (e: IllegalArgumentException) {
+      log.warn(
+          "Rejected oauth callback at web adapter: provider={}, message={}", provider, e.message)
+      throw HttpStatusException(
+          status = 400,
+          message = e.message ?: "Invalid OAuth callback request for provider: $provider",
+          cause = e,
+      )
+    }
+  }
+
+  private inline fun <T> mapApplicationErrors(
+      provider: String,
+      action: String,
+      block: () -> T,
+  ): T {
+    return try {
+      block()
+    } catch (e: OauthRedirectApplicationException) {
+      log.warn("Rejected {} at web adapter: provider={}, message={}", action, provider, e.message)
+      throw HttpStatusException(
+          status = 400,
+          message = e.message ?: "Invalid request for provider: $provider",
+          cause = e,
+      )
+    } catch (e: HttpStatusException) {
+      log.warn("Rejected {} at web adapter: provider={}, message={}", action, provider, e.message)
+      throw e
+    }
+  }
 
   private fun resolveCallbackBindingTokenForRedirect(
       request: HttpServletRequest,

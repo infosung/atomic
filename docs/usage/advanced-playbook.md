@@ -164,7 +164,7 @@ Interpret the startup logs literally:
 - warning contains `callback binding mode is disabled`
   - treat the config as local-only unless you have an explicit exception
 - relay/code handoff still requires your own login/session issuance
-  - `AppOauthRelayCodeService.consumeRelayCode(relayCode)` gives you relay payload, not a completed app session
+  - `ConsumeOauthRelayCodeUseCase.consume(relayCode)` gives you relay payload, not a completed app session
 
 ## 6) Synchronous Image Processing Envelope
 

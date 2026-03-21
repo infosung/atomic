@@ -1,6 +1,6 @@
 package com.infosung.atomic.app.oauth.application.service
 
-import com.infosung.atomic.app.oauth.OauthRedirectClientTarget
+import com.infosung.atomic.app.oauth.adapter.out.redirect.OauthRedirectClientTarget
 import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRequestException
 import com.infosung.atomic.app.oauth.application.port.out.OauthProviderAuthorization
 import com.infosung.atomic.app.oauth.application.port.out.OauthProviderOperationsPort

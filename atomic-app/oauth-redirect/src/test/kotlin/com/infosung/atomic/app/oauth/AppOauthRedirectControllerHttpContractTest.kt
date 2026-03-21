@@ -1,8 +1,13 @@
 package com.infosung.atomic.app.oauth
 
+import com.infosung.atomic.app.oauth.adapter.`in`.web.AppOauthRedirectController
+import com.infosung.atomic.app.oauth.adapter.out.relay.store.InMemoryOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.autoconfigure.AtomicAppOauthRedirectProperties
+import com.infosung.atomic.app.oauth.autoconfigure.OauthRedirectComposition
+import com.infosung.atomic.app.oauth.autoconfigure.OauthRelayCodeComposition
 import com.infosung.atomic.contract.exception.HttpStatusException
 import com.infosung.atomic.contract.response.BaseResponse
+import com.infosung.atomic.contract.time.TimeProvider
 import com.infosung.atomic.oauth.api.OauthAuthorizationRequest
 import com.infosung.atomic.oauth.api.OauthIdentityRequest
 import com.infosung.atomic.oauth.api.OauthIdentityResult
@@ -715,20 +720,45 @@ class AppOauthRedirectControllerHttpContractTest {
       providers: List<OauthProvider>,
       stateManager: OauthStateManager = stateManager(),
   ): AppOauthRedirectController {
-    val relayCodeService =
-        AppOauthRelayCodeService(
-            relayCodeStore = InMemoryOauthRelayCodeStore(),
+    val oauthServiceProvider = OauthServiceProvider(providers)
+    val oauthProviderOperationsPort =
+        OauthRedirectComposition.oauthProviderOperationsPort(oauthServiceProvider)
+    val verifyOauthStatePort = OauthRedirectComposition.verifyOauthStatePort(stateManager)
+    val relayCodeStorePort =
+        OauthRelayCodeComposition.storeOauthRelayCodePort(InMemoryOauthRelayCodeStore())
+    val issueOauthRelayCodeUseCase =
+        OauthRelayCodeComposition.issueOauthRelayCodeUseCase(
+            storeOauthRelayCodePort = relayCodeStorePort,
             properties = properties,
+            timeProvider = TimeProvider(),
         )
-    val service =
-        AppOauthRedirectService(
-            oauthServiceProvider = OauthServiceProvider(providers),
-            oauthStateManager = stateManager,
-            relayCodeService = relayCodeService,
-            properties = properties,
-        )
+    val issueOauthRelayCodePort =
+        OauthRedirectComposition.issueOauthRelayCodePort(issueOauthRelayCodeUseCase)
+    val validateOauthRedirectUriPort =
+        OauthRedirectComposition.validateOauthRedirectUriPort(properties)
     return AppOauthRedirectController(
-        appOauthRedirectService = service,
+        buildAuthorizationRedirectUseCase =
+            OauthRedirectComposition.buildAuthorizationRedirectUseCase(
+                oauthProviderOperationsPort = oauthProviderOperationsPort,
+                validateOauthRedirectUriPort = validateOauthRedirectUriPort,
+                properties = properties,
+            ),
+        buildOauthCallbackRedirectUseCase =
+            OauthRedirectComposition.buildOauthCallbackRedirectUseCase(
+                oauthProviderOperationsPort = oauthProviderOperationsPort,
+                verifyOauthStatePort = verifyOauthStatePort,
+                issueOauthRelayCodePort = issueOauthRelayCodePort,
+                validateOauthRedirectUriPort = validateOauthRedirectUriPort,
+                properties = properties,
+            ),
+        buildAppleCallbackRedirectUseCase =
+            OauthRedirectComposition.buildAppleCallbackRedirectUseCase(
+                oauthProviderOperationsPort = oauthProviderOperationsPort,
+                verifyOauthStatePort = verifyOauthStatePort,
+                issueOauthRelayCodePort = issueOauthRelayCodePort,
+                validateOauthRedirectUriPort = validateOauthRedirectUriPort,
+                properties = properties,
+            ),
         properties = properties,
     )
   }

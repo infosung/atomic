@@ -1,6 +1,5 @@
-package com.infosung.atomic.app.oauth
+package com.infosung.atomic.app.oauth.adapter.out.relay.store
 
-import com.infosung.atomic.app.oauth.adapter.out.relay.store.CacheOauthRelayCodeStoreAdapter
 import com.infosung.atomic.contract.time.TimeProvider
 import org.springframework.cache.Cache
 import org.springframework.cache.CacheManager

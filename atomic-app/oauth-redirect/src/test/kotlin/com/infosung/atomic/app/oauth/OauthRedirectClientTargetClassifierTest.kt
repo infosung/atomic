@@ -1,5 +1,7 @@
 package com.infosung.atomic.app.oauth
 
+import com.infosung.atomic.app.oauth.adapter.out.redirect.OauthRedirectClientTarget
+import com.infosung.atomic.app.oauth.adapter.out.redirect.OauthRedirectClientTargetClassifier
 import kotlin.test.Test
 import kotlin.test.assertEquals
 

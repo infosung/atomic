@@ -1,9 +1,9 @@
-package com.infosung.atomic.app.oauth
+package com.infosung.atomic.app.oauth.adapter.out.redirect
 
 import java.net.URI
 import java.util.Locale
 
-internal enum class OauthRedirectClientTarget {
+enum class OauthRedirectClientTarget {
   WEB,
   APP_LINK,
   LOOPBACK,

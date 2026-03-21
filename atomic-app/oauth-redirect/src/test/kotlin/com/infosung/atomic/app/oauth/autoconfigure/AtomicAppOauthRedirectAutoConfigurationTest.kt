@@ -4,8 +4,8 @@ import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
-import com.infosung.atomic.app.oauth.EntityOauthRelayCodeStore
-import com.infosung.atomic.app.oauth.InMemoryOauthRelayCodeStore
+import com.infosung.atomic.app.oauth.adapter.out.relay.store.EntityOauthRelayCodeStore
+import com.infosung.atomic.app.oauth.adapter.out.relay.store.InMemoryOauthRelayCodeStore
 import com.infosung.atomic.oauth.api.OauthServiceProvider
 import com.infosung.atomic.oauth.state.InMemoryOauthStateStore
 import com.infosung.atomic.oauth.state.OauthStateManager
@@ -27,6 +27,7 @@ import tools.jackson.databind.ObjectMapper
 
 class AtomicAppOauthRedirectAutoConfigurationTest {
   private val autoConfiguration = AtomicAppOauthRedirectAutoConfiguration()
+  private val relayAutoConfiguration = AtomicAppOauthRedirectRelayAutoConfiguration()
 
   @Test
   fun `validator should log deployment summary and process local warnings for in memory preset`() {
@@ -140,7 +141,7 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
     val properties = configuredProperties()
 
     assertFailsWith<IllegalStateException> {
-      autoConfiguration.oauthRelayCodeStore(
+      relayAutoConfiguration.oauthRelayCodeStore(
           properties = properties,
           timeProviderProvider = provider(),
           objectMapperProvider = provider(),
@@ -173,7 +174,7 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
         }
 
     val store =
-        autoConfiguration.oauthRelayCodeStore(
+        relayAutoConfiguration.oauthRelayCodeStore(
             properties = properties,
             timeProviderProvider = provider(),
             objectMapperProvider = provider(),
@@ -277,10 +278,12 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
         }
 
     val store =
-        withListAppender(AtomicAppOauthRedirectAutoConfiguration::class.java, Level.INFO) { events
-          ->
+        withListAppender(
+            AtomicAppOauthRedirectRelayAutoConfiguration::class.java,
+            Level.INFO,
+        ) { events ->
           val resolvedStore =
-              autoConfiguration.oauthRelayCodeStore(
+              relayAutoConfiguration.oauthRelayCodeStore(
                   properties = properties,
                   timeProviderProvider = provider(),
                   objectMapperProvider = provider(ObjectMapper::class.java, ObjectMapper()),
@@ -309,7 +312,7 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
         }
 
     assertFailsWith<IllegalStateException> {
-      autoConfiguration.oauthRelayCodeStore(
+      relayAutoConfiguration.oauthRelayCodeStore(
           properties = properties,
           timeProviderProvider = provider(),
           objectMapperProvider = provider(ObjectMapper::class.java, ObjectMapper()),
@@ -336,7 +339,7 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
         }
 
     val store =
-        autoConfiguration.oauthRelayCodeStore(
+        relayAutoConfiguration.oauthRelayCodeStore(
             properties = properties,
             timeProviderProvider = provider(),
             objectMapperProvider = provider(ObjectMapper::class.java, ObjectMapper()),

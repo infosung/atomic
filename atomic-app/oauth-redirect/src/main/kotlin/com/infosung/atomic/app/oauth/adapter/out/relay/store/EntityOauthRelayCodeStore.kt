@@ -1,6 +1,5 @@
-package com.infosung.atomic.app.oauth
+package com.infosung.atomic.app.oauth.adapter.out.relay.store
 
-import com.infosung.atomic.app.oauth.adapter.out.relay.store.EntityOauthRelayCodeStoreAdapter
 import com.infosung.atomic.contract.time.TimeProvider
 import org.springframework.jdbc.core.JdbcOperations
 import org.springframework.transaction.support.TransactionTemplate

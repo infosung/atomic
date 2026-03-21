@@ -1,7 +1,7 @@
 package com.infosung.atomic.app.oauth.application.port.`in`
 
-import com.infosung.atomic.app.oauth.OauthRelayPayload
+import com.infosung.atomic.app.oauth.domain.OauthRelayPayload
 
-internal fun interface IssueOauthRelayCodeUseCase {
+fun interface IssueOauthRelayCodeUseCase {
   fun issue(payload: OauthRelayPayload): String
 }

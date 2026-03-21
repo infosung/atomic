@@ -1,7 +1,6 @@
 package com.infosung.atomic.app.oauth.adapter.out.relay.store
 
-import com.infosung.atomic.app.oauth.OauthRelayCodeStore
-import com.infosung.atomic.app.oauth.OauthRelayPayload
+import com.infosung.atomic.app.oauth.domain.OauthRelayPayload
 import com.infosung.atomic.contract.time.TimeProvider
 import java.time.Instant
 import java.util.concurrent.ConcurrentMap

@@ -1,7 +1,12 @@
 package com.infosung.atomic.app.oauth
 
+import com.infosung.atomic.app.oauth.adapter.`in`.web.AppOauthRedirectController
+import com.infosung.atomic.app.oauth.adapter.out.relay.store.InMemoryOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.autoconfigure.AtomicAppOauthRedirectProperties
+import com.infosung.atomic.app.oauth.autoconfigure.OauthRedirectComposition
+import com.infosung.atomic.app.oauth.autoconfigure.OauthRelayCodeComposition
 import com.infosung.atomic.contract.exception.HttpStatusException
+import com.infosung.atomic.contract.time.TimeProvider
 import com.infosung.atomic.oauth.api.OauthAuthorizationRequest
 import com.infosung.atomic.oauth.api.OauthIdentityRequest
 import com.infosung.atomic.oauth.api.OauthIdentityResult
@@ -34,22 +39,11 @@ class AppOauthRedirectControllerTest {
     val properties = configuredProperties()
     val provider = CapturingOauthProvider()
     val stateManager = mock(OauthStateManager::class.java)
-    val relayCodeService =
-        AppOauthRelayCodeService(
-            relayCodeStore = InMemoryOauthRelayCodeStore(),
-            properties = properties,
-        )
-    val service =
-        AppOauthRedirectService(
-            oauthServiceProvider = OauthServiceProvider(listOf(provider)),
-            oauthStateManager = stateManager,
-            relayCodeService = relayCodeService,
-            properties = properties,
-        )
     val controller =
-        AppOauthRedirectController(
-            appOauthRedirectService = service,
+        newController(
             properties = properties,
+            providers = listOf(provider),
+            stateManager = stateManager,
         )
 
     val request = MockHttpServletRequest("GET", "/oauth/redirect/google")
@@ -84,22 +78,11 @@ class AppOauthRedirectControllerTest {
     val properties = configuredProperties()
     val provider = CapturingOauthProvider()
     val stateManager = mock(OauthStateManager::class.java)
-    val relayCodeService =
-        AppOauthRelayCodeService(
-            relayCodeStore = InMemoryOauthRelayCodeStore(),
-            properties = properties,
-        )
-    val service =
-        AppOauthRedirectService(
-            oauthServiceProvider = OauthServiceProvider(listOf(provider)),
-            oauthStateManager = stateManager,
-            relayCodeService = relayCodeService,
-            properties = properties,
-        )
     val controller =
-        AppOauthRedirectController(
-            appOauthRedirectService = service,
+        newController(
             properties = properties,
+            providers = listOf(provider),
+            stateManager = stateManager,
         )
 
     val request = MockHttpServletRequest("GET", "/oauth/redirect/google")
@@ -126,22 +109,11 @@ class AppOauthRedirectControllerTest {
     val properties = configuredProperties()
     val provider = CapturingOauthProvider()
     val stateManager = mock(OauthStateManager::class.java)
-    val relayCodeService =
-        AppOauthRelayCodeService(
-            relayCodeStore = InMemoryOauthRelayCodeStore(),
-            properties = properties,
-        )
-    val service =
-        AppOauthRedirectService(
-            oauthServiceProvider = OauthServiceProvider(listOf(provider)),
-            oauthStateManager = stateManager,
-            relayCodeService = relayCodeService,
-            properties = properties,
-        )
     val controller =
-        AppOauthRedirectController(
-            appOauthRedirectService = service,
+        newController(
             properties = properties,
+            providers = listOf(provider),
+            stateManager = stateManager,
         )
 
     val callbackBindingToken = "binding-token"
@@ -193,22 +165,11 @@ class AppOauthRedirectControllerTest {
         }
     val provider = CapturingOauthProvider()
     val stateManager = mock(OauthStateManager::class.java)
-    val relayCodeService =
-        AppOauthRelayCodeService(
-            relayCodeStore = InMemoryOauthRelayCodeStore(),
-            properties = properties,
-        )
-    val service =
-        AppOauthRedirectService(
-            oauthServiceProvider = OauthServiceProvider(listOf(provider)),
-            oauthStateManager = stateManager,
-            relayCodeService = relayCodeService,
-            properties = properties,
-        )
     val controller =
-        AppOauthRedirectController(
-            appOauthRedirectService = service,
+        newController(
             properties = properties,
+            providers = listOf(provider),
+            stateManager = stateManager,
         )
 
     val callbackBindingToken = "binding-token"
@@ -250,22 +211,11 @@ class AppOauthRedirectControllerTest {
     val properties = configuredProperties()
     val provider = CapturingOauthProvider()
     val stateManager = mock(OauthStateManager::class.java)
-    val relayCodeService =
-        AppOauthRelayCodeService(
-            relayCodeStore = InMemoryOauthRelayCodeStore(),
-            properties = properties,
-        )
-    val service =
-        AppOauthRedirectService(
-            oauthServiceProvider = OauthServiceProvider(listOf(provider)),
-            oauthStateManager = stateManager,
-            relayCodeService = relayCodeService,
-            properties = properties,
-        )
     val controller =
-        AppOauthRedirectController(
-            appOauthRedirectService = service,
+        newController(
             properties = properties,
+            providers = listOf(provider),
+            stateManager = stateManager,
         )
 
     val existingToken = "existing-binding-token"
@@ -299,22 +249,11 @@ class AppOauthRedirectControllerTest {
     val properties = configuredProperties()
     val provider = CapturingOauthProvider()
     val stateManager = mock(OauthStateManager::class.java)
-    val relayCodeService =
-        AppOauthRelayCodeService(
-            relayCodeStore = InMemoryOauthRelayCodeStore(),
-            properties = properties,
-        )
-    val service =
-        AppOauthRedirectService(
-            oauthServiceProvider = OauthServiceProvider(listOf(provider)),
-            oauthStateManager = stateManager,
-            relayCodeService = relayCodeService,
-            properties = properties,
-        )
     val controller =
-        AppOauthRedirectController(
-            appOauthRedirectService = service,
+        newController(
             properties = properties,
+            providers = listOf(provider),
+            stateManager = stateManager,
         )
 
     val request = MockHttpServletRequest("GET", "/oauth/callback/google")
@@ -345,22 +284,11 @@ class AppOauthRedirectControllerTest {
     val properties = configuredProperties().apply { callbackBinding.enabled = false }
     val provider = CapturingOauthProvider()
     val stateManager = mock(OauthStateManager::class.java)
-    val relayCodeService =
-        AppOauthRelayCodeService(
-            relayCodeStore = InMemoryOauthRelayCodeStore(),
-            properties = properties,
-        )
-    val service =
-        AppOauthRedirectService(
-            oauthServiceProvider = OauthServiceProvider(listOf(provider)),
-            oauthStateManager = stateManager,
-            relayCodeService = relayCodeService,
-            properties = properties,
-        )
     val controller =
-        AppOauthRedirectController(
-            appOauthRedirectService = service,
+        newController(
             properties = properties,
+            providers = listOf(provider),
+            stateManager = stateManager,
         )
 
     val request = MockHttpServletRequest("GET", "/oauth/redirect/google")
@@ -390,22 +318,11 @@ class AppOauthRedirectControllerTest {
         }
     val provider = CapturingOauthProvider()
     val stateManager = mock(OauthStateManager::class.java)
-    val relayCodeService =
-        AppOauthRelayCodeService(
-            relayCodeStore = InMemoryOauthRelayCodeStore(),
-            properties = properties,
-        )
-    val service =
-        AppOauthRedirectService(
-            oauthServiceProvider = OauthServiceProvider(listOf(provider)),
-            oauthStateManager = stateManager,
-            relayCodeService = relayCodeService,
-            properties = properties,
-        )
     val controller =
-        AppOauthRedirectController(
-            appOauthRedirectService = service,
+        newController(
             properties = properties,
+            providers = listOf(provider),
+            stateManager = stateManager,
         )
 
     val request = MockHttpServletRequest("GET", "/oauth/redirect/google")
@@ -436,6 +353,54 @@ class AppOauthRedirectControllerTest {
       callbackBinding.cookieSecure = true
       callbackBinding.cookieMaxAgeSeconds = 600
     }
+  }
+
+  private fun newController(
+      properties: AtomicAppOauthRedirectProperties,
+      providers: List<OauthProvider>,
+      stateManager: OauthStateManager,
+  ): AppOauthRedirectController {
+    val oauthServiceProvider = OauthServiceProvider(providers)
+    val oauthProviderOperationsPort =
+        OauthRedirectComposition.oauthProviderOperationsPort(oauthServiceProvider)
+    val verifyOauthStatePort = OauthRedirectComposition.verifyOauthStatePort(stateManager)
+    val relayCodeStorePort =
+        OauthRelayCodeComposition.storeOauthRelayCodePort(InMemoryOauthRelayCodeStore())
+    val issueOauthRelayCodeUseCase =
+        OauthRelayCodeComposition.issueOauthRelayCodeUseCase(
+            storeOauthRelayCodePort = relayCodeStorePort,
+            properties = properties,
+            timeProvider = TimeProvider(),
+        )
+    val issueOauthRelayCodePort =
+        OauthRedirectComposition.issueOauthRelayCodePort(issueOauthRelayCodeUseCase)
+    val validateOauthRedirectUriPort =
+        OauthRedirectComposition.validateOauthRedirectUriPort(properties)
+    return AppOauthRedirectController(
+        buildAuthorizationRedirectUseCase =
+            OauthRedirectComposition.buildAuthorizationRedirectUseCase(
+                oauthProviderOperationsPort = oauthProviderOperationsPort,
+                validateOauthRedirectUriPort = validateOauthRedirectUriPort,
+                properties = properties,
+            ),
+        buildOauthCallbackRedirectUseCase =
+            OauthRedirectComposition.buildOauthCallbackRedirectUseCase(
+                oauthProviderOperationsPort = oauthProviderOperationsPort,
+                verifyOauthStatePort = verifyOauthStatePort,
+                issueOauthRelayCodePort = issueOauthRelayCodePort,
+                validateOauthRedirectUriPort = validateOauthRedirectUriPort,
+                properties = properties,
+            ),
+        buildAppleCallbackRedirectUseCase =
+            OauthRedirectComposition.buildAppleCallbackRedirectUseCase(
+                oauthProviderOperationsPort = oauthProviderOperationsPort,
+                verifyOauthStatePort = verifyOauthStatePort,
+                issueOauthRelayCodePort = issueOauthRelayCodePort,
+                validateOauthRedirectUriPort = validateOauthRedirectUriPort,
+                properties = properties,
+            ),
+        properties = properties,
+    )
   }
 
   private fun stateClaims(

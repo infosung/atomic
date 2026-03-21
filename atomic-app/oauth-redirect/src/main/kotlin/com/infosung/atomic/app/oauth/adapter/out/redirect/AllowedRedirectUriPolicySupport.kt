@@ -1,6 +1,5 @@
 package com.infosung.atomic.app.oauth.adapter.out.redirect
 
-import com.infosung.atomic.app.oauth.OauthRedirectClientTargetClassifier
 import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRequestException
 import java.net.URI
 import java.util.Locale
