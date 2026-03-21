@@ -1,10 +1,20 @@
 package com.infosung.atomic.app.oauth
 
+import com.infosung.atomic.app.oauth.adapter.`in`.web.AppOauthRedirectController
+import com.infosung.atomic.app.oauth.adapter.`in`.web.AppOauthRedirectHttpExceptionHandler
+import com.infosung.atomic.app.oauth.adapter.out.relay.store.CacheOauthRelayCodeStore
+import com.infosung.atomic.app.oauth.adapter.out.relay.store.EntityOauthRelayCodeStore
+import com.infosung.atomic.app.oauth.adapter.out.relay.store.InMemoryOauthRelayCodeStore
+import com.infosung.atomic.app.oauth.adapter.out.relay.store.OauthRelayCodeStore
+import com.infosung.atomic.app.oauth.application.port.`in`.BuildAppleCallbackRedirectUseCase
+import com.infosung.atomic.app.oauth.application.port.`in`.BuildAuthorizationRedirectUseCase
+import com.infosung.atomic.app.oauth.application.port.`in`.BuildOauthCallbackRedirectUseCase
+import com.infosung.atomic.app.oauth.application.port.`in`.ConsumeOauthRelayCodeUseCase
+import com.infosung.atomic.app.oauth.application.port.`in`.IssueOauthRelayCodeUseCase
 import com.infosung.atomic.app.oauth.autoconfigure.AtomicAppOauthRedirectProperties
+import com.infosung.atomic.app.oauth.domain.OauthRelayPayload
 import com.infosung.atomic.contract.time.TimeProvider
 import com.infosung.atomic.oauth.api.OauthProviderName
-import com.infosung.atomic.oauth.api.OauthServiceProvider
-import com.infosung.atomic.oauth.state.OauthStateManager
 import java.lang.reflect.Modifier
 import java.lang.reflect.Proxy
 import java.sql.ResultSet
@@ -100,78 +110,65 @@ class OauthRedirectPublicContractTest {
   }
 
   @Test
-  fun `oauth redirect facade public methods should remain stable`() {
+  fun `oauth redirect use-case public methods should remain stable`() {
     assertEquals(
         listOf(
-            "buildAppleCallbackRedirectUrl(String, String, String, String, Map, String):String",
-            "buildAuthorizationRedirectUrl(String, String, String, String, String, String, Map, String):String",
-            "buildCallbackRedirectUrl(String, String, String, Map, String):String",
+            "build(String, String, String, String, String, String, Map, String):AuthorizationRedirectResult",
         ),
-        publicSignatures(AppOauthRedirectService::class.java),
+        publicSignatures(BuildAuthorizationRedirectUseCase::class.java),
+    )
+    assertEquals(
+        listOf(
+            "build(String, String, String, Map, String):CallbackRedirectResult",
+        ),
+        publicSignatures(BuildOauthCallbackRedirectUseCase::class.java),
+    )
+    assertEquals(
+        listOf(
+            "build(String, String, String, String, Map, String):CallbackRedirectResult",
+        ),
+        publicSignatures(BuildAppleCallbackRedirectUseCase::class.java),
     )
   }
 
   @Test
-  fun `oauth redirect facade constructor contract should keep public four argument entry point`() {
-    val hasPublicFourArgumentConstructor =
-        AppOauthRedirectService::class.java.constructors.any {
-          it.parameterTypes.contentEquals(
-              arrayOf(
-                  OauthServiceProvider::class.java,
-                  OauthStateManager::class.java,
-                  AppOauthRelayCodeService::class.java,
-                  AtomicAppOauthRedirectProperties::class.java,
-              ),
-          )
-        }
-
-    assertTrue(
-        hasPublicFourArgumentConstructor,
-        "AppOauthRedirectService should keep the public four-argument constructor for host wiring.",
-    )
-  }
-
-  @Test
-  fun `oauth redirect web entry types should remain exported root classes`() {
+  fun `oauth redirect web entry types should remain exported from adapter in web`() {
     assertTrue(Modifier.isPublic(AppOauthRedirectController::class.java.modifiers))
     assertTrue(Modifier.isPublic(AppOauthRedirectHttpExceptionHandler::class.java.modifiers))
     assertEquals(
-        "com.infosung.atomic.app.oauth.AppOauthRedirectController",
+        "com.infosung.atomic.app.oauth.adapter.in.web.AppOauthRedirectController",
         AppOauthRedirectController::class.java.name,
     )
     assertEquals(
-        "com.infosung.atomic.app.oauth.AppOauthRedirectHttpExceptionHandler",
+        "com.infosung.atomic.app.oauth.adapter.in.web.AppOauthRedirectHttpExceptionHandler",
         AppOauthRedirectHttpExceptionHandler::class.java.name,
     )
   }
 
   @Test
-  fun `oauth relay code service public methods should remain stable`() {
+  fun `oauth relay use-case public methods should remain stable`() {
     assertEquals(
         listOf(
-            "consumeRelayCode(String):OauthRelayPayload",
-            "issueRelayCode(OauthRelayPayload):String",
+            "consume(String):OauthRelayPayload",
         ),
-        publicSignatures(AppOauthRelayCodeService::class.java),
+        publicSignatures(ConsumeOauthRelayCodeUseCase::class.java),
+    )
+    assertEquals(
+        listOf(
+            "issue(OauthRelayPayload):String",
+        ),
+        publicSignatures(IssueOauthRelayCodeUseCase::class.java),
     )
   }
 
   @Test
-  fun `oauth relay code service constructor contract should keep public relay store entry point`() {
-    val hasPublicRelayConstructor =
-        AppOauthRelayCodeService::class.java.constructors.any {
-          it.parameterTypes.contentEquals(
-              arrayOf(
-                  OauthRelayCodeStore::class.java,
-                  AtomicAppOauthRedirectProperties::class.java,
-                  TimeProvider::class.java,
-              ),
-          )
-        }
-
-    assertTrue(
-        hasPublicRelayConstructor,
-        "AppOauthRelayCodeService should keep the public relay-store constructor for host wiring.",
+  fun `oauth relay store seam should remain exported from adapter out relay store`() {
+    assertEquals(
+        listOf(
+            "pop(String, Instant):OauthRelayPayload",
+            "save(String, OauthRelayPayload, Instant):void",
+        ),
+        publicSignatures(OauthRelayCodeStore::class.java),
     )
   }
 
@@ -182,7 +179,7 @@ class OauthRedirectPublicContractTest {
         InMemoryOauthRelayCodeStore::class.primaryConstructor!!.parameters.mapNotNull { it.name },
     )
     assertEquals(
-        "com.infosung.atomic.app.oauth.InMemoryOauthRelayCodeStore",
+        "com.infosung.atomic.app.oauth.adapter.out.relay.store.InMemoryOauthRelayCodeStore",
         InMemoryOauthRelayCodeStore::class.java.name,
     )
   }
@@ -201,7 +198,7 @@ class OauthRedirectPublicContractTest {
         CacheOauthRelayCodeStore::class.primaryConstructor!!.parameters.mapNotNull { it.name },
     )
     assertEquals(
-        "com.infosung.atomic.app.oauth.CacheOauthRelayCodeStore",
+        "com.infosung.atomic.app.oauth.adapter.out.relay.store.CacheOauthRelayCodeStore",
         CacheOauthRelayCodeStore::class.java.name,
     )
   }

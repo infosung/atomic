@@ -1,5 +1,11 @@
 package com.infosung.atomic.app.version
 
+import com.infosung.atomic.app.version.adapter.`in`.web.AppVersionCheckResponseDto
+import com.infosung.atomic.app.version.adapter.`in`.web.AppVersionController
+import com.infosung.atomic.app.version.adapter.`in`.web.AppVersionHttpExceptionHandler
+import com.infosung.atomic.app.version.adapter.out.persistence.ServiceVersionEntity
+import com.infosung.atomic.app.version.adapter.out.persistence.ServiceVersionRepository
+import com.infosung.atomic.app.version.application.port.`in`.CheckAppVersionUseCase
 import com.infosung.atomic.app.version.autoconfigure.AtomicAppVersionProperties
 import com.infosung.atomic.contract.response.BaseResponse
 import jakarta.persistence.Column
@@ -14,7 +20,6 @@ import kotlin.reflect.full.primaryConstructor
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
@@ -87,14 +92,10 @@ class AppVersionPublicContractTest {
   }
 
   @Test
-  fun `version request and result payload fields should remain stable`() {
-    assertEquals(
-        listOf("service", "platform", "appVersion"),
-        VersionCheckRequest::class.primaryConstructor!!.parameters.mapNotNull { it.name },
-    )
+  fun `version response dto fields should remain stable`() {
     assertEquals(
         listOf("currentVersion", "userVersion", "requiredUpdate", "storeUrl"),
-        VersionCheckResult::class.primaryConstructor!!.parameters.mapNotNull { it.name },
+        AppVersionCheckResponseDto::class.primaryConstructor!!.parameters.mapNotNull { it.name },
     )
   }
 
@@ -107,26 +108,35 @@ class AppVersionPublicContractTest {
   }
 
   @Test
-  fun `app version check service public methods should remain stable`() {
+  fun `app version use case public methods should remain stable`() {
     assertEquals(
-        listOf("checkVersion(VersionCheckRequest):VersionCheckResult"),
-        publicSignatures(AppVersionCheckService::class.java),
+        listOf("check(String, String, String):VersionCheckDecision"),
+        publicSignatures(CheckAppVersionUseCase::class.java),
     )
   }
 
   @Test
-  fun `app version check service constructor contract should remain stable`() {
-    val constructor = AppVersionCheckService::class.primaryConstructor!!
+  fun `version web entry types should remain exported from adapter in web`() {
+    assertEquals(
+        "com.infosung.atomic.app.version.adapter.in.web.AppVersionController",
+        AppVersionController::class.java.name,
+    )
+    assertEquals(
+        "com.infosung.atomic.app.version.adapter.in.web.AppVersionHttpExceptionHandler",
+        AppVersionHttpExceptionHandler::class.java.name,
+    )
+  }
 
+  @Test
+  fun `version persistence seam should remain exported from adapter out persistence`() {
     assertEquals(
-        listOf("serviceVersionRepository", "defaultStoreUrl"),
-        constructor.parameters.mapNotNull { it.name },
+        "com.infosung.atomic.app.version.adapter.out.persistence.ServiceVersionEntity",
+        ServiceVersionEntity::class.java.name,
     )
     assertEquals(
-        listOf(ServiceVersionRepository::class, String::class),
-        constructor.parameters.mapNotNull { it.type.classifier },
+        "com.infosung.atomic.app.version.adapter.out.persistence.ServiceVersionRepository",
+        ServiceVersionRepository::class.java.name,
     )
-    assertTrue(constructor.parameters.all { !it.isOptional })
   }
 
   @Test
@@ -135,7 +145,7 @@ class AppVersionPublicContractTest {
       val objectMapper = context.getBean(ObjectMapper::class.java)
       val response =
           BaseResponse.ok(
-              VersionCheckResult(
+              AppVersionCheckResponseDto(
                   currentVersion = "2.0.0",
                   userVersion = "1.5.0",
                   requiredUpdate = true,

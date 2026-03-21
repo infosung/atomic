@@ -1,12 +1,12 @@
 package com.infosung.atomic.app.oauth.application.service
 
-import com.infosung.atomic.app.oauth.OauthRedirectClientTarget
-import com.infosung.atomic.app.oauth.OauthRelayPayload
+import com.infosung.atomic.app.oauth.adapter.out.redirect.OauthRedirectClientTarget
 import com.infosung.atomic.app.oauth.application.model.OauthVerifiedState
 import com.infosung.atomic.app.oauth.application.port.out.IssueOauthRelayCodePort
 import com.infosung.atomic.app.oauth.application.port.out.OauthProviderOperationsPort
 import com.infosung.atomic.app.oauth.application.port.out.ValidateOauthRedirectUriPort
 import com.infosung.atomic.app.oauth.application.port.out.VerifyOauthStatePort
+import com.infosung.atomic.app.oauth.domain.OauthRelayPayload
 import com.infosung.atomic.oauth.api.OauthProviderName
 import kotlin.test.Test
 import kotlin.test.assertEquals

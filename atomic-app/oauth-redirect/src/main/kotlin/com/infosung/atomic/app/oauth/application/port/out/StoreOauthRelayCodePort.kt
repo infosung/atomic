@@ -1,6 +1,6 @@
 package com.infosung.atomic.app.oauth.application.port.out
 
-import com.infosung.atomic.app.oauth.OauthRelayPayload
+import com.infosung.atomic.app.oauth.domain.OauthRelayPayload
 import java.time.Instant
 
 internal interface StoreOauthRelayCodePort {

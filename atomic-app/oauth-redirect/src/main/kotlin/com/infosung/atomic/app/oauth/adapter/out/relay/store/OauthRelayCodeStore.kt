@@ -1,5 +1,6 @@
-package com.infosung.atomic.app.oauth
+package com.infosung.atomic.app.oauth.adapter.out.relay.store
 
+import com.infosung.atomic.app.oauth.domain.OauthRelayPayload
 import java.time.Instant
 
 /** Store abstraction for one-time OAuth relay payloads. */

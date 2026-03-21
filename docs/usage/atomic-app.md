@@ -208,10 +208,9 @@ Version API rollout-safe semantics:
 Version API customization note:
 
 - the current development line layers internal version evaluation behind application ports/use-cases
-- application-layer errors are translated back to the documented HTTP contract at the facade/controller boundary
-- the supported host override point remains the exported `AppVersionCheckService` bean
-- internal `application`, `domain`, and `adapter` packages are not a supported public extension contract
-- auto-configuration may wire internal port/use-case beans, but host apps should not treat those beans as compatibility-stable override surface in this line
+- application-layer errors are translated back to the documented HTTP contract at the web adapter boundary
+- the supported host override point is the exported `CheckAppVersionUseCase` bean
+- `application`, `domain`, and `adapter` package boundaries are now the intended topology; host apps should still avoid depending on internal support/composition types outside those layers
 - documented `400` / `404` wire semantics remain unchanged for the controller API
 
 ## Image API
@@ -339,13 +338,12 @@ Behavior:
 - callback does not append raw token to URL.
 - callback appends only `relayCode` to frontend redirect URI.
 - frontend sends `relayCode` to your login API.
-- login API consumes relay payload using `AppOauthRelayCodeService.consumeRelayCode(relayCode)`.
+- login API consumes relay payload using `ConsumeOauthRelayCodeUseCase.consume(relayCode)`.
 - the relay module stops at this handoff; your app still issues its own session/JWT/cookie after relay consumption.
-- internal implementation is organized as application ports/use-cases plus outbound adapters plus web adapter support, but the compatibility-stable host override surface remains `AppOauthRedirectService`.
-- relay code issue/consume is also internally split into application use-cases plus a relay-store outbound port, but the compatibility-stable relay seam remains `AppOauthRelayCodeService`.
+- internal implementation is organized in `application`, `domain`, and `adapter` layers. Supported host seams are the exported build/issue/consume use-case beans, `OauthRelayCodeStore`, and the exported web adapter beans.
 - state verification is also translated at the adapter boundary into an application-owned verified-state model before callback use-cases read `redirect_uri`, `nonce`, or callback-binding attributes.
-- internal port/use-case beans may appear in the Spring context for composition, but host apps should not customize them directly; they are implementation details rather than the compatibility-stable host customization seam in this line.
-- the exported `AppOauthRedirectController` and `AppOauthRedirectHttpExceptionHandler` types remain as compatibility wrappers over the internal web adapter boundary in this line.
+- internal composition/support beans may appear in the Spring context, but host apps should not customize those directly. The build redirect use cases are the one exception: they are exported override seams for hosts that intentionally replace the default redirect/callback orchestration.
+- the exported `AppOauthRedirectController` and `AppOauthRedirectHttpExceptionHandler` types now live directly on the web adapter boundary.
 - browser initiation is the intended model for non-web clients too: mobile and desktop apps should normally start the provider flow in the system browser or a system-browser-based tab, let the server receive the provider callback, and then return to an allowlisted app URI with `relayCode`.
 - redirect endpoint input `redirectUri` must be an absolute URI and must not include user-info.
 - callback binding validates redirect/callback continuity using one-time state attribute + cookie token.
@@ -376,7 +374,7 @@ Concrete relayCode consume flows:
   - provider returns to `GET /oauth/callback/google?...`
   - server redirects browser to `https://frontend.example.com/oauth/callback?relayCode=...`
   - frontend posts that `relayCode` to your login API
-  - login API calls `AppOauthRelayCodeService.consumeRelayCode(relayCode)` and then issues your own session/JWT/cookie
+  - login API calls `ConsumeOauthRelayCodeUseCase.consume(relayCode)` and then issues your own session/JWT/cookie
 - Mobile
   - app starts provider flow in the system browser or browser-based tab
   - provider returns to the same server callback path
@@ -394,8 +392,11 @@ Minimal backend consume example:
 
 ```kotlin
 @PostMapping("/api/login/oauth/relay")
-fun loginWithRelayCode(@RequestBody request: RelayLoginRequest): SessionResponse {
-  val payload = appOauthRelayCodeService.consumeRelayCode(request.relayCode)
+fun loginWithRelayCode(
+    @RequestBody request: RelayLoginRequest,
+    consumeOauthRelayCodeUseCase: ConsumeOauthRelayCodeUseCase,
+): SessionResponse {
+  val payload = consumeOauthRelayCodeUseCase.consume(request.relayCode)
   val principal = accountService.resolveOrCreateFromOauth(payload)
   return sessionService.issueSession(principal)
 }

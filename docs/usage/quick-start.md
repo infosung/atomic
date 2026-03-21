@@ -194,8 +194,11 @@ Minimal consume endpoint sketch:
 
 ```kotlin
 @PostMapping("/api/login/oauth/relay")
-fun loginWithRelayCode(@RequestBody request: RelayLoginRequest): SessionResponse {
-  val payload = appOauthRelayCodeService.consumeRelayCode(request.relayCode)
+fun loginWithRelayCode(
+    @RequestBody request: RelayLoginRequest,
+    consumeOauthRelayCodeUseCase: ConsumeOauthRelayCodeUseCase,
+): SessionResponse {
+  val payload = consumeOauthRelayCodeUseCase.consume(request.relayCode)
   val principal = accountService.resolveOrCreateFromOauth(payload)
   return sessionService.issueSession(principal)
 }

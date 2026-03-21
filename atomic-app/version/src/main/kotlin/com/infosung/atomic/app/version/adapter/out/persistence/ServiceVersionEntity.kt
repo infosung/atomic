@@ -1,4 +1,4 @@
-package com.infosung.atomic.app.version
+package com.infosung.atomic.app.version.adapter.out.persistence
 
 import jakarta.persistence.Column
 import jakarta.persistence.Entity

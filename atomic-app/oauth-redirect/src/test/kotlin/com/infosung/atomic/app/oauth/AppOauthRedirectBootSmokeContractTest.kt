@@ -14,6 +14,7 @@ import com.infosung.atomic.oauth.api.OauthTokenResult
 import com.infosung.atomic.oauth.api.OauthTokenRevokeRequest
 import com.infosung.atomic.oauth.state.InMemoryOauthStateStore
 import com.infosung.atomic.oauth.state.OauthStateManager
+import jakarta.servlet.http.Cookie
 import org.junit.jupiter.api.Test
 import org.springframework.boot.SpringBootConfiguration
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration
@@ -26,6 +27,7 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.header
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrlPattern
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 
 @SpringBootTest(
@@ -41,6 +43,8 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 @AutoConfigureMockMvc
 class AppOauthRedirectBootSmokeContractTest {
   @jakarta.annotation.Resource private lateinit var mockMvc: MockMvc
+  @jakarta.annotation.Resource private lateinit var oauthStateManager: OauthStateManager
+  @jakarta.annotation.Resource private lateinit var properties: AtomicAppOauthRedirectProperties
 
   @Test
   fun `boot mvc should expose redirect endpoint with callback binding cookie`() {
@@ -61,6 +65,31 @@ class AppOauthRedirectBootSmokeContractTest {
         .andExpect(status().isBadRequest)
         .andExpect(jsonPath("$.code").value("HttpStatusException"))
         .andExpect(jsonPath("$.message").value("Apple callback supports POST form_post only."))
+  }
+
+  @Test
+  fun `boot mvc should complete callback success path through auto configured controller`() {
+    val callbackBindingToken = "boot-callback-binding-token"
+    val state =
+        oauthStateManager.issueState(
+            provider = OauthProviderName.GOOGLE,
+            redirectUri = "https://client.example.com/callback",
+            attributes =
+                mapOf(
+                    properties.callbackBinding.stateAttributeKey to callbackBindingToken,
+                ),
+        )
+
+    mockMvc
+        .perform(
+            get("/oauth/callback/google")
+                .param("code", "code-123")
+                .param("state", state)
+                .cookie(Cookie(properties.callbackBinding.cookieName, callbackBindingToken)),
+        )
+        .andExpect(status().is3xxRedirection)
+        .andExpect(redirectedUrlPattern("https://client.example.com/callback?relayCode=*"))
+        .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("Max-Age=0")))
   }
 
   @SpringBootConfiguration
@@ -85,7 +114,10 @@ class AppOauthRedirectBootSmokeContractTest {
     override val providerName: OauthProviderName = OauthProviderName.GOOGLE
 
     override fun capabilities(): Set<OauthProviderCapability> =
-        setOf(OauthProviderCapability.AUTHORIZATION_URL)
+        setOf(
+            OauthProviderCapability.AUTHORIZATION_URL,
+            OauthProviderCapability.EXCHANGE_TOKEN,
+        )
 
     override fun buildAuthorizationUrl(request: OauthAuthorizationRequest): String =
         "https://provider.example.com/oauth"

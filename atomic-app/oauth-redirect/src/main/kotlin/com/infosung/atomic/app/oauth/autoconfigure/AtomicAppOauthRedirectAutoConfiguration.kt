@@ -1,47 +1,20 @@
 package com.infosung.atomic.app.oauth.autoconfigure
 
-import com.infosung.atomic.app.oauth.AllowedRedirectUriPolicy
-import com.infosung.atomic.app.oauth.AppOauthRedirectController
-import com.infosung.atomic.app.oauth.AppOauthRedirectHttpExceptionHandler
-import com.infosung.atomic.app.oauth.AppOauthRedirectService
-import com.infosung.atomic.app.oauth.AppOauthRelayCodeService
-import com.infosung.atomic.app.oauth.CacheOauthRelayCodeStore
-import com.infosung.atomic.app.oauth.EntityOauthRelayCodeStore
-import com.infosung.atomic.app.oauth.InMemoryOauthRelayCodeStore
-import com.infosung.atomic.app.oauth.OauthRedirectComposition
-import com.infosung.atomic.app.oauth.OauthRelayCodeComposition
-import com.infosung.atomic.app.oauth.OauthRelayCodeStore
-import com.infosung.atomic.app.oauth.application.port.`in`.BuildAppleCallbackRedirectUseCase
-import com.infosung.atomic.app.oauth.application.port.`in`.BuildAuthorizationRedirectUseCase
-import com.infosung.atomic.app.oauth.application.port.`in`.BuildOauthCallbackRedirectUseCase
-import com.infosung.atomic.app.oauth.application.port.`in`.ConsumeOauthRelayCodeUseCase
-import com.infosung.atomic.app.oauth.application.port.`in`.IssueOauthRelayCodeUseCase
-import com.infosung.atomic.app.oauth.application.port.out.IssueOauthRelayCodePort
-import com.infosung.atomic.app.oauth.application.port.out.OauthProviderOperationsPort
-import com.infosung.atomic.app.oauth.application.port.out.StoreOauthRelayCodePort
-import com.infosung.atomic.app.oauth.application.port.out.ValidateOauthRedirectUriPort
-import com.infosung.atomic.app.oauth.application.port.out.VerifyOauthStatePort
-import com.infosung.atomic.contract.time.TimeProvider
+import com.infosung.atomic.app.oauth.adapter.out.redirect.AllowedRedirectUriPolicySupport
 import com.infosung.atomic.oauth.api.OauthServiceProvider
 import com.infosung.atomic.oauth.state.InMemoryOauthStateStore
 import com.infosung.atomic.oauth.state.OauthStateManager
 import com.infosung.atomic.oauth.state.OauthStateStore
-import javax.sql.DataSource
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.AutoConfiguration
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
-import org.springframework.jdbc.core.JdbcTemplate
-import org.springframework.transaction.PlatformTransactionManager
-import org.springframework.transaction.support.TransactionTemplate
-import tools.jackson.databind.ObjectMapper
+import org.springframework.context.annotation.Import
 
-/** Auto-configuration for app-level OAuth redirect/callback relay API. */
+/** Stable umbrella auto-configuration entrypoint for the app OAuth redirect module. */
 @AutoConfiguration(
     afterName = ["com.infosung.atomic.starter.autoconfigure.oauth2.AtomicOauth2AutoConfiguration"])
 @ConditionalOnClass(
@@ -59,6 +32,11 @@ import tools.jackson.databind.ObjectMapper
     havingValue = "true",
 )
 @EnableConfigurationProperties(AtomicAppOauthRedirectProperties::class)
+@Import(
+    AtomicAppOauthRedirectRelayAutoConfiguration::class,
+    AtomicAppOauthRedirectCoreAutoConfiguration::class,
+    AtomicAppOauthRedirectWebAutoConfiguration::class,
+)
 class AtomicAppOauthRedirectAutoConfiguration {
   private val log = LoggerFactory.getLogger(this::class.java)
 
@@ -98,333 +76,9 @@ class AtomicAppOauthRedirectAutoConfiguration {
     return Any()
   }
 
-  @Bean
-  @ConditionalOnMissingBean
-  fun oauthRelayCodeStore(
-      properties: AtomicAppOauthRedirectProperties,
-      timeProviderProvider: ObjectProvider<TimeProvider>,
-      objectMapperProvider: ObjectProvider<ObjectMapper>,
-      cacheManagerProvider: ObjectProvider<org.springframework.cache.CacheManager>,
-      dataSourceProvider: ObjectProvider<DataSource>,
-      transactionManagerProvider: ObjectProvider<PlatformTransactionManager>,
-  ): OauthRelayCodeStore {
-    val timeProvider = timeProviderProvider.getIfAvailable { TimeProvider() }
-
-    return when (properties.store.type) {
-      AtomicAppOauthRedirectProperties.StoreType.IN_MEMORY -> {
-        newInMemoryStore(
-            properties = properties,
-            timeProvider = timeProvider,
-            selectionReason = "configured",
-        )
-      }
-
-      AtomicAppOauthRedirectProperties.StoreType.CACHE -> {
-        val cacheManager = cacheManagerProvider.getIfAvailable()
-        val objectMapper = objectMapperProvider.getIfAvailable()
-        val cacheTtlSeconds = properties.store.cache.ttlSeconds ?: properties.relayCodeTtlSeconds
-        val cacheName = properties.store.cache.cacheName.trim()
-        if (cacheManager == null || objectMapper == null) {
-          fallbackOrThrow(
-              properties = properties,
-              timeProvider = timeProvider,
-              reason =
-                  "atomic.app.oauth.redirect.store.type=cache requires CacheManager and ObjectMapper beans.",
-          )
-        } else if (cacheName.isBlank()) {
-          fallbackOrThrow(
-              properties = properties,
-              timeProvider = timeProvider,
-              reason = "atomic.app.oauth.redirect.store.cache.cache-name must not be blank.",
-          )
-        } else if (cacheTtlSeconds <= 0) {
-          fallbackOrThrow(
-              properties = properties,
-              timeProvider = timeProvider,
-              reason =
-                  "atomic.app.oauth.redirect.store.cache.ttl-seconds (or relay-code-ttl-seconds) must be greater than zero.",
-          )
-        } else if (cacheManager.getCache(cacheName) == null) {
-          fallbackOrThrow(
-              properties = properties,
-              timeProvider = timeProvider,
-              reason = "Configured cache '$cacheName' is not available from CacheManager.",
-          )
-        } else {
-          val cache = cacheManager.getCache(cacheName)!!
-          if (!CacheOauthRelayCodeStore.supportsAtomicConsume(cache)) {
-            fallbackOrThrow(
-                properties = properties,
-                timeProvider = timeProvider,
-                reason = CacheOauthRelayCodeStore.unsupportedAtomicConsume(cacheName).message!!,
-            )
-          } else {
-            log.info(
-                "Using cache-backed oauth relay store: cacheName={}, ttlSeconds={}, failFast={}, nativeCacheType={}",
-                cacheName,
-                cacheTtlSeconds,
-                properties.store.failFast,
-                cache.getNativeCache()::class.java.name,
-            )
-            CacheOauthRelayCodeStore(
-                cacheManager = cacheManager,
-                cacheName = cacheName,
-                keyPrefix = properties.store.cache.keyPrefix,
-                ttlSeconds = cacheTtlSeconds,
-                objectMapper = objectMapper,
-                timeProvider = timeProvider,
-            )
-          }
-        }
-      }
-
-      AtomicAppOauthRedirectProperties.StoreType.ENTITY -> {
-        val dataSource = dataSourceProvider.getIfAvailable()
-        val transactionManager = transactionManagerProvider.getIfAvailable()
-        val objectMapper = objectMapperProvider.getIfAvailable()
-        if (dataSource == null || transactionManager == null || objectMapper == null) {
-          fallbackOrThrow(
-              properties = properties,
-              timeProvider = timeProvider,
-              reason =
-                  "atomic.app.oauth.redirect.store.type=entity requires DataSource, PlatformTransactionManager, and ObjectMapper beans.",
-          )
-        } else {
-          EntityOauthRelayCodeStore(
-              jdbcOperations = JdbcTemplate(dataSource),
-              transactionTemplate = TransactionTemplate(transactionManager),
-              tableName = properties.store.entity.tableName,
-              objectMapper = objectMapper,
-              timeProvider = timeProvider,
-          )
-        }
-      }
-    }
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  internal fun storeOauthRelayCodePort(
-      oauthRelayCodeStore: OauthRelayCodeStore,
-  ): StoreOauthRelayCodePort {
-    return OauthRelayCodeComposition.storeOauthRelayCodePort(oauthRelayCodeStore)
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  internal fun issueOauthRelayCodeUseCase(
-      storeOauthRelayCodePort: StoreOauthRelayCodePort,
-      properties: AtomicAppOauthRedirectProperties,
-      timeProviderProvider: ObjectProvider<TimeProvider>,
-  ): IssueOauthRelayCodeUseCase {
-    return OauthRelayCodeComposition.issueOauthRelayCodeUseCase(
-        storeOauthRelayCodePort = storeOauthRelayCodePort,
-        properties = properties,
-        timeProvider = timeProviderProvider.getIfAvailable { TimeProvider() },
-    )
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  internal fun consumeOauthRelayCodeUseCase(
-      storeOauthRelayCodePort: StoreOauthRelayCodePort,
-      timeProviderProvider: ObjectProvider<TimeProvider>,
-  ): ConsumeOauthRelayCodeUseCase {
-    return OauthRelayCodeComposition.consumeOauthRelayCodeUseCase(
-        storeOauthRelayCodePort = storeOauthRelayCodePort,
-        timeProvider = timeProviderProvider.getIfAvailable { TimeProvider() },
-    )
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  internal fun appOauthRelayCodeService(
-      oauthRelayCodeStore: OauthRelayCodeStore,
-      properties: AtomicAppOauthRedirectProperties,
-      issueOauthRelayCodeUseCase: IssueOauthRelayCodeUseCase,
-      consumeOauthRelayCodeUseCase: ConsumeOauthRelayCodeUseCase,
-  ): AppOauthRelayCodeService {
-    return AppOauthRelayCodeService(
-        relayCodeStore = oauthRelayCodeStore,
-        properties = properties,
-        issueOauthRelayCodeUseCase = issueOauthRelayCodeUseCase,
-        consumeOauthRelayCodeUseCase = consumeOauthRelayCodeUseCase,
-    )
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  @ConditionalOnBean(OauthServiceProvider::class, OauthStateManager::class)
-  internal fun oauthProviderOperationsPort(
-      oauthServiceProvider: OauthServiceProvider,
-  ): OauthProviderOperationsPort {
-    return OauthRedirectComposition.oauthProviderOperationsPort(oauthServiceProvider)
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  @ConditionalOnBean(OauthStateManager::class)
-  internal fun verifyOauthStatePort(
-      oauthStateManager: OauthStateManager,
-  ): VerifyOauthStatePort {
-    return OauthRedirectComposition.verifyOauthStatePort(oauthStateManager)
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  @ConditionalOnBean(AppOauthRelayCodeService::class)
-  internal fun issueOauthRelayCodePort(
-      appOauthRelayCodeService: AppOauthRelayCodeService,
-  ): IssueOauthRelayCodePort {
-    return OauthRedirectComposition.issueOauthRelayCodePort(appOauthRelayCodeService)
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  internal fun validateOauthRedirectUriPort(
-      properties: AtomicAppOauthRedirectProperties,
-  ): ValidateOauthRedirectUriPort {
-    return OauthRedirectComposition.validateOauthRedirectUriPort(properties)
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  internal fun buildAuthorizationRedirectUseCase(
-      oauthProviderOperationsPort: OauthProviderOperationsPort,
-      validateOauthRedirectUriPort: ValidateOauthRedirectUriPort,
-      properties: AtomicAppOauthRedirectProperties,
-  ): BuildAuthorizationRedirectUseCase {
-    return OauthRedirectComposition.buildAuthorizationRedirectUseCase(
-        oauthProviderOperationsPort = oauthProviderOperationsPort,
-        validateOauthRedirectUriPort = validateOauthRedirectUriPort,
-        properties = properties,
-    )
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  internal fun buildOauthCallbackRedirectUseCase(
-      oauthProviderOperationsPort: OauthProviderOperationsPort,
-      verifyOauthStatePort: VerifyOauthStatePort,
-      issueOauthRelayCodePort: IssueOauthRelayCodePort,
-      validateOauthRedirectUriPort: ValidateOauthRedirectUriPort,
-      properties: AtomicAppOauthRedirectProperties,
-  ): BuildOauthCallbackRedirectUseCase {
-    return OauthRedirectComposition.buildOauthCallbackRedirectUseCase(
-        oauthProviderOperationsPort = oauthProviderOperationsPort,
-        verifyOauthStatePort = verifyOauthStatePort,
-        issueOauthRelayCodePort = issueOauthRelayCodePort,
-        validateOauthRedirectUriPort = validateOauthRedirectUriPort,
-        properties = properties,
-    )
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  internal fun buildAppleCallbackRedirectUseCase(
-      oauthProviderOperationsPort: OauthProviderOperationsPort,
-      verifyOauthStatePort: VerifyOauthStatePort,
-      issueOauthRelayCodePort: IssueOauthRelayCodePort,
-      validateOauthRedirectUriPort: ValidateOauthRedirectUriPort,
-      properties: AtomicAppOauthRedirectProperties,
-  ): BuildAppleCallbackRedirectUseCase {
-    return OauthRedirectComposition.buildAppleCallbackRedirectUseCase(
-        oauthProviderOperationsPort = oauthProviderOperationsPort,
-        verifyOauthStatePort = verifyOauthStatePort,
-        issueOauthRelayCodePort = issueOauthRelayCodePort,
-        validateOauthRedirectUriPort = validateOauthRedirectUriPort,
-        properties = properties,
-    )
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  @ConditionalOnBean(OauthServiceProvider::class, OauthStateManager::class)
-  internal fun appOauthRedirectService(
-      oauthServiceProvider: OauthServiceProvider,
-      oauthStateManager: OauthStateManager,
-      appOauthRelayCodeService: AppOauthRelayCodeService,
-      properties: AtomicAppOauthRedirectProperties,
-      buildAuthorizationRedirectUseCase: BuildAuthorizationRedirectUseCase,
-      buildOauthCallbackRedirectUseCase: BuildOauthCallbackRedirectUseCase,
-      buildAppleCallbackRedirectUseCase: BuildAppleCallbackRedirectUseCase,
-  ): AppOauthRedirectService {
-    return AppOauthRedirectService(
-        oauthServiceProvider = oauthServiceProvider,
-        oauthStateManager = oauthStateManager,
-        relayCodeService = appOauthRelayCodeService,
-        properties = properties,
-        buildAuthorizationRedirectUseCase = buildAuthorizationRedirectUseCase,
-        buildOauthCallbackRedirectUseCase = buildOauthCallbackRedirectUseCase,
-        buildAppleCallbackRedirectUseCase = buildAppleCallbackRedirectUseCase,
-    )
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  @ConditionalOnBean(AppOauthRedirectService::class)
-  fun appOauthRedirectController(
-      appOauthRedirectService: AppOauthRedirectService,
-      properties: AtomicAppOauthRedirectProperties,
-  ): AppOauthRedirectController {
-    return AppOauthRedirectController(
-        appOauthRedirectService = appOauthRedirectService,
-        properties = properties,
-    )
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  fun appOauthRedirectHttpExceptionHandler(): AppOauthRedirectHttpExceptionHandler {
-    return AppOauthRedirectHttpExceptionHandler()
-  }
-
-  private fun newInMemoryStore(
-      properties: AtomicAppOauthRedirectProperties,
-      timeProvider: TimeProvider,
-      selectionReason: String,
-  ): OauthRelayCodeStore {
-    if (properties.store.inMemory.cleanupInterval <= 0) {
-      log.warn(
-          "atomic.app.oauth.redirect.store.in-memory.cleanup-interval is {}. Expired entries are not cleaned up periodically.",
-          properties.store.inMemory.cleanupInterval,
-      )
-    }
-    log.info(
-        "Using in-memory oauth relay store: configuredStoreType={}, selectionReason={}, cleanupInterval={}, failFast={}",
-        properties.store.type,
-        selectionReason,
-        properties.store.inMemory.cleanupInterval,
-        properties.store.failFast,
-    )
-    return InMemoryOauthRelayCodeStore(
-        cleanupInterval = properties.store.inMemory.cleanupInterval,
-        timeProvider = timeProvider,
-    )
-  }
-
-  private fun fallbackOrThrow(
-      properties: AtomicAppOauthRedirectProperties,
-      timeProvider: TimeProvider,
-      reason: String,
-  ): OauthRelayCodeStore {
-    if (properties.store.failFast) {
-      log.error("OAuth redirect relay store fail-fast triggered: {}", reason)
-      throw IllegalStateException(reason)
-    }
-    log.warn(
-        "{} Falling back to in-memory relay code store (process-local per instance).",
-        reason,
-    )
-    return newInMemoryStore(
-        properties = properties,
-        timeProvider = timeProvider,
-        selectionReason = "fallback",
-    )
-  }
-
   private fun validateSecurityProperties(properties: AtomicAppOauthRedirectProperties) {
-    AllowedRedirectUriPolicy.validateConfiguredPrefixes(properties.allowedRedirectUriPrefixes)
+    AllowedRedirectUriPolicySupport.validateConfiguredPrefixes(
+        properties.allowedRedirectUriPrefixes)
 
     if (!properties.callbackBinding.isCookieValidationEnabled()) {
       return

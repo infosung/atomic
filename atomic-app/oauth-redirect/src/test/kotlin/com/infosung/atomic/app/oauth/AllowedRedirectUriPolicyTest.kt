@@ -16,7 +16,7 @@ class AllowedRedirectUriPolicyTest {
   @Test
   fun `validateRedirectUri should allow custom scheme deep link with host`() {
     val redirectUri =
-        AllowedRedirectUriPolicy.validateRedirectUri(
+        AllowedRedirectUriPolicySupport.validateRedirectUri(
             redirectUri = "myapp://oauth/callback",
             configuredPrefixes = listOf("myapp://oauth"),
         )
@@ -27,7 +27,7 @@ class AllowedRedirectUriPolicyTest {
   @Test
   fun `validateRedirectUri should allow hostless custom scheme deep link`() {
     val redirectUri =
-        AllowedRedirectUriPolicy.validateRedirectUri(
+        AllowedRedirectUriPolicySupport.validateRedirectUri(
             redirectUri = "myapp:/oauth/callback",
             configuredPrefixes = listOf("myapp:/oauth"),
         )
@@ -38,7 +38,7 @@ class AllowedRedirectUriPolicyTest {
   @Test
   fun `validateRedirectUri should allow desktop loopback redirect`() {
     val redirectUri =
-        AllowedRedirectUriPolicy.validateRedirectUri(
+        AllowedRedirectUriPolicySupport.validateRedirectUri(
             redirectUri = "http://127.0.0.1:49152/oauth/callback",
             configuredPrefixes = listOf("http://127.0.0.1:49152/oauth"),
         )
@@ -50,7 +50,7 @@ class AllowedRedirectUriPolicyTest {
   fun `validateRedirectUri should reject blank redirectUri with application exception`() {
     val error =
         assertFailsWith<OauthRedirectRequestException> {
-          AllowedRedirectUriPolicy.validateRedirectUri(
+          AllowedRedirectUriPolicySupport.validateRedirectUri(
               redirectUri = "   ",
               configuredPrefixes = listOf("https://app.example.com/oauth"),
           )
@@ -63,7 +63,7 @@ class AllowedRedirectUriPolicyTest {
   fun `validateRedirectUri should reject non allowlisted redirectUri with application exception`() {
     val error =
         assertFailsWith<OauthRedirectRequestException> {
-          AllowedRedirectUriPolicy.validateRedirectUri(
+          AllowedRedirectUriPolicySupport.validateRedirectUri(
               redirectUri = "https://evil.example.com/oauth/callback",
               configuredPrefixes = listOf("https://app.example.com/oauth"),
           )
@@ -82,7 +82,7 @@ class AllowedRedirectUriPolicyTest {
     logger.addAppender(appender)
 
     try {
-      AllowedRedirectUriPolicy.validateRedirectUri(
+      AllowedRedirectUriPolicySupport.validateRedirectUri(
           redirectUri = "myapp://oauth/callback",
           configuredPrefixes = listOf("myapp://oauth"),
       )

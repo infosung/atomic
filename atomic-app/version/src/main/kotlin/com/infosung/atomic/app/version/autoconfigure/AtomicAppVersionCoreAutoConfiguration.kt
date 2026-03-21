@@ -1,6 +1,5 @@
 package com.infosung.atomic.app.version.autoconfigure
 
-import com.infosung.atomic.app.version.AppVersionCheckService
 import com.infosung.atomic.app.version.application.port.`in`.CheckAppVersionUseCase
 import com.infosung.atomic.app.version.application.port.out.LoadVersionPolicyPort
 import com.infosung.atomic.app.version.application.service.CheckAppVersionService
@@ -30,19 +29,6 @@ class AtomicAppVersionCoreAutoConfiguration {
     return CheckAppVersionService(
         loadVersionPolicyPort = loadVersionPolicyPort,
         defaultStoreUrl = properties.defaultStoreUrl,
-    )
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  @ConditionalOnBean(CheckAppVersionUseCase::class)
-  internal fun appVersionCheckService(
-      properties: AtomicAppVersionProperties,
-      checkAppVersionUseCase: CheckAppVersionUseCase,
-  ): AppVersionCheckService {
-    return AppVersionCheckService(
-        defaultStoreUrl = properties.defaultStoreUrl,
-        checkAppVersionUseCase = checkAppVersionUseCase,
     )
   }
 }

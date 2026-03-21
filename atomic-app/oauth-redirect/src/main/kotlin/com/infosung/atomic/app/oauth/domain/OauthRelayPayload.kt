@@ -1,4 +1,4 @@
-package com.infosung.atomic.app.oauth
+package com.infosung.atomic.app.oauth.domain
 
 import com.infosung.atomic.oauth.api.OauthProviderName
 

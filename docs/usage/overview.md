@@ -112,7 +112,7 @@ dependencies {
 | Goal | Modules | First Setup |
 |---|---|---|
 | Standard API response + shared contracts | `starter` + `contract` | Use `BaseResponse`, `HttpStatusException` |
-| App-ready version API | `app.version` | enable `atomic.app.version.enabled`, provision `service_version` schema, seed version rows, and keep host customization on the exported `AppVersionCheckService` bean |
+| App-ready version API | `app.version` | enable `atomic.app.version.enabled`, provision `service_version` schema, seed version rows, and keep host customization on the exported `CheckAppVersionUseCase` bean |
 | App-ready image upload/delete API | `app.storage.api` + `starter` + `storage` | enable `atomic.app.image.enabled`, provision `image` schema, and configure storage backends |
 | App-ready OAuth redirect/callback relay | `app.oauth.redirect` + `starter` + `spring.oauth2` | enable `atomic.app.oauth.redirect.enabled`, consume `relayCode` in login API, configure store prerequisites (default `store.type=entity`), set non-empty `allowed-redirect-uri-prefixes`, and let your app issue its own session/token after relay consumption |
 | Convenience bundle for multiple app APIs | `app` + any prerequisites still required by enabled features | enable only the specific `atomic.app.*.enabled` tracks you need |
@@ -142,7 +142,7 @@ OAuth redirect handoff summary:
 - web: browser -> server callback -> allowlisted `https://...` frontend redirect with `relayCode`
 - mobile: system browser or browser-based tab -> server callback -> allowlisted app link / deep link with `relayCode`
 - desktop: system browser -> server callback -> allowlisted loopback URI or custom scheme with `relayCode`
-- after that redirect, your app or frontend still has to send `relayCode` to its own login API and complete session/token issuance after `AppOauthRelayCodeService.consumeRelayCode(relayCode)`
+- after that redirect, your app or frontend still has to send `relayCode` to its own login API and complete session/token issuance after `ConsumeOauthRelayCodeUseCase.consume(relayCode)`
 
 ## 6. Configuration Policy
 

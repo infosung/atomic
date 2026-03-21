@@ -2,41 +2,80 @@ package com.infosung.atomic.app.oauth
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 class OauthRedirectPackageBoundaryContractTest {
   @Test
-  fun `oauth redirect root relay stores should delegate into adapter out relay store package`() {
+  fun `oauth redirect legal topology should export web entry types from adapter in web`() {
     assertEquals(
-        "com.infosung.atomic.app.oauth.adapter.out.relay.store",
-        InMemoryOauthRelayCodeStore::class.java.superclass.packageName,
+        "com.infosung.atomic.app.oauth.adapter.in.web.AppOauthRedirectController",
+        requiredClass("com.infosung.atomic.app.oauth.adapter.in.web.AppOauthRedirectController")
+            .name,
     )
     assertEquals(
-        "com.infosung.atomic.app.oauth.adapter.out.relay.store",
-        CacheOauthRelayCodeStore::class.java.superclass.packageName,
-    )
-    assertEquals(
-        "com.infosung.atomic.app.oauth.adapter.out.relay.store",
-        EntityOauthRelayCodeStore::class.java.superclass.packageName,
+        "com.infosung.atomic.app.oauth.adapter.in.web.AppOauthRedirectHttpExceptionHandler",
+        requiredClass(
+                "com.infosung.atomic.app.oauth.adapter.in.web.AppOauthRedirectHttpExceptionHandler")
+            .name,
     )
   }
 
   @Test
-  fun `oauth redirect root relay store types should remain exported compatibility seams`() {
+  fun `oauth redirect legal topology should export relay store seam from adapter out relay store`() {
     assertEquals(
-        "com.infosung.atomic.app.oauth.InMemoryOauthRelayCodeStore",
-        InMemoryOauthRelayCodeStore::class.java.name,
+        "com.infosung.atomic.app.oauth.adapter.out.relay.store.OauthRelayCodeStore",
+        requiredClass("com.infosung.atomic.app.oauth.adapter.out.relay.store.OauthRelayCodeStore")
+            .name,
     )
     assertEquals(
-        "com.infosung.atomic.app.oauth.CacheOauthRelayCodeStore",
-        CacheOauthRelayCodeStore::class.java.name,
+        "com.infosung.atomic.app.oauth.adapter.out.relay.store.InMemoryOauthRelayCodeStore",
+        requiredClass(
+                "com.infosung.atomic.app.oauth.adapter.out.relay.store.InMemoryOauthRelayCodeStore")
+            .name,
     )
     assertEquals(
-        "com.infosung.atomic.app.oauth.EntityOauthRelayCodeStore",
-        EntityOauthRelayCodeStore::class.java.name,
+        "com.infosung.atomic.app.oauth.adapter.out.relay.store.CacheOauthRelayCodeStore",
+        requiredClass(
+                "com.infosung.atomic.app.oauth.adapter.out.relay.store.CacheOauthRelayCodeStore")
+            .name,
     )
-    assertNotNull(InMemoryOauthRelayCodeStore::class.java.declaredConstructors.firstOrNull())
-    assertNotNull(CacheOauthRelayCodeStore::class.java.declaredConstructors.firstOrNull())
-    assertNotNull(EntityOauthRelayCodeStore::class.java.declaredConstructors.firstOrNull())
+    assertEquals(
+        "com.infosung.atomic.app.oauth.adapter.out.relay.store.EntityOauthRelayCodeStore",
+        requiredClass(
+                "com.infosung.atomic.app.oauth.adapter.out.relay.store.EntityOauthRelayCodeStore")
+            .name,
+    )
+  }
+
+  @Test
+  fun `oauth redirect legal topology should export relay payload from domain`() {
+    assertEquals(
+        "com.infosung.atomic.app.oauth.domain.OauthRelayPayload",
+        requiredClass("com.infosung.atomic.app.oauth.domain.OauthRelayPayload").name,
+    )
+  }
+
+  @Test
+  fun `oauth redirect legal topology should not keep legacy root wrapper classes`() {
+    listOf(
+            "com.infosung.atomic.app.oauth.AppOauthRedirectController",
+            "com.infosung.atomic.app.oauth.AppOauthRedirectHttpExceptionHandler",
+            "com.infosung.atomic.app.oauth.AppOauthRedirectService",
+            "com.infosung.atomic.app.oauth.AppOauthRelayCodeService",
+            "com.infosung.atomic.app.oauth.OauthRelayCodeStore",
+            "com.infosung.atomic.app.oauth.InMemoryOauthRelayCodeStore",
+            "com.infosung.atomic.app.oauth.CacheOauthRelayCodeStore",
+            "com.infosung.atomic.app.oauth.EntityOauthRelayCodeStore",
+            "com.infosung.atomic.app.oauth.OauthRelayPayload",
+        )
+        .forEach { legacyClassName ->
+          val exception = assertFailsWith<ClassNotFoundException> { Class.forName(legacyClassName) }
+          assertTrue(exception.message?.contains(legacyClassName) != false)
+        }
+  }
+
+  private fun requiredClass(name: String): Class<*> {
+    return Class.forName(name)
   }
 }

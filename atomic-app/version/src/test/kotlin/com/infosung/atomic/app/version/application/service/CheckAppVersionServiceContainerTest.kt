@@ -1,6 +1,9 @@
-package com.infosung.atomic.app.version
+package com.infosung.atomic.app.version.application.service
 
-import com.infosung.atomic.contract.exception.HttpStatusException
+import com.infosung.atomic.app.version.adapter.out.persistence.JpaLoadVersionPolicyAdapter
+import com.infosung.atomic.app.version.adapter.out.persistence.ServiceVersionEntity
+import com.infosung.atomic.app.version.adapter.out.persistence.ServiceVersionRepository
+import com.infosung.atomic.app.version.application.exception.VersionPolicyNotFoundException
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -23,13 +26,12 @@ import org.testcontainers.junit.jupiter.Testcontainers
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Testcontainers(disabledWithoutDocker = true)
-class AppVersionCheckServiceContainerTest {
+class CheckAppVersionServiceContainerTest {
   @Autowired private lateinit var serviceVersionRepository: ServiceVersionRepository
 
   @Test
-  fun `checkVersion should return required update based on postgres rows`() {
-    val service =
-        AppVersionCheckService(serviceVersionRepository, defaultStoreUrl = "https://default.store")
+  fun `check should return required update based on postgres rows`() {
+    val service = newService()
     serviceVersionRepository.saveAll(
         listOf(
             policy(main = 2, minor = 0, patch = 0, requireUpdate = false),
@@ -38,19 +40,13 @@ class AppVersionCheckServiceContainerTest {
                 minor = 2,
                 patch = 4,
                 requireUpdate = true,
-                storeUrl = "https://force.update"),
+                storeUrl = "https://force.update",
+            ),
             policy(main = 1, minor = 2, patch = 3, requireUpdate = false),
         ),
     )
 
-    val result =
-        service.checkVersion(
-            VersionCheckRequest(
-                service = "MY_SERVICE",
-                platform = "ANDROID",
-                appVersion = "1.2.3",
-            ),
-        )
+    val result = service.check(service = "MY_SERVICE", platform = "ANDROID", appVersion = "1.2.3")
 
     assertEquals("2.0.0", result.currentVersion)
     assertEquals("1.2.3", result.userVersion)
@@ -59,26 +55,23 @@ class AppVersionCheckServiceContainerTest {
   }
 
   @Test
-  fun `checkVersion should return 404 when postgres has no policies`() {
-    val service =
-        AppVersionCheckService(serviceVersionRepository, defaultStoreUrl = "https://default.store")
+  fun `check should return 404-equivalent application error when postgres has no policies`() {
+    val service = newService()
+
     val error =
-        assertFailsWith<HttpStatusException> {
-          service.checkVersion(
-              VersionCheckRequest(
-                  service = "MY_SERVICE",
-                  platform = "ANDROID",
-                  appVersion = "1.2.3",
-              ),
-          )
+        assertFailsWith<VersionPolicyNotFoundException> {
+          service.check(service = "MY_SERVICE", platform = "ANDROID", appVersion = "1.2.3")
         }
-    assertEquals(404, error.status)
+
+    assertEquals(
+        "No service version policy found for service=MY_SERVICE, platform=ANDROID",
+        error.message,
+    )
   }
 
   @Test
-  fun `checkVersion should allow unregistered client version on postgres rows`() {
-    val service =
-        AppVersionCheckService(serviceVersionRepository, defaultStoreUrl = "https://default.store")
+  fun `check should allow unregistered client version on postgres rows`() {
+    val service = newService()
     serviceVersionRepository.saveAll(
         listOf(
             policy(
@@ -87,7 +80,8 @@ class AppVersionCheckServiceContainerTest {
                 patch = 0,
                 requireUpdate = true,
                 storeUrl = "https://not-ready.update",
-                storeAvailable = false),
+                storeAvailable = false,
+            ),
             policy(main = 2, minor = 0, patch = 0, requireUpdate = false, storeAvailable = true),
             policy(
                 main = 1,
@@ -95,18 +89,12 @@ class AppVersionCheckServiceContainerTest {
                 patch = 4,
                 requireUpdate = true,
                 storeUrl = "https://force.update",
-                storeAvailable = true),
+                storeAvailable = true,
+            ),
         ),
     )
 
-    val result =
-        service.checkVersion(
-            VersionCheckRequest(
-                service = "MY_SERVICE",
-                platform = "ANDROID",
-                appVersion = "1.2.3",
-            ),
-        )
+    val result = service.check(service = "MY_SERVICE", platform = "ANDROID", appVersion = "1.2.3")
 
     assertEquals("2.0.0", result.currentVersion)
     assertEquals("1.2.3", result.userVersion)
@@ -114,13 +102,7 @@ class AppVersionCheckServiceContainerTest {
     assertEquals("https://force.update", result.storeUrl)
 
     val reviewerResult =
-        service.checkVersion(
-            VersionCheckRequest(
-                service = "MY_SERVICE",
-                platform = "ANDROID",
-                appVersion = "2.1.0",
-            ),
-        )
+        service.check(service = "MY_SERVICE", platform = "ANDROID", appVersion = "2.1.0")
 
     assertEquals("2.0.0", reviewerResult.currentVersion)
     assertEquals("2.1.0", reviewerResult.userVersion)
@@ -129,9 +111,8 @@ class AppVersionCheckServiceContainerTest {
   }
 
   @Test
-  fun `checkVersion should choose highest required-update target when multiple higher rows exist`() {
-    val service =
-        AppVersionCheckService(serviceVersionRepository, defaultStoreUrl = "https://default.store")
+  fun `check should choose highest required-update target when multiple higher rows exist`() {
+    val service = newService()
     serviceVersionRepository.saveAll(
         listOf(
             policy(main = 2, minor = 0, patch = 0, requireUpdate = false, storeAvailable = true),
@@ -155,17 +136,17 @@ class AppVersionCheckServiceContainerTest {
         ),
     )
 
-    val result =
-        service.checkVersion(
-            VersionCheckRequest(
-                service = "MY_SERVICE",
-                platform = "ANDROID",
-                appVersion = "1.2.3",
-            ),
-        )
+    val result = service.check(service = "MY_SERVICE", platform = "ANDROID", appVersion = "1.2.3")
 
     assertTrue(result.requiredUpdate)
     assertEquals("https://force.update/highest", result.storeUrl)
+  }
+
+  private fun newService(): CheckAppVersionService {
+    return CheckAppVersionService(
+        loadVersionPolicyPort = JpaLoadVersionPolicyAdapter(serviceVersionRepository),
+        defaultStoreUrl = "https://default.store",
+    )
   }
 
   private fun policy(
@@ -199,7 +180,7 @@ class AppVersionCheckServiceContainerTest {
     @JvmStatic
     private val postgres: PostgreSQLContainer<*> =
         PostgreSQLContainer("postgres:16-alpine")
-            .withDatabaseName("app_version_service_container_${UUID.randomUUID()}")
+            .withDatabaseName("check_app_version_service_${UUID.randomUUID()}")
 
     @JvmStatic
     @DynamicPropertySource

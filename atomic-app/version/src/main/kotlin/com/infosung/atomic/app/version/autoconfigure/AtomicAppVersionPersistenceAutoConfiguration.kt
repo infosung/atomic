@@ -1,8 +1,8 @@
 package com.infosung.atomic.app.version.autoconfigure
 
-import com.infosung.atomic.app.version.ServiceVersionEntity
-import com.infosung.atomic.app.version.ServiceVersionRepository
 import com.infosung.atomic.app.version.adapter.out.persistence.JpaLoadVersionPolicyAdapter
+import com.infosung.atomic.app.version.adapter.out.persistence.ServiceVersionEntity
+import com.infosung.atomic.app.version.adapter.out.persistence.ServiceVersionRepository
 import com.infosung.atomic.app.version.application.port.out.LoadVersionPolicyPort
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass

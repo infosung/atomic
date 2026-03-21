@@ -1,9 +1,9 @@
 package com.infosung.atomic.app.oauth.application.service
 
-import com.infosung.atomic.app.oauth.OauthRelayPayload
 import com.infosung.atomic.app.oauth.application.port.`in`.IssueOauthRelayCodeUseCase
 import com.infosung.atomic.app.oauth.application.port.out.StoreOauthRelayCodePort
 import com.infosung.atomic.app.oauth.autoconfigure.AtomicAppOauthRedirectProperties
+import com.infosung.atomic.app.oauth.domain.OauthRelayPayload
 import com.infosung.atomic.contract.time.TimeProvider
 import java.security.SecureRandom
 import java.util.Base64
