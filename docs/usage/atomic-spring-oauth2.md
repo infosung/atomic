@@ -212,6 +212,13 @@ Compatibility note:
 - `IdTokenParser.verifyIdToken(...)` still returns Spring Security `Jwt` for existing integrations.
 - New provider code should prefer `IdTokenParser.verifyIdTokenClaims(...)` to read typed issuer/subject/audience/nonce before falling back to provider-specific claims.
 - `OauthServiceProvider` now fails fast when duplicate `OauthProviderName` registrations are supplied, instead of silently shadowing one provider with another.
+- `HttpIOException` / `HttpJwtVerifyException` still exist as named oauth failures, but they no longer inherit `HttpStatusException`.
+- map these oauth failures to HTTP status only in your adapter/web layer; do not rely on foundation oauth exceptions to carry transport status directly.
+
+Upgrade note:
+
+- if you are upgrading from the previous line and you previously caught `HttpStatusException` to detect oauth provider I/O or JWT verification failures, migrate that code to catch the oauth exceptions directly.
+- for this release line, also review [Release Migration Guide: `v0.0.3` -> `v0.0.4`](../migration/v0.0.3-to-v0.0.4.md).
 
 ## State Verification Patterns
 

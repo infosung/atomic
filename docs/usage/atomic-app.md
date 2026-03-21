@@ -33,7 +33,7 @@ Internally, `atomic.app` is a bundle of:
 - `atomic.app.storage.api` requires storage beans, so starter-based setups usually add both.
 - `atomic.app.oauth.redirect` usually pairs with `atomic.starter` + `atomic.spring.oauth2`.
 
-Published artifact set (`v0.0.3`):
+Published artifact set (`v0.0.4`):
 
 - `atomic-contract`
 - `atomic-storage`
@@ -75,9 +75,9 @@ Published-artifact narrow-module selection:
 
 ```kotlin
 dependencies {
-  implementation("com.infosung:atomic.app.version:0.0.3")
-  implementation("com.infosung:atomic.app.storage.api:0.0.3")
-  implementation("com.infosung:atomic.app.oauth.redirect:0.0.3")
+  implementation("com.infosung:atomic.app.version:0.0.4")
+  implementation("com.infosung:atomic.app.storage.api:0.0.4")
+  implementation("com.infosung:atomic.app.oauth.redirect:0.0.4")
 }
 ```
 
@@ -511,7 +511,7 @@ The authoritative PostgreSQL starting-point assets now ship in module resources:
 - `atomic-app/storage-api`: `META-INF/atomic/sql/postgresql/image.sql`
 - `atomic-app/oauth-redirect`: `META-INF/atomic/sql/postgresql/atomic_oauth_relay_code.sql`
 
-For `service_version` and `image`, these assets now match explicit JPA table/column mappings in code. The SQL below mirrors the shipped assets, including the `v0.0.3` recovery-claim columns and supporting indexes.
+For `service_version` and `image`, these assets now match explicit JPA table/column mappings in code. The SQL below mirrors the shipped assets, including the recovery-claim columns and supporting indexes used in the current line.
 
 - Identifier-like columns (`service`, `platform`, `bucket`, `service_name`, `storage_service`, `storage_type`) keep a bounded `VARCHAR(255)` contract.
 - Columns affected by external lengths (`store_url`, `file_name`, `thumbnail_file_name`, `url`, `thumbnail_url`) are shipped as `TEXT`.
@@ -596,7 +596,7 @@ CREATE INDEX IF NOT EXISTS idx_atomic_oauth_relay_code_expires_at
 
 If your database already has the older `VARCHAR(255)` shape for externally sized fields, `CREATE TABLE IF NOT EXISTS`
 alone will not widen those columns. Apply an explicit migration before rolling out builds that can persist longer values.
-If you maintain a custom `image` schema, also add the `v0.0.3` delete-recovery claim columns/index before enabling
+If you maintain a custom `image` schema, also ensure the delete-recovery claim columns/index exist before enabling
 `atomic.app.image`.
 
 When `atomic.app.version.enabled=true` or `atomic.app.image.enabled=true`, startup now validates these externally sized

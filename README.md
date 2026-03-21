@@ -2,7 +2,7 @@
 
 Atomic is a Kotlin/Spring library suite for backend services.
 
-> Status: `v0.0.3` documentation for a pre-1.0 release line.
+> Status: `v0.0.4` documentation for a pre-1.0 release line.
 
 ## Tested Baseline
 
@@ -10,14 +10,14 @@ Atomic is a Kotlin/Spring library suite for backend services.
 - Kotlin `2.3.10`
 - Spring Boot `4.0.3`
 - `atomic.spring.web` AOP dependency uses `org.springframework.boot:spring-boot-starter-aspectj` (BOM-managed).
-- `v0.0.3` release validation is written against this baseline. If you run a different runtime mix,
+- `v0.0.4` release validation is written against this baseline. If you run a different runtime mix,
   treat it as self-validated in your own CI before rollout.
 
 ## Start Here (Recommended Path)
 
 1. Minimal adoption: [Atomic Quick Start](docs/usage/quick-start.md)
 2. Production transition: [Advanced Operations Playbook](docs/usage/advanced-playbook.md)
-3. Upgrade from `v0.0.2`: [Release Migration Guide](docs/migration/v0.0.2-to-v0.0.3.md)
+3. Upgrade from `v0.0.3`: [Release Migration Guide](docs/migration/v0.0.3-to-v0.0.4.md)
 4. Module-level details: see `Detailed Guides` below
 
 ## Feature-First Onboarding
@@ -58,22 +58,22 @@ Relationship summary:
 
 ## Dependency Setup
 
-### Published Artifact Examples (`v0.0.3`)
+### Published Artifact Examples (`v0.0.4`)
 
 ```kotlin
 dependencies {
-  implementation("com.infosung:atomic.contract:0.0.3")
-  implementation("com.infosung:atomic.storage:0.0.3")
-  implementation("com.infosung:atomic.spring.web:0.0.3")
-  implementation("com.infosung:atomic.spring.security:0.0.3")
-  implementation("com.infosung:atomic.spring.idempotency:0.0.3")
-  implementation("com.infosung:atomic.spring.oauth2:0.0.3")
-  implementation("com.infosung:atomic.heartbeat:0.0.3")
-  implementation("com.infosung:atomic.starter:0.0.3")
-  implementation("com.infosung:atomic.app.version:0.0.3")
-  implementation("com.infosung:atomic.app.storage.api:0.0.3")
-  implementation("com.infosung:atomic.app.oauth.redirect:0.0.3")
-  implementation("com.infosung:atomic.app:0.0.3")
+  implementation("com.infosung:atomic.contract:0.0.4")
+  implementation("com.infosung:atomic.storage:0.0.4")
+  implementation("com.infosung:atomic.spring.web:0.0.4")
+  implementation("com.infosung:atomic.spring.security:0.0.4")
+  implementation("com.infosung:atomic.spring.idempotency:0.0.4")
+  implementation("com.infosung:atomic.spring.oauth2:0.0.4")
+  implementation("com.infosung:atomic.heartbeat:0.0.4")
+  implementation("com.infosung:atomic.starter:0.0.4")
+  implementation("com.infosung:atomic.app.version:0.0.4")
+  implementation("com.infosung:atomic.app.storage.api:0.0.4")
+  implementation("com.infosung:atomic.app.oauth.redirect:0.0.4")
+  implementation("com.infosung:atomic.app:0.0.4")
 }
 ```
 
@@ -131,6 +131,7 @@ dependencies {
 - OAuth redirect stops at relayCode handoff. Your app still owns the login/session exchange after `ConsumeOauthRelayCodeUseCase.consume(relayCode)` succeeds.
 - Internally the module is now packaged in `application`, `domain`, and `adapter` layers. Supported host seams are the exported build/issue/consume use-case beans, the exported `OauthRelayCodeStore` seam, and the exported web adapter beans `AppOauthRedirectController` / `AppOauthRedirectHttpExceptionHandler`.
 - `atomic.spring.oauth2` keeps legacy `Jwt`-returning seams for compatibility, but new integrations should prefer typed `OauthStateClaims` / typed id-token claim models where available. Provider registry startup now fails fast on duplicate `OauthProviderName` registration instead of silently shadowing one bean.
+- `HttpIOException` / `HttpJwtVerifyException` now remain oauth-domain exceptions instead of carrying `HttpStatusException` directly. Treat HTTP status mapping as adapter-owned behavior in your app/web layer.
 
 ## Reference application.yml (feature template)
 
