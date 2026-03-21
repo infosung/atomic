@@ -1,45 +1,54 @@
 package com.infosung.atomic.app.storage.autoconfigure
 
-import com.infosung.atomic.app.storage.AppImageApiService
-import com.infosung.atomic.app.storage.AppImageDeleteRecoveryService
-import com.infosung.atomic.app.storage.AppStorageController
-import com.infosung.atomic.app.storage.AppStorageHttpExceptionHandler
-import com.infosung.atomic.storage.image.ImageService
+import com.infosung.atomic.app.storage.adapter.`in`.web.AppStorageController
+import com.infosung.atomic.app.storage.adapter.`in`.web.AppStorageHttpExceptionHandler
+import com.infosung.atomic.app.storage.application.port.`in`.DeleteAppImageUseCase
+import com.infosung.atomic.app.storage.application.port.`in`.InspectDeletePendingImagesUseCase
+import com.infosung.atomic.app.storage.application.port.`in`.RecoverDeletePendingImagesUseCase
+import com.infosung.atomic.app.storage.application.port.`in`.UploadAppImageUseCase
 import java.time.Clock
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
-import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import org.mockito.Mockito.mock
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.support.DefaultListableBeanFactory
-import org.springframework.jdbc.core.JdbcTemplate
 
 class AtomicAppImageAutoConfigurationTest {
-  private val autoConfiguration = AtomicAppImageAutoConfiguration()
+  private val webAutoConfiguration = AtomicAppImageWebAutoConfiguration()
+  private val coreAutoConfiguration = AtomicAppImageCoreAutoConfiguration()
+  private val persistenceAutoConfiguration = AtomicAppImagePersistenceAutoConfiguration()
 
   @Test
-  fun `missing app image api service should fail fast when image api is enabled`() {
+  fun `missing upload use case should fail fast when image api is enabled`() {
     val exception =
         assertFailsWith<IllegalStateException> {
-          autoConfiguration.appStorageController(
-              appImageApiServiceProvider = provider(),
+          webAutoConfiguration.appStorageController(
+              uploadAppImageUseCaseProvider = provider(),
+              deleteAppImageUseCaseProvider =
+                  provider(
+                      DeleteAppImageUseCase::class.java, mock(DeleteAppImageUseCase::class.java)),
               properties = AtomicAppImageProperties().apply { enabled = true },
           )
         }
 
-    assertNotNull(exception.message)
     assertTrue(
-        exception.message!!.contains("atomic.app.image.enabled=true requires AppImageApiService"))
+        exception.message!!.contains(
+            "atomic.app.image.enabled=true requires UploadAppImageUseCase"),
+    )
   }
 
   @Test
-  fun `app storage controller should be created when app image api service is present`() {
+  fun `app storage controller should be created when image use cases are present`() {
     val controller =
-        autoConfiguration.appStorageController(
-            appImageApiServiceProvider =
-                provider(AppImageApiService::class.java, mock(AppImageApiService::class.java)),
+        webAutoConfiguration.appStorageController(
+            uploadAppImageUseCaseProvider =
+                provider(
+                    UploadAppImageUseCase::class.java, mock(UploadAppImageUseCase::class.java)),
+            deleteAppImageUseCaseProvider =
+                provider(
+                    DeleteAppImageUseCase::class.java, mock(DeleteAppImageUseCase::class.java)),
             properties = AtomicAppImageProperties().apply { enabled = true },
         )
 
@@ -48,29 +57,73 @@ class AtomicAppImageAutoConfigurationTest {
 
   @Test
   fun `app storage http exception handler should be created`() {
-    val handler = autoConfiguration.appStorageHttpExceptionHandler()
-
-    assertIs<AppStorageHttpExceptionHandler>(handler)
+    assertIs<AppStorageHttpExceptionHandler>(webAutoConfiguration.appStorageHttpExceptionHandler())
   }
 
   @Test
-  fun `app image delete recovery service should be created`() {
-    val recoveryService =
-        autoConfiguration.appImageDeleteRecoveryService(
-            appImageEntityTxService =
-                mock(com.infosung.atomic.app.storage.AppImageEntityTxService::class.java),
-            imageService = mock(ImageService::class.java),
+  fun `core auto configuration should expose storage use case seams without concrete bean seam`() {
+    val imageMetadataPort =
+        mock(com.infosung.atomic.app.storage.application.port.out.ImageMetadataPort::class.java)
+    val imageObjectStoragePort =
+        mock(
+            com.infosung.atomic.app.storage.application.port.out.ImageObjectStoragePort::class.java)
+    val uploadUseCase =
+        coreAutoConfiguration.uploadAppImageUseCase(
+            imageMetadataPort = imageMetadataPort,
+            imageObjectStoragePort = imageObjectStoragePort,
+            properties = AtomicAppImageProperties(),
+        )
+    val deleteUseCase =
+        coreAutoConfiguration.deleteAppImageUseCase(
+            imageMetadataPort = imageMetadataPort,
+            imageObjectStoragePort = imageObjectStoragePort,
+            properties = AtomicAppImageProperties(),
+        )
+
+    assertIs<UploadAppImageUseCase>(uploadUseCase)
+    assertIs<DeleteAppImageUseCase>(deleteUseCase)
+  }
+
+  @Test
+  fun `recovery use case seams should be created without concrete bean seam`() {
+    val inspectUseCase =
+        coreAutoConfiguration.inspectDeletePendingImagesUseCase(
+            imageMetadataPort =
+                mock(
+                    com.infosung.atomic.app.storage.application.port.out.ImageMetadataPort::class
+                        .java),
+            imageObjectStoragePort =
+                mock(
+                    com.infosung.atomic.app.storage.application.port.out
+                            .ImageObjectStoragePort::class
+                        .java),
+            clockProvider = provider(Clock::class.java, Clock.systemUTC()),
+        )
+    val recoverUseCase =
+        coreAutoConfiguration.recoverDeletePendingImagesUseCase(
+            imageMetadataPort =
+                mock(
+                    com.infosung.atomic.app.storage.application.port.out.ImageMetadataPort::class
+                        .java),
+            imageObjectStoragePort =
+                mock(
+                    com.infosung.atomic.app.storage.application.port.out
+                            .ImageObjectStoragePort::class
+                        .java),
             clockProvider = provider(Clock::class.java, Clock.systemUTC()),
         )
 
-    assertIs<AppImageDeleteRecoveryService>(recoveryService)
+    assertIs<InspectDeletePendingImagesUseCase>(inspectUseCase)
+    assertIs<RecoverDeletePendingImagesUseCase>(recoverUseCase)
   }
 
   @Test
-  fun `app image schema upgrade preflight should be created`() {
-    val preflight = autoConfiguration.appImageSchemaUpgradePreflight(mock(JdbcTemplate::class.java))
-
-    assertIs<AppImageSchemaUpgradePreflight>(preflight)
+  fun `persistence auto configuration should create preflight`() {
+    assertIs<AppImageSchemaUpgradePreflight>(
+        persistenceAutoConfiguration.appImageSchemaUpgradePreflight(
+            mock(org.springframework.jdbc.core.JdbcTemplate::class.java),
+        ),
+    )
   }
 
   private fun <T : Any> provider(

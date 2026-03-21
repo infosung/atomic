@@ -238,11 +238,11 @@ POST parameters:
 - uploader identity parameter (optional by default):
   - enabled when `atomic.app.image.uploader-parameter-enabled=true`
   - parameter name comes from `atomic.app.image.uploader-parameter-name`
-  - value is stored into `ImageEntity.uploaderId`
+  - value is stored into persisted image metadata (`image.uploader_id`)
 
 POST response:
 
-- persisted image metadata response (`ImageResponse`) with the same JSON fields as before (id, bucket, file names, urls, dimensions, sizes, status)
+- persisted image metadata response (`adapter.in.web.ImageResponse`) with the same JSON fields as before (id, bucket, file names, urls, dimensions, sizes, status)
 - nullable fields are normal:
   - `uploaderId`: null when uploader tracking is disabled or omitted
   - `thumbnailFileName`, `thumbnailUrl`, `thumbnailWidth`, `thumbnailHeight`, `thumbnailFileSize`: null when thumbnail generation is disabled or unavailable
@@ -255,15 +255,15 @@ DELETE behavior:
 
 - validates `imageId` UUID format
 - validates that row matches `{service}` and `{storageService}`
-- when uploader tracking is enabled, validates request uploader parameter equals stored `ImageEntity.uploaderId`
-- resolves delete target from persisted `ImageEntity.storageType` only
+- when uploader tracking is enabled, validates request uploader parameter equals stored metadata `uploaderId`
+- resolves delete target from persisted metadata `storageType` only
 - rejects delete with `400` when persisted storage mapping is unavailable
 - reserves metadata as `DELETE_PENDING` before storage deletion
 - deletes original/thumbnail objects from the persisted storage client mapping
 - purges metadata row only after storage delete succeeds
 - keeps metadata in `DELETE_PENDING` when storage delete fails so a later delete can retry cleanup safely
-- host apps can inspect lingering `DELETE_PENDING` rows with `AppImageDeleteRecoveryService.inspectDeletePendingImages()`
-- host apps can recover lingering `DELETE_PENDING` rows with `AppImageDeleteRecoveryService.recoverDeletePendingImages(limit)` from their own admin job or scheduler; this library does not ship a built-in reaper
+- host apps can inspect lingering `DELETE_PENDING` rows with `InspectDeletePendingImagesUseCase.inspectDeletePendingImages()`
+- host apps can recover lingering `DELETE_PENDING` rows with `RecoverDeletePendingImagesUseCase.recoverDeletePendingImages(limit)` from their own admin job or scheduler; this library does not ship a built-in reaper
 - recovery batches claim eligible `DELETE_PENDING` rows before cleanup so overlapping admin/scheduler triggers do not keep retrying the same row in the same batch window
 - stale claims are reclaimable after the built-in 15-minute recovery claim timeout
 
@@ -283,18 +283,19 @@ Example host-owned scheduler:
 ```kotlin
 @Component
 class ImageDeletePendingRecoveryJob(
-    private val recoveryService: AppImageDeleteRecoveryService,
+    private val inspectDeletePendingImagesUseCase: InspectDeletePendingImagesUseCase,
+    private val recoverDeletePendingImagesUseCase: RecoverDeletePendingImagesUseCase,
 ) {
   private val logger = LoggerFactory.getLogger(this::class.java)
 
   @Scheduled(fixedDelayString = "\${jobs.image-delete-recovery.delay-ms:300000}")
   fun run() {
-    val snapshot = recoveryService.inspectDeletePendingImages()
+    val snapshot = inspectDeletePendingImagesUseCase.inspectDeletePendingImages()
     if (snapshot.pendingCount == 0L) {
       return
     }
 
-    val result = recoveryService.recoverDeletePendingImages(limit = 100)
+    val result = recoverDeletePendingImagesUseCase.recoverDeletePendingImages(limit = 100)
     logger.info(
         "image delete recovery job completed: scanned={}, recovered={}, failed={}, remaining={}, oldestPendingCreatedAt={}",
         result.scannedCount,
@@ -631,7 +632,7 @@ CREATE INDEX IF NOT EXISTS idx_image_status_claim_created_at
 - if uploader tracking is enabled, add nullable `uploader_id` column to `image` table (or rely on JPA schema generation in non-production environments).
 - use `atomic.app.image.thumbnail-enabled=false` only when you intentionally want original-only uploads by default.
 - when image delete fails after reservation, treat remaining `DELETE_PENDING` rows as retryable cleanup work.
-- if you want proactive cleanup, call `AppImageDeleteRecoveryService.inspectDeletePendingImages()` and `AppImageDeleteRecoveryService.recoverDeletePendingImages(limit)` from your own scheduler or admin command path; a built-in scheduler is intentionally out of scope.
+- if you want proactive cleanup, call `InspectDeletePendingImagesUseCase.inspectDeletePendingImages()` and `RecoverDeletePendingImagesUseCase.recoverDeletePendingImages(limit)` from your own scheduler or admin command path; a built-in scheduler is intentionally out of scope.
 - recovery is still host-owned. The library reduces overlapping retries by claiming rows per batch, but it does not become a distributed job system or built-in reaper.
 - recovery claims are reclaimable after a built-in 15-minute timeout. If your scheduler interval is longer, document that expectation in your runbook.
 - choose uploader parameter name per service (for example `memberId`, `userKey`, `ownerId`) and configure `atomic.app.image.uploader-parameter-name`.
@@ -640,5 +641,5 @@ CREATE INDEX IF NOT EXISTS idx_image_status_claim_created_at
 - if `store.type=entity`, schedule expired-row cleanup for unconsumed relay entries.
 - Configure `atomic.storage.backends.*` before enabling image API.
 - Keep `storageType` key naming consistent with your `{service}` and `{storageService}` path policy.
-- Do not rename or remove storage client keys that existing `ImageEntity.storageType` rows depend on unless you also migrate stored metadata.
+- Do not rename or remove storage client keys that existing `image.storage_type` rows depend on unless you also migrate stored metadata.
 - Enforce multipart size/time limits at application layer.

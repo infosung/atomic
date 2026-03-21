@@ -18,6 +18,7 @@ For most services, start with `ImageService`.
 
 - `ImageService.uploadImage(...)`: upload original image and, by default, attempt thumbnail generation
 - `ImageService.deleteImage(...)`: delete original and thumbnail by key
+- `ImageService` remains the compatibility-stable public facade for this module; the upload/delete orchestration behind it is internal and not a supported host override seam in this line
 
 Low-level `StorageClient.putObject(...)` request models have internal constructors and are intended for module-internal use.
 

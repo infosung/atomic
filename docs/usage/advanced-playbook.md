@@ -117,7 +117,7 @@ References:
 | OAuth state replay protection | `atomic.oauth2.state.in-memory-store.enabled=true` is acceptable | use a shared/custom `OauthStateStore`; do not rely on process-local state storage |
 | OAuth relay store | `in-memory`, `cache`, or `entity` can be acceptable depending on convenience | prefer `entity` or a cache backend with verified atomic consume semantics; keep `store.fail-fast=true` |
 | Callback-binding mode | `strict` default, `relaxed` when you want easier multi-tab/back-navigation validation, `disabled` only for local escape-hatch testing | keep `strict` unless product UX explicitly prefers `relaxed`; treat `disabled` as non-production |
-| Image delete cleanup | manual retry is usually enough | define an admin job or operator path that calls `AppImageDeleteRecoveryService.recoverDeletePendingImages(limit)`; overlapping invocations now claim rows per batch, but host ownership still applies |
+| Image delete cleanup | manual retry is usually enough | define an admin job or operator path that calls `RecoverDeletePendingImagesUseCase.recoverDeletePendingImages(limit)`; overlapping invocations now claim rows per batch, but host ownership still applies |
 | Exception envelope | built-in app advice is enough for quick validation | verify advice precedence if your platform already standardizes a different error envelope |
 
 ## 4) `DELETE_PENDING` Runbook
@@ -131,7 +131,7 @@ Detection:
 Minimum operator action:
 1. confirm the backing storage client key named by `image.storage_type` still exists
 2. restore the failing storage/backend condition
-3. retry cleanup by replaying the original delete or invoking `AppImageDeleteRecoveryService.recoverDeletePendingImages(limit)`
+3. retry cleanup by replaying the original delete or invoking `RecoverDeletePendingImagesUseCase.recoverDeletePendingImages(limit)`
 4. verify the row is purged only after storage objects are actually deleted
 
 Concurrency note:

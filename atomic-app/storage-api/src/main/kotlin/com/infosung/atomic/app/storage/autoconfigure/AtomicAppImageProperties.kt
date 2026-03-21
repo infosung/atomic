@@ -27,7 +27,8 @@ class AtomicAppImageProperties {
    * Enables uploader identity parameter handling in image upload/delete API.
    *
    * When enabled:
-   * - upload requires uploader parameter and stores it in `ImageEntity.uploaderId`.
+   * - upload requires uploader parameter and stores it in persisted image metadata
+   *   (`image.uploader_id`).
    * - delete requires same uploader parameter and rejects mismatch.
    */
   var uploaderParameterEnabled: Boolean = false

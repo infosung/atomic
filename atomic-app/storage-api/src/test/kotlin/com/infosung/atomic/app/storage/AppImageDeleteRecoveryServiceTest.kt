@@ -4,6 +4,10 @@ import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
+import com.infosung.atomic.app.storage.adapter.out.storage.ImageServiceStoragePortAdapter
+import com.infosung.atomic.app.storage.application.service.AppImageDeleteRecoveryService
+import com.infosung.atomic.app.storage.domain.ImageDeletePendingSnapshot
+import com.infosung.atomic.app.storage.domain.StoredImage
 import com.infosung.atomic.storage.PutObjectRequest
 import com.infosung.atomic.storage.StorageClient
 import com.infosung.atomic.storage.StorageProfile
@@ -24,26 +28,26 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
-import org.mockito.Mockito.mock
 import org.slf4j.LoggerFactory
 
 class AppImageDeleteRecoveryServiceTest {
   @Test
   fun `inspectDeletePendingImages should return pending count and oldest createdAt`() {
     val oldest =
-        newDeletePendingImageEntity(
+        newDeletePendingImage(
             fileName = "images/test/oldest.png",
             createdAt = LocalDateTime.of(2024, 1, 1, 0, 0, 0),
         )
     val newest =
-        newDeletePendingImageEntity(
+        newDeletePendingImage(
             fileName = "images/test/newest.png",
             createdAt = LocalDateTime.of(2024, 1, 2, 0, 0, 0),
         )
-    val imageService =
-        createImageService(storageClient = CapturingStorageClient(), storageType = "S3")
-    val txService = FakeRecoveryImageEntityTxService(listOf(newest, oldest))
-    val recoveryService = AppImageDeleteRecoveryService(txService, imageService)
+    val recoveryService =
+        AppImageDeleteRecoveryService(
+            imageMetadataPort = FakeRecoveryImageMetadataPort(listOf(newest, oldest)),
+            imageObjectStoragePort = newImageObjectStoragePort(CapturingStorageClient()),
+        )
 
     val snapshot = recoveryService.inspectDeletePendingImages()
 
@@ -54,17 +58,14 @@ class AppImageDeleteRecoveryServiceTest {
   @Test
   fun `inspectDeletePendingImages should log deterministic oldest pending age with fixed clock`() {
     val oldest =
-        newDeletePendingImageEntity(
+        newDeletePendingImage(
             fileName = "images/test/oldest.png",
             createdAt = LocalDateTime.of(2024, 1, 1, 0, 0, 0),
         )
-    val imageService =
-        createImageService(storageClient = CapturingStorageClient(), storageType = "S3")
-    val txService = FakeRecoveryImageEntityTxService(listOf(oldest))
     val recoveryService =
         AppImageDeleteRecoveryService(
-            imageEntityTxService = txService,
-            imageService = imageService,
+            imageMetadataPort = FakeRecoveryImageMetadataPort(listOf(oldest)),
+            imageObjectStoragePort = newImageObjectStoragePort(CapturingStorageClient()),
             clock = Clock.fixed(Instant.parse("2024-01-01T00:00:10Z"), ZoneOffset.UTC),
         )
 
@@ -78,13 +79,16 @@ class AppImageDeleteRecoveryServiceTest {
 
   @Test
   fun `recoverDeletePendingImages should purge recovered rows up to limit`() {
-    val image1 = newDeletePendingImageEntity(createdAt = LocalDateTime.of(2024, 1, 1, 0, 0, 0))
-    val image2 = newDeletePendingImageEntity(createdAt = LocalDateTime.of(2024, 1, 1, 0, 1, 0))
-    val image3 = newDeletePendingImageEntity(createdAt = LocalDateTime.of(2024, 1, 1, 0, 2, 0))
+    val image1 = newDeletePendingImage(createdAt = LocalDateTime.of(2024, 1, 1, 0, 0, 0))
+    val image2 = newDeletePendingImage(createdAt = LocalDateTime.of(2024, 1, 1, 0, 1, 0))
+    val image3 = newDeletePendingImage(createdAt = LocalDateTime.of(2024, 1, 1, 0, 2, 0))
+    val txPort = FakeRecoveryImageMetadataPort(listOf(image1, image2, image3))
     val storageClient = CapturingStorageClient()
-    val imageService = createImageService(storageClient = storageClient, storageType = "S3")
-    val txService = FakeRecoveryImageEntityTxService(listOf(image1, image2, image3))
-    val recoveryService = AppImageDeleteRecoveryService(txService, imageService)
+    val recoveryService =
+        AppImageDeleteRecoveryService(
+            imageMetadataPort = txPort,
+            imageObjectStoragePort = newImageObjectStoragePort(storageClient),
+        )
 
     val result = recoveryService.recoverDeletePendingImages(limit = 2)
 
@@ -93,35 +97,38 @@ class AppImageDeleteRecoveryServiceTest {
     assertEquals(0, result.failedCount)
     assertEquals(1, result.remainingPendingCount)
     assertEquals(LocalDateTime.of(2024, 1, 1, 0, 2, 0), result.oldestPendingCreatedAt)
-    assertEquals(1, txService.claimedBatches.size)
-    assertEquals(listOf(requireNotNull(image1.id), requireNotNull(image2.id)), txService.purgedIds)
-    assertEquals(listOf(requireNotNull(image3.id)), txService.remainingIds())
+    assertEquals(1, txPort.claimedBatches.size)
+    assertEquals(listOf(requireNotNull(image1.id), requireNotNull(image2.id)), txPort.purgedIds)
+    assertEquals(listOf(requireNotNull(image3.id)), txPort.remainingIds())
   }
 
   @Test
   fun `recoverDeletePendingImages should continue after one item fails`() {
     val image1 =
-        newDeletePendingImageEntity(
+        newDeletePendingImage(
             fileName = "images/test/success-1.png",
             createdAt = LocalDateTime.of(2024, 1, 1, 0, 0, 0),
         )
     val image2 =
-        newDeletePendingImageEntity(
+        newDeletePendingImage(
             fileName = "images/test/fail.png",
             createdAt = LocalDateTime.of(2024, 1, 1, 0, 1, 0),
         )
     val image3 =
-        newDeletePendingImageEntity(
+        newDeletePendingImage(
             fileName = "images/test/success-2.png",
             createdAt = LocalDateTime.of(2024, 1, 1, 0, 2, 0),
         )
+    val txPort = FakeRecoveryImageMetadataPort(listOf(image1, image2, image3))
     val storageClient =
         CapturingStorageClient(
             failDeleteObject = { key -> key == "images/test/fail.png" },
         )
-    val imageService = createImageService(storageClient = storageClient, storageType = "S3")
-    val txService = FakeRecoveryImageEntityTxService(listOf(image1, image2, image3))
-    val recoveryService = AppImageDeleteRecoveryService(txService, imageService)
+    val recoveryService =
+        AppImageDeleteRecoveryService(
+            imageMetadataPort = txPort,
+            imageObjectStoragePort = newImageObjectStoragePort(storageClient),
+        )
 
     val result = recoveryService.recoverDeletePendingImages(limit = 10)
 
@@ -130,20 +137,21 @@ class AppImageDeleteRecoveryServiceTest {
     assertEquals(1, result.failedCount)
     assertEquals(1, result.remainingPendingCount)
     assertEquals(LocalDateTime.of(2024, 1, 1, 0, 1, 0), result.oldestPendingCreatedAt)
-    assertEquals(listOf(requireNotNull(image2.id)), txService.releasedIds)
+    assertEquals(listOf(requireNotNull(image2.id)), txPort.releasedIds)
     assertEquals(
         listOf(requireNotNull(image1.id), requireNotNull(image3.id)),
-        txService.purgedIds,
+        txPort.purgedIds,
     )
-    assertEquals(listOf(requireNotNull(image2.id)), txService.remainingIds())
+    assertEquals(listOf(requireNotNull(image2.id)), txPort.remainingIds())
   }
 
   @Test
   fun `recoverDeletePendingImages should reject non positive limit`() {
-    val imageService =
-        createImageService(storageClient = CapturingStorageClient(), storageType = "S3")
-    val txService = FakeRecoveryImageEntityTxService(emptyList())
-    val recoveryService = AppImageDeleteRecoveryService(txService, imageService)
+    val recoveryService =
+        AppImageDeleteRecoveryService(
+            imageMetadataPort = FakeRecoveryImageMetadataPort(emptyList()),
+            imageObjectStoragePort = newImageObjectStoragePort(CapturingStorageClient()),
+        )
 
     val exception =
         assertFailsWith<IllegalArgumentException> {
@@ -156,23 +164,25 @@ class AppImageDeleteRecoveryServiceTest {
   @Test
   fun `recoverDeletePendingImages should skip rows already claimed by another batch`() {
     val claimedElsewhere =
-        newDeletePendingImageEntity(
+        newDeletePendingImage(
             fileName = "images/test/claimed-elsewhere.png",
             createdAt = LocalDateTime.of(2024, 1, 1, 0, 0, 0),
         )
     val claimable =
-        newDeletePendingImageEntity(
+        newDeletePendingImage(
             fileName = "images/test/claimable.png",
             createdAt = LocalDateTime.of(2024, 1, 1, 0, 1, 0),
         )
-    val storageClient = CapturingStorageClient()
-    val imageService = createImageService(storageClient = storageClient, storageType = "S3")
-    val txService =
-        FakeRecoveryImageEntityTxService(
-            initialEntities = listOf(claimedElsewhere, claimable),
+    val txPort =
+        FakeRecoveryImageMetadataPort(
+            initialImages = listOf(claimedElsewhere, claimable),
             externallyClaimedIds = setOf(requireNotNull(claimedElsewhere.id)),
         )
-    val recoveryService = AppImageDeleteRecoveryService(txService, imageService)
+    val recoveryService =
+        AppImageDeleteRecoveryService(
+            imageMetadataPort = txPort,
+            imageObjectStoragePort = newImageObjectStoragePort(CapturingStorageClient()),
+        )
 
     val result = recoveryService.recoverDeletePendingImages(limit = 10)
 
@@ -181,8 +191,17 @@ class AppImageDeleteRecoveryServiceTest {
     assertEquals(0, result.failedCount)
     assertEquals(1, result.remainingPendingCount)
     assertEquals(LocalDateTime.of(2024, 1, 1, 0, 0, 0), result.oldestPendingCreatedAt)
-    assertEquals(listOf(requireNotNull(claimable.id)), txService.purgedIds)
-    assertEquals(listOf(requireNotNull(claimedElsewhere.id)), txService.remainingIds())
+    assertEquals(listOf(requireNotNull(claimable.id)), txPort.purgedIds)
+    assertEquals(listOf(requireNotNull(claimedElsewhere.id)), txPort.remainingIds())
+  }
+
+  private fun newImageObjectStoragePort(
+      storageClient: StorageClient,
+  ): ImageServiceStoragePortAdapter {
+    return ImageServiceStoragePortAdapter(
+        imageService = createImageService(storageClient = storageClient, storageType = "S3"),
+        storageClients = mapOf("S3" to storageClient),
+    )
   }
 
   private fun createImageService(
@@ -223,17 +242,17 @@ class AppImageDeleteRecoveryServiceTest {
     )
   }
 
-  private fun newDeletePendingImageEntity(
+  private fun newDeletePendingImage(
       fileName: String = "images/test/original.png",
       thumbnailFileName: String = "images/test/original_thumb.webp",
       createdAt: LocalDateTime = LocalDateTime.now(),
-  ): ImageEntity {
-    return ImageEntity(
+  ): StoredImage {
+    return StoredImage(
         id = UUID.randomUUID(),
         bucket = "bucket",
         serviceName = "svc",
         storageService = "S3",
-        status = ImageEntity.STATUS_DELETE_PENDING,
+        status = StoredImage.STATUS_DELETE_PENDING,
         storageType = "S3",
         fileName = fileName,
         thumbnailFileName = thumbnailFileName,
@@ -244,52 +263,61 @@ class AppImageDeleteRecoveryServiceTest {
     )
   }
 
-  private class FakeRecoveryImageEntityTxService(
-      initialEntities: List<ImageEntity>,
+  private class FakeRecoveryImageMetadataPort(
+      initialImages: List<StoredImage>,
       private val externallyClaimedIds: Set<UUID> = emptySet(),
-  ) : AppImageEntityTxService(mock(ImageRepository::class.java)) {
-    private val pendingEntities: MutableList<ImageEntity> = initialEntities.toMutableList()
+  ) : com.infosung.atomic.app.storage.application.port.out.ImageMetadataPort {
+    private val pendingImages: MutableList<StoredImage> = initialImages.toMutableList()
     val purgedIds: MutableList<UUID> = mutableListOf()
     val releasedIds: MutableList<UUID> = mutableListOf()
     val claimedBatches: MutableList<List<UUID>> = mutableListOf()
+
+    override fun findByIdOrThrow(imageId: UUID, rawImageId: String): StoredImage {
+      throw UnsupportedOperationException("not needed in this test")
+    }
+
+    override fun save(image: StoredImage): StoredImage {
+      throw UnsupportedOperationException("not needed in this test")
+    }
+
+    override fun markDeletePending(image: StoredImage): StoredImage {
+      throw UnsupportedOperationException("not needed in this test")
+    }
+
+    override fun purgeDeletePending(image: StoredImage) {
+      val imageId = requireNotNull(image.id)
+      purgedIds += imageId
+      pendingImages.removeIf { it.id == imageId }
+    }
+
+    override fun inspectDeletePendingImages(): ImageDeletePendingSnapshot {
+      val oldestPendingCreatedAt = pendingImages.minByOrNull { it.createdAt }?.createdAt
+      return ImageDeletePendingSnapshot(
+          pendingCount = pendingImages.size.toLong(),
+          oldestPendingCreatedAt = oldestPendingCreatedAt,
+      )
+    }
 
     override fun claimDeletePending(
         limit: Int,
         claimToken: String,
         claimedAt: LocalDateTime,
-    ): List<ImageEntity> {
+    ): List<StoredImage> {
       val claimed =
-          pendingEntities
+          pendingImages
               .asSequence()
-              .filter { entity -> requireNotNull(entity.id) !in externallyClaimedIds }
+              .filter { image -> requireNotNull(image.id) !in externallyClaimedIds }
               .take(limit)
               .toList()
       claimedBatches += claimed.map { requireNotNull(it.id) }
       return claimed
     }
 
-    override fun inspectDeletePendingImages(): ImageDeletePendingSnapshot {
-      val oldestPendingCreatedAt = pendingEntities.minByOrNull { it.createdAt }?.createdAt
-      return ImageDeletePendingSnapshot(
-          pendingCount = pendingEntities.size.toLong(),
-          oldestPendingCreatedAt = oldestPendingCreatedAt,
-      )
-    }
-
-    override fun purgeDeletePending(imageEntity: ImageEntity) {
-      val imageId = requireNotNull(imageEntity.id)
-      purgedIds += imageId
-      pendingEntities.removeIf { it.id == imageId }
-    }
-
-    override fun releaseDeleteRecoveryClaim(
-        imageId: UUID,
-        claimToken: String,
-    ) {
+    override fun releaseDeleteRecoveryClaim(imageId: UUID, claimToken: String) {
       releasedIds += imageId
     }
 
-    fun remainingIds(): List<UUID> = pendingEntities.mapNotNull { it.id }
+    fun remainingIds(): List<UUID> = pendingImages.mapNotNull { it.id }
   }
 
   private class CapturingStorageClient(
@@ -318,8 +346,8 @@ class AppImageDeleteRecoveryServiceTest {
     appender.start()
     logger.addAppender(appender)
     logger.level = level
-    try {
-      return block(appender.list)
+    return try {
+      block(appender.list)
     } finally {
       logger.detachAppender(appender)
       logger.level = previousLevel

@@ -1,5 +1,9 @@
 package com.infosung.atomic.app.storage
 
+import com.infosung.atomic.app.storage.adapter.out.persistence.AppImageEntityTxService
+import com.infosung.atomic.app.storage.adapter.out.persistence.ImageEntity
+import com.infosung.atomic.app.storage.adapter.out.persistence.ImageRepository
+import com.infosung.atomic.app.storage.domain.StoredImage
 import java.time.LocalDateTime
 import java.util.UUID
 import kotlin.test.Test
@@ -46,7 +50,7 @@ class AppImageMigrationAssetContractTest {
     assertEquals(saved.fileName, loaded.fileName)
     assertEquals(saved.storageType, loaded.storageType)
 
-    imageEntityTxService.delete(saved)
+    imageEntityTxService.purgeDeletePending(saved)
 
     val remaining =
         jdbcTemplate.queryForObject(
@@ -82,14 +86,14 @@ class AppImageMigrationAssetContractTest {
     imageEntityTxService.save(
         newEntity(
             fileName = "images/older/original.png",
-            status = ImageEntity.STATUS_DELETE_PENDING,
+            status = StoredImage.STATUS_DELETE_PENDING,
             createdAt = LocalDateTime.of(2024, 1, 1, 0, 0, 0),
         ),
     )
     imageEntityTxService.save(
         newEntity(
             fileName = "images/newer/original.png",
-            status = ImageEntity.STATUS_DELETE_PENDING,
+            status = StoredImage.STATUS_DELETE_PENDING,
             createdAt = LocalDateTime.of(2024, 1, 2, 0, 0, 0),
         ),
     )
@@ -106,7 +110,7 @@ class AppImageMigrationAssetContractTest {
         imageEntityTxService.save(
             newEntity(
                 fileName = "images/claim/oldest.png",
-                status = ImageEntity.STATUS_DELETE_PENDING,
+                status = StoredImage.STATUS_DELETE_PENDING,
                 createdAt = LocalDateTime.of(2024, 1, 1, 0, 0, 0),
             ),
         )
@@ -114,7 +118,7 @@ class AppImageMigrationAssetContractTest {
         imageEntityTxService.save(
             newEntity(
                 fileName = "images/claim/newest.png",
-                status = ImageEntity.STATUS_DELETE_PENDING,
+                status = StoredImage.STATUS_DELETE_PENDING,
                 createdAt = LocalDateTime.of(2024, 1, 2, 0, 0, 0),
             ),
         )
@@ -142,7 +146,7 @@ class AppImageMigrationAssetContractTest {
         imageEntityTxService.save(
             newEntity(
                 fileName = "images/claim/stale.png",
-                status = ImageEntity.STATUS_DELETE_PENDING,
+                status = StoredImage.STATUS_DELETE_PENDING,
                 createdAt = LocalDateTime.of(2024, 1, 1, 0, 0, 0),
             ),
         )
@@ -213,13 +217,13 @@ class AppImageMigrationAssetContractTest {
       thumbnailFileName: String? = null,
       url: String? = null,
       thumbnailUrl: String? = null,
-      status: String = ImageEntity.STATUS_ACTIVE,
+      status: String = StoredImage.STATUS_ACTIVE,
       createdAt: LocalDateTime = LocalDateTime.now(),
-  ): ImageEntity {
+  ): StoredImage {
     val suffix = UUID.randomUUID().toString().take(8)
     val defaultObjectKey = "images/$suffix/original.png"
     val defaultThumbnailKey = "images/$suffix/original_thumb.webp"
-    return ImageEntity(
+    return StoredImage(
         bucket = "bucket",
         serviceName = "svc",
         storageService = "S3",

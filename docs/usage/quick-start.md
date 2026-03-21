@@ -230,7 +230,7 @@ Common failure causes:
 - Missing module dependencies while `enabled=true`
 - OAuth `signing-secret` length is below 32 bytes
 - Callback URI mismatch between provider console and server config
-- Image DELETE can reserve metadata as `DELETE_PENDING` before storage cleanup; retry the same DELETE after backend recovery or use `AppImageDeleteRecoveryService` from your own admin/scheduler path. Recovery batches claim eligible rows before cleanup and can reclaim stale claims after 15 minutes, but scheduler ownership still belongs to your app.
+- Image DELETE can reserve metadata as `DELETE_PENDING` before storage cleanup; retry the same DELETE after backend recovery or use the exported `InspectDeletePendingImagesUseCase` / `RecoverDeletePendingImagesUseCase` beans from your own admin or scheduler path. Recovery batches claim eligible rows before cleanup and can reclaim stale claims after 15 minutes, but scheduler ownership still belongs to your app.
 
 ---
 
