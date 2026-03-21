@@ -44,71 +44,68 @@ class AtomicAppImageCoreAutoConfiguration {
 
   @Bean
   @ConditionalOnMissingBean
-  fun uploadAppImageUseCase(
+  internal fun appImageApiOperations(
       imageMetadataPort: ImageMetadataPort,
       imageObjectStoragePort: ImageObjectStoragePort,
       properties: AtomicAppImageProperties,
-  ): UploadAppImageUseCase {
-    val service =
-        AppImageApiService(
-            imageMetadataPort = imageMetadataPort,
-            imageObjectStoragePort = imageObjectStoragePort,
-            requestPolicy = requestPolicy(properties),
-        )
-    return UploadAppImageUseCase { command -> service.uploadImage(command) }
-  }
+  ): AppImageApiOperations =
+      AppImageApiOperations(
+          AppImageApiService(
+              imageMetadataPort = imageMetadataPort,
+              imageObjectStoragePort = imageObjectStoragePort,
+              requestPolicy = requestPolicy(properties),
+          ),
+      )
 
   @Bean
-  fun deleteAppImageUseCase(
-      imageMetadataPort: ImageMetadataPort,
-      imageObjectStoragePort: ImageObjectStoragePort,
-      properties: AtomicAppImageProperties,
-  ): DeleteAppImageUseCase {
-    val service =
-        AppImageApiService(
-            imageMetadataPort = imageMetadataPort,
-            imageObjectStoragePort = imageObjectStoragePort,
-            requestPolicy = requestPolicy(properties),
-        )
-    return DeleteAppImageUseCase { command -> service.deleteImage(command) }
+  @ConditionalOnMissingBean
+  internal fun uploadAppImageUseCase(
+      appImageApiOperations: AppImageApiOperations,
+  ): UploadAppImageUseCase = UploadAppImageUseCase { command ->
+    appImageApiOperations.upload(command)
   }
 
   @Bean
   @ConditionalOnMissingBean
-  fun inspectDeletePendingImagesUseCase(
-      imageMetadataPort: ImageMetadataPort,
-      imageObjectStoragePort: ImageObjectStoragePort,
-      clockProvider: ObjectProvider<Clock>,
-  ): InspectDeletePendingImagesUseCase {
-    val service =
-        AppImageDeleteRecoveryService(
-            imageMetadataPort = imageMetadataPort,
-            imageObjectStoragePort = imageObjectStoragePort,
-            clock = clockProvider.getIfAvailable { Clock.systemUTC() },
-        )
-    return object : InspectDeletePendingImagesUseCase {
-      override fun inspectDeletePendingImages() = service.inspectDeletePendingImages()
-    }
+  internal fun deleteAppImageUseCase(
+      appImageApiOperations: AppImageApiOperations,
+  ): DeleteAppImageUseCase = DeleteAppImageUseCase { command ->
+    appImageApiOperations.delete(command)
   }
 
   @Bean
   @ConditionalOnMissingBean
-  fun recoverDeletePendingImagesUseCase(
+  internal fun appImageDeleteRecoveryOperations(
       imageMetadataPort: ImageMetadataPort,
       imageObjectStoragePort: ImageObjectStoragePort,
       clockProvider: ObjectProvider<Clock>,
-  ): RecoverDeletePendingImagesUseCase {
-    val service =
-        AppImageDeleteRecoveryService(
-            imageMetadataPort = imageMetadataPort,
-            imageObjectStoragePort = imageObjectStoragePort,
-            clock = clockProvider.getIfAvailable { Clock.systemUTC() },
-        )
-    return object : RecoverDeletePendingImagesUseCase {
-      override fun recoverDeletePendingImages(limit: Int) =
-          service.recoverDeletePendingImages(limit)
-    }
-  }
+  ): AppImageDeleteRecoveryOperations =
+      AppImageDeleteRecoveryOperations(
+          AppImageDeleteRecoveryService(
+              imageMetadataPort = imageMetadataPort,
+              imageObjectStoragePort = imageObjectStoragePort,
+              clock = clockProvider.getIfAvailable { Clock.systemUTC() },
+          ),
+      )
+
+  @Bean
+  @ConditionalOnMissingBean
+  internal fun inspectDeletePendingImagesUseCase(
+      appImageDeleteRecoveryOperations: AppImageDeleteRecoveryOperations,
+  ): InspectDeletePendingImagesUseCase =
+      object : InspectDeletePendingImagesUseCase {
+        override fun inspectDeletePendingImages() = appImageDeleteRecoveryOperations.inspect()
+      }
+
+  @Bean
+  @ConditionalOnMissingBean
+  internal fun recoverDeletePendingImagesUseCase(
+      appImageDeleteRecoveryOperations: AppImageDeleteRecoveryOperations,
+  ): RecoverDeletePendingImagesUseCase =
+      object : RecoverDeletePendingImagesUseCase {
+        override fun recoverDeletePendingImages(limit: Int) =
+            appImageDeleteRecoveryOperations.recover(limit)
+      }
 
   private fun requestPolicy(properties: AtomicAppImageProperties): AppImageRequestPolicy {
     return AppImageRequestPolicy(
@@ -118,4 +115,22 @@ class AtomicAppImageCoreAutoConfiguration {
         uploaderParameterName = properties.uploaderParameterName,
     )
   }
+}
+
+internal class AppImageApiOperations(
+    private val service: AppImageApiService,
+) {
+  fun upload(command: com.infosung.atomic.app.storage.application.model.UploadAppImageCommand) =
+      service.uploadImage(command)
+
+  fun delete(command: com.infosung.atomic.app.storage.application.model.DeleteAppImageCommand) =
+      service.deleteImage(command)
+}
+
+internal class AppImageDeleteRecoveryOperations(
+    private val service: AppImageDeleteRecoveryService,
+) {
+  fun inspect() = service.inspectDeletePendingImages()
+
+  fun recover(limit: Int) = service.recoverDeletePendingImages(limit)
 }

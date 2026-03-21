@@ -15,6 +15,7 @@ import com.infosung.atomic.storage.image.ImageService
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertSame
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.context.annotation.Bean
@@ -30,6 +31,18 @@ class AtomicAppImageAutoConfigurationContextTest {
               ),
           )
           .withUserConfiguration(TestConfiguration::class.java)
+  private val contextRunnerWithDeleteOverride =
+      ApplicationContextRunner()
+          .withConfiguration(
+              AutoConfigurations.of(
+                  AtomicAppImageCoreAutoConfiguration::class.java,
+                  AtomicAppImageWebAutoConfiguration::class.java,
+              ),
+          )
+          .withUserConfiguration(
+              TestConfiguration::class.java,
+              DeleteOverrideConfiguration::class.java,
+          )
 
   @Test
   fun `split core and web auto configuration should expose use case seams without concrete service beans`() {
@@ -39,6 +52,19 @@ class AtomicAppImageAutoConfigurationContextTest {
       assertNotNull(context.getBean(DeleteAppImageUseCase::class.java))
       assertNotNull(context.getBean(InspectDeletePendingImagesUseCase::class.java))
       assertNotNull(context.getBean(RecoverDeletePendingImagesUseCase::class.java))
+      assertEquals(0, context.getBeanNamesForType(AppImageApiService::class.java).size)
+      assertEquals(0, context.getBeanNamesForType(AppImageDeleteRecoveryService::class.java).size)
+    }
+  }
+
+  @Test
+  fun `custom delete use case should suppress default delete seam without exposing concrete services`() {
+    contextRunnerWithDeleteOverride.run { context ->
+      assertEquals(1, context.getBeanNamesForType(DeleteAppImageUseCase::class.java).size)
+      assertSame(
+          context.getBean("customDeleteAppImageUseCase"),
+          context.getBean(DeleteAppImageUseCase::class.java),
+      )
       assertEquals(0, context.getBeanNamesForType(AppImageApiService::class.java).size)
       assertEquals(0, context.getBeanNamesForType(AppImageDeleteRecoveryService::class.java).size)
     }
@@ -105,6 +131,14 @@ class AtomicAppImageAutoConfigurationContextTest {
           enabled = true
           endpointPath = "/api/v1/storage/image"
         }
+  }
+
+  @Configuration(proxyBeanMethods = false)
+  class DeleteOverrideConfiguration {
+    @Bean
+    fun customDeleteAppImageUseCase(): DeleteAppImageUseCase = DeleteAppImageUseCase {
+      throw UnsupportedOperationException()
+    }
   }
 
   private class NoopStorageClient : StorageClient {

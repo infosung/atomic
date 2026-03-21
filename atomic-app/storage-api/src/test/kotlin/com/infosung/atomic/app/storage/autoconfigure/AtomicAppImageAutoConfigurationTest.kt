@@ -67,18 +67,16 @@ class AtomicAppImageAutoConfigurationTest {
     val imageObjectStoragePort =
         mock(
             com.infosung.atomic.app.storage.application.port.out.ImageObjectStoragePort::class.java)
+    val operations =
+        coreAutoConfiguration.appImageApiOperations(
+            imageMetadataPort = imageMetadataPort,
+            imageObjectStoragePort = imageObjectStoragePort,
+            properties = AtomicAppImageProperties(),
+        )
     val uploadUseCase =
-        coreAutoConfiguration.uploadAppImageUseCase(
-            imageMetadataPort = imageMetadataPort,
-            imageObjectStoragePort = imageObjectStoragePort,
-            properties = AtomicAppImageProperties(),
-        )
+        coreAutoConfiguration.uploadAppImageUseCase(appImageApiOperations = operations)
     val deleteUseCase =
-        coreAutoConfiguration.deleteAppImageUseCase(
-            imageMetadataPort = imageMetadataPort,
-            imageObjectStoragePort = imageObjectStoragePort,
-            properties = AtomicAppImageProperties(),
-        )
+        coreAutoConfiguration.deleteAppImageUseCase(appImageApiOperations = operations)
 
     assertIs<UploadAppImageUseCase>(uploadUseCase)
     assertIs<DeleteAppImageUseCase>(deleteUseCase)
@@ -86,32 +84,25 @@ class AtomicAppImageAutoConfigurationTest {
 
   @Test
   fun `recovery use case seams should be created without concrete bean seam`() {
+    val operations =
+        coreAutoConfiguration.appImageDeleteRecoveryOperations(
+            imageMetadataPort =
+                mock(
+                    com.infosung.atomic.app.storage.application.port.out.ImageMetadataPort::class
+                        .java),
+            imageObjectStoragePort =
+                mock(
+                    com.infosung.atomic.app.storage.application.port.out
+                            .ImageObjectStoragePort::class
+                        .java),
+            clockProvider = provider(Clock::class.java, Clock.systemUTC()),
+        )
     val inspectUseCase =
         coreAutoConfiguration.inspectDeletePendingImagesUseCase(
-            imageMetadataPort =
-                mock(
-                    com.infosung.atomic.app.storage.application.port.out.ImageMetadataPort::class
-                        .java),
-            imageObjectStoragePort =
-                mock(
-                    com.infosung.atomic.app.storage.application.port.out
-                            .ImageObjectStoragePort::class
-                        .java),
-            clockProvider = provider(Clock::class.java, Clock.systemUTC()),
-        )
+            appImageDeleteRecoveryOperations = operations)
     val recoverUseCase =
         coreAutoConfiguration.recoverDeletePendingImagesUseCase(
-            imageMetadataPort =
-                mock(
-                    com.infosung.atomic.app.storage.application.port.out.ImageMetadataPort::class
-                        .java),
-            imageObjectStoragePort =
-                mock(
-                    com.infosung.atomic.app.storage.application.port.out
-                            .ImageObjectStoragePort::class
-                        .java),
-            clockProvider = provider(Clock::class.java, Clock.systemUTC()),
-        )
+            appImageDeleteRecoveryOperations = operations)
 
     assertIs<InspectDeletePendingImagesUseCase>(inspectUseCase)
     assertIs<RecoverDeletePendingImagesUseCase>(recoverUseCase)
