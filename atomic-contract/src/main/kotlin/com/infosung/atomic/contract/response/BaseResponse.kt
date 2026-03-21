@@ -1,5 +1,7 @@
 package com.infosung.atomic.contract.response
 
+import com.infosung.atomic.contract.exception.HttpStatusException
+
 /**
  * Standard API response envelope.
  *
@@ -24,8 +26,13 @@ data class BaseResponse<T>(
     /** Creates error response from exception type and message. */
     fun <T> error(e: Exception): BaseResponse<T> =
         BaseResponse(
-            code = e::class.java.simpleName,
+            code = resolveCode(e),
             message = e.message ?: e::class.java.simpleName,
         )
+
+    private fun resolveCode(e: Exception): String {
+      return (e as? HttpStatusException)?.code?.takeIf { it.isNotBlank() }
+          ?: e::class.java.simpleName
+    }
   }
 }

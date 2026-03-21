@@ -1,6 +1,7 @@
 package com.infosung.atomic.app.oauth.application.exception
 
-internal class OauthRedirectRemoteFailureException(
+class OauthRedirectRemoteFailureException(
     message: String,
     cause: Throwable? = null,
-) : OauthRedirectApplicationException(message, cause)
+    errorCode: OauthRedirectErrorCode = OauthRedirectErrorCode.OAUTH_PROVIDER_REMOTE_FAILURE,
+) : OauthRedirectApplicationException(errorCode, message, cause)

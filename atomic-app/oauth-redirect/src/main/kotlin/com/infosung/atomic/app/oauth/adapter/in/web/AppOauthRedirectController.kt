@@ -1,6 +1,7 @@
 package com.infosung.atomic.app.oauth.adapter.`in`.web
 
 import com.infosung.atomic.app.oauth.application.exception.OauthRedirectApplicationException
+import com.infosung.atomic.app.oauth.application.exception.OauthRedirectErrorCode
 import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRemoteFailureException
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildAppleCallbackRedirectUseCase
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildAuthorizationRedirectUseCase
@@ -121,6 +122,7 @@ class AppOauthRedirectController(
   fun callbackAppleGet(): String {
     throw HttpStatusException(
         status = 400,
+        code = OauthRedirectErrorCode.OAUTH_APPLE_CALLBACK_POST_ONLY.name,
         message = "Apple callback supports POST form_post only.",
     )
   }
@@ -178,35 +180,49 @@ class AppOauthRedirectController(
     return try {
       block()
     } catch (e: OauthRedirectRemoteFailureException) {
-      throwUpstreamCallbackFailure(provider = provider, cause = e)
-    } catch (e: HttpIOException) {
-      throwUpstreamCallbackFailure(provider = provider, cause = e)
-    } catch (e: OauthRedirectApplicationException) {
-      log.warn(
-          "Rejected oauth callback at web adapter: provider={}, message={}", provider, e.message)
-      throw HttpStatusException(
-          status = 400,
-          message = e.message ?: "Invalid OAuth callback request for provider: $provider",
+      throwUpstreamCallbackFailure(
+          provider = provider,
+          code = OauthRedirectErrorCode.OAUTH_PROVIDER_REMOTE_FAILURE,
           cause = e,
+      )
+    } catch (e: HttpIOException) {
+      throwUpstreamCallbackFailure(
+          provider = provider,
+          code = OauthRedirectErrorCode.OAUTH_PROVIDER_REMOTE_FAILURE,
+          cause = e,
+      )
+    } catch (e: OauthRedirectApplicationException) {
+      throwInvalidRequest(
+          provider = provider,
+          action = "oauth callback",
+          code = OauthRedirectErrorCode.OAUTH_CALLBACK_INVALID_REQUEST,
+          cause = e,
+          fallbackMessage = "Invalid OAuth callback request for provider: $provider",
       )
     } catch (e: HttpStatusException) {
       log.warn(
           "Rejected oauth callback at web adapter: provider={}, message={}", provider, e.message)
       throw e
     } catch (e: OauthException) {
-      log.warn(
-          "Rejected oauth callback at web adapter: provider={}, message={}", provider, e.message)
-      throw HttpStatusException(
-          status = 400,
-          message = e.message ?: "Invalid OAuth callback request for provider: $provider",
+      throwInvalidRequest(
+          provider = provider,
+          action = "oauth callback",
+          code = OauthRedirectErrorCode.OAUTH_CALLBACK_INVALID_REQUEST,
           cause = e,
+          fallbackMessage = "Invalid OAuth callback request for provider: $provider",
       )
     } catch (e: IllegalArgumentException) {
-      log.warn(
-          "Rejected oauth callback at web adapter: provider={}, message={}", provider, e.message)
-      throw HttpStatusException(
-          status = 400,
-          message = e.message ?: "Invalid OAuth callback request for provider: $provider",
+      throwInvalidRequest(
+          provider = provider,
+          action = "oauth callback",
+          code = OauthRedirectErrorCode.OAUTH_CALLBACK_INVALID_REQUEST,
+          cause = e,
+          fallbackMessage = "Invalid OAuth callback request for provider: $provider",
+      )
+    } catch (e: IllegalStateException) {
+      throwConfigurationFailure(
+          provider = provider,
+          action = "oauth callback",
           cause = e,
       )
     }
@@ -220,23 +236,44 @@ class AppOauthRedirectController(
     return try {
       block()
     } catch (e: OauthRedirectRemoteFailureException) {
-      throwUpstreamApplicationFailure(provider = provider, action = action, cause = e)
-    } catch (e: HttpIOException) {
-      throwUpstreamApplicationFailure(provider = provider, action = action, cause = e)
-    } catch (e: OauthRedirectApplicationException) {
-      log.warn("Rejected {} at web adapter: provider={}, message={}", action, provider, e.message)
-      throw HttpStatusException(
-          status = 400,
-          message = e.message ?: "Invalid request for provider: $provider",
+      throwUpstreamApplicationFailure(
+          provider = provider,
+          action = action,
+          code = OauthRedirectErrorCode.OAUTH_PROVIDER_REMOTE_FAILURE,
           cause = e,
+      )
+    } catch (e: HttpIOException) {
+      throwUpstreamApplicationFailure(
+          provider = provider,
+          action = action,
+          code = OauthRedirectErrorCode.OAUTH_PROVIDER_REMOTE_FAILURE,
+          cause = e,
+      )
+    } catch (e: OauthRedirectApplicationException) {
+      throwInvalidRequest(
+          provider = provider,
+          action = action,
+          code = OauthRedirectErrorCode.OAUTH_REDIRECT_INVALID_REQUEST,
+          cause = e,
+          fallbackMessage = "Invalid request for provider: $provider",
       )
     } catch (e: HttpStatusException) {
       log.warn("Rejected {} at web adapter: provider={}, message={}", action, provider, e.message)
       throw e
+    } catch (e: IllegalStateException) {
+      throwConfigurationFailure(
+          provider = provider,
+          action = action,
+          cause = e,
+      )
     }
   }
 
-  private fun throwUpstreamCallbackFailure(provider: String, cause: Exception): Nothing {
+  private fun throwUpstreamCallbackFailure(
+      provider: String,
+      code: OauthRedirectErrorCode,
+      cause: Exception,
+  ): Nothing {
     log.warn(
         "Upstream oauth callback failed at web adapter: provider={}, message={}",
         provider,
@@ -244,6 +281,7 @@ class AppOauthRedirectController(
     )
     throw HttpStatusException(
         status = 500,
+        code = code.name,
         message = cause.message ?: "Upstream OAuth callback failed for provider: $provider",
         cause = cause,
     )
@@ -252,6 +290,7 @@ class AppOauthRedirectController(
   private fun throwUpstreamApplicationFailure(
       provider: String,
       action: String,
+      code: OauthRedirectErrorCode,
       cause: Exception,
   ): Nothing {
     log.warn(
@@ -262,7 +301,45 @@ class AppOauthRedirectController(
     )
     throw HttpStatusException(
         status = 500,
+        code = code.name,
         message = cause.message ?: "Upstream OAuth provider request failed for provider: $provider",
+        cause = cause,
+    )
+  }
+
+  private fun throwInvalidRequest(
+      provider: String,
+      action: String,
+      code: OauthRedirectErrorCode,
+      cause: Exception,
+      fallbackMessage: String,
+  ): Nothing {
+    log.warn("Rejected {} at web adapter: provider={}, message={}", action, provider, cause.message)
+    throw HttpStatusException(
+        status = 400,
+        code = code.name,
+        message = cause.message ?: fallbackMessage,
+        cause = cause,
+    )
+  }
+
+  private fun throwConfigurationFailure(
+      provider: String,
+      action: String,
+      cause: IllegalStateException,
+  ): Nothing {
+    log.error(
+        "OAuth configuration failure at web adapter: action={}, provider={}, message={}",
+        action,
+        provider,
+        cause.message,
+        cause,
+    )
+    throw HttpStatusException(
+        status = 500,
+        code = OauthRedirectErrorCode.OAUTH_REDIRECT_CONFIGURATION_INVALID.name,
+        message =
+            cause.message ?: "OAuth redirect configuration is invalid for provider: $provider",
         cause = cause,
     )
   }
@@ -358,6 +435,7 @@ class AppOauthRedirectController(
       throw HttpStatusException(
           status = 400,
           message = "OAuth callback binding cookie is ambiguous.",
+          code = OauthRedirectErrorCode.OAUTH_CALLBACK_INVALID_REQUEST.name,
       )
     }
     return matchedCookies.firstOrNull()?.value?.trim()?.takeIf { it.isNotBlank() }

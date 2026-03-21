@@ -1,0 +1,9 @@
+package com.infosung.atomic.app.storage.application.exception
+
+enum class StorageErrorCode {
+  STORAGE_INVALID_IMAGE_REQUEST,
+  STORAGE_IMAGE_NOT_FOUND,
+  STORAGE_IMAGE_OWNERSHIP_MISMATCH,
+  STORAGE_UPLOADER_PARAMETER_REQUIRED,
+  STORAGE_CONFIGURATION_INVALID,
+}

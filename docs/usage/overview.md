@@ -130,9 +130,9 @@ dependencies {
 
 | Feature | Database schema | Shared store / external state | Host job / runbook | Security rule change | Error-envelope ownership |
 |---|---|---|---|---|---|
-| `atomic.app.version` | `service_version` table + policy rows | none | seed/update version policy data, including whether each row is already store-available | usually none beyond normal API rules | built-in app advice is enough unless your platform overrides it |
-| `atomic.app.storage.api` | `image` table | configured `storageClients` / backend bucket | yes; own the `DELETE_PENDING` recovery path by replaying the same DELETE, inspecting pending rows with `InspectDeletePendingImagesUseCase.inspectDeletePendingImages()`, or calling `RecoverDeletePendingImagesUseCase.recoverDeletePendingImages(limit)`; recovery batches claim rows to reduce overlap and reclaim stale claims after 15 minutes, but scheduler ownership remains with the host app | yes; include image paths in Spring Security matchers when security is enabled | built-in app advice is enough unless your platform overrides it |
-| `atomic.app.oauth.redirect` | default `entity` store needs `atomic_oauth_relay_code` table; `cache` / `in-memory` do not | yes; `OauthStateStore` for replay protection, plus relay store policy that matches deployment model | yes; own expired-row cleanup for entity relay store and decide local/dev vs multi-instance store policy | yes; allow redirect/callback endpoints and define CSRF policy for Apple `POST` callback | built-in app advice is enough unless your platform overrides it |
+| `atomic.app.version` | `service_version` table + policy rows | none | seed/update version policy data, including whether each row is already store-available | usually none beyond normal API rules | shared `atomic.spring.web` mapping for Atomic endpoints, or one host global exception policy |
+| `atomic.app.storage.api` | `image` table | configured `storageClients` / backend bucket | yes; own the `DELETE_PENDING` recovery path by replaying the same DELETE, inspecting pending rows with `InspectDeletePendingImagesUseCase.inspectDeletePendingImages()`, or calling `RecoverDeletePendingImagesUseCase.recoverDeletePendingImages(limit)`; recovery batches claim rows to reduce overlap and reclaim stale claims after 15 minutes, but scheduler ownership remains with the host app | yes; include image paths in Spring Security matchers when security is enabled | shared `atomic.spring.web` mapping for Atomic endpoints, or one host global exception policy |
+| `atomic.app.oauth.redirect` | default `entity` store needs `atomic_oauth_relay_code` table; `cache` / `in-memory` do not | yes; `OauthStateStore` for replay protection, plus relay store policy that matches deployment model | yes; own expired-row cleanup for entity relay store and decide local/dev vs multi-instance store policy | yes; allow redirect/callback endpoints and define CSRF policy for Apple `POST` callback | shared `atomic.spring.web` mapping for Atomic endpoints, or one host global exception policy |
 
 Use this matrix as the shortest handoff summary for app-module adoption. If a row introduces
 infrastructure your team does not want to own yet, stay on the narrower feature set.
@@ -149,9 +149,9 @@ OAuth redirect handoff summary:
 - `atomic.starter` activates only when corresponding module classes are on classpath.
 - `atomic.app` APIs are disabled by default and enabled by `atomic.app.version.enabled` / `atomic.app.image.enabled` / `atomic.app.oauth.redirect.enabled`.
 - Some features still require application-specific beans (for example `BaseExceptionHandler`, `ApiLogAspect`, `LogSaver`).
-- `atomic.app.version`, `atomic.app.image`, and `atomic.app.oauth.redirect` now ship controller-specific `HttpStatusException` mapping, so their documented `400/403/404` wire contract works without host-app exception advice.
-- Host apps can still override app-module error responses with a higher-precedence `@RestControllerAdvice` when a custom envelope is required.
-- Outside those app controllers, `HttpStatusException` still needs application-level mapping (for example `BaseExceptionHandler` subclass) to guarantee wire status and response shape.
+- `atomic.app.version`, `atomic.app.image`, and `atomic.app.oauth.redirect` now depend on shared `atomic.spring.web` exception mapping rather than module-local advice beans.
+- Host apps should keep one global exception policy and customize from public atomic exception types or stable `HttpStatusException.code`.
+- Avoid message-text or internal FQCN matching for atomic app-module errors.
 - OAuth provider beans from properties are registered when `OauthStateManager` is available and each provider `enabled=true` (auto path: `atomic.oauth2.state.enabled=true` + `atomic.oauth2.state.signing-secret`, or custom manager bean).
 - `atomic.oauth2.state.signing-secret` must be at least 32 bytes; shorter values fail startup.
 - OAuth one-time state consume requires store path (`in-memory-store.enabled=true` or custom/shared `OauthStateStore`).

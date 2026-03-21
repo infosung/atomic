@@ -1,7 +1,6 @@
 package com.infosung.atomic.app.oauth.autoconfigure
 
 import com.infosung.atomic.app.oauth.adapter.`in`.web.AppOauthRedirectController
-import com.infosung.atomic.app.oauth.adapter.`in`.web.AppOauthRedirectHttpExceptionHandler
 import com.infosung.atomic.app.oauth.adapter.out.relay.store.CacheOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.adapter.out.relay.store.InMemoryOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.adapter.out.relay.store.OauthRelayCodeStore
@@ -56,7 +55,6 @@ class AtomicAppOauthRedirectAutoConfigurationContextTest {
       assertTrue(context.getBeansOfType(IssueOauthRelayCodeUseCase::class.java).isEmpty())
       assertTrue(context.getBeansOfType(ConsumeOauthRelayCodeUseCase::class.java).isEmpty())
       assertTrue(context.getBeansOfType(AppOauthRedirectController::class.java).isEmpty())
-      assertTrue(context.getBeansOfType(AppOauthRedirectHttpExceptionHandler::class.java).isEmpty())
     }
   }
 
@@ -105,7 +103,6 @@ class AtomicAppOauthRedirectAutoConfigurationContextTest {
           assertNotNull(context.getBean(IssueOauthRelayCodeUseCase::class.java))
           assertNotNull(context.getBean(ConsumeOauthRelayCodeUseCase::class.java))
           assertNotNull(context.getBean(AppOauthRedirectController::class.java))
-          assertNotNull(context.getBean(AppOauthRedirectHttpExceptionHandler::class.java))
         }
   }
 
@@ -256,42 +253,6 @@ class AtomicAppOauthRedirectAutoConfigurationContextTest {
         .run { context ->
           assertTrue(context.startupFailure == null)
           assertEquals(1, context.getBeansOfType(AppOauthRedirectController::class.java).size)
-          assertNotNull(context.getBean(AppOauthRedirectHttpExceptionHandler::class.java))
-        }
-  }
-
-  @Test
-  fun `custom oauth exception handler bean should suppress default handler bean`() {
-    contextRunner
-        .withPropertyValues(
-            "atomic.app.oauth.redirect.enabled=true",
-            "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes=https://app.example.com/oauth",
-            "atomic.app.oauth.redirect.store.type=in-memory",
-        )
-        .withBean(
-            OauthServiceProvider::class.java,
-            { OauthServiceProvider(listOf(TestOauthProvider())) },
-        )
-        .withBean(
-            OauthStateManager::class.java,
-            {
-              OauthStateManager(
-                  signingSecret = "0123456789abcdef0123456789abcdef",
-                  store = InMemoryOauthStateStore(),
-              )
-            },
-        )
-        .withBean(
-            AppOauthRedirectHttpExceptionHandler::class.java,
-            { AppOauthRedirectHttpExceptionHandler() },
-        )
-        .run { context ->
-          assertTrue(context.startupFailure == null)
-          assertEquals(
-              1,
-              context.getBeansOfType(AppOauthRedirectHttpExceptionHandler::class.java).size,
-          )
-          assertNotNull(context.getBean(AppOauthRedirectController::class.java))
         }
   }
 

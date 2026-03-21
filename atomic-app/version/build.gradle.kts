@@ -17,6 +17,7 @@ repositories { mavenCentral() }
 
 dependencies {
   implementation(project(":atomic-contract"))
+  implementation(project(":atomic-spring-web"))
 
   implementation(libs.kotlin.reflect)
   implementation(libs.spring.boot.autoconfigure)

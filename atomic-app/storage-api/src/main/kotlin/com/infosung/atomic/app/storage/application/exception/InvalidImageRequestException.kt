@@ -3,4 +3,4 @@ package com.infosung.atomic.app.storage.application.exception
 class InvalidImageRequestException(
     message: String,
     cause: Throwable? = null,
-) : StorageApplicationException(message, cause)
+) : StorageApplicationException(StorageErrorCode.STORAGE_INVALID_IMAGE_REQUEST, message, cause)

@@ -14,7 +14,7 @@ It provides:
 ## Quick Start (10 Minutes)
 
 1. Return controller responses with `BaseResponse<T>`.
-2. Use `HttpStatusException` for domain errors.
+2. Use `HttpStatusException` for wire-level HTTP errors.
 3. Use `CursorPage` or `OffsetPage` for list endpoints.
 4. Add `TimeProvider` bean only if you need controllable clock/timezone.
 
@@ -75,14 +75,20 @@ val traceHeaderName = ApiHeaderNames.HEADER_X_TRACE_ID
 
 ## Exception Contract
 
-Use `HttpStatusException` for domain-level HTTP status signaling without coupling to Spring web layer.
+Use `HttpStatusException` as the shared wire-level error contract between web adapters and global HTTP exception handling.
 
-- `HttpStatusException(status, message)`
+- `HttpStatusException(status, message, cause, code?)`
 - `HttpInvalidTokenException` (401)
 - `HttpUnauthorizedException` (401)
 - `HttpTokenNotExpiredException` (400)
 
-These are commonly translated by `atomic.spring.web`'s exception handler.
+Important separation:
+
+- application/domain exceptions do not need to extend `HttpStatusException`
+- web adapters or shared exception mappers convert typed module failures into `HttpStatusException`
+- the stable wire identity should come from `HttpStatusException.code`, not from exception simple name parsing
+
+These are commonly translated by `atomic.spring.web`.
 
 ## Bean Registration
 
@@ -104,4 +110,4 @@ Optional bean registration only when you need DI-managed behavior:
 
 - Swagger type inference confusion on list APIs: wrap list in explicit page model (`CursorPage`, `OffsetPage`).
 - Time-sensitive tests flaky: inject `TimeProvider` with fixed clock in tests.
-- Inconsistent error responses: ensure exception mapping layer uses `HttpStatusException` consistently.
+- Inconsistent error responses: ensure one global exception mapping layer handles `HttpStatusException` and that callers branch on stable `code`, not message text.

@@ -1,11 +1,17 @@
 package com.infosung.atomic.app.storage.adapter.`in`.web
 
+import com.infosung.atomic.app.storage.application.exception.ImageNotFoundException
+import com.infosung.atomic.app.storage.application.exception.ImageOwnershipMismatchException
 import com.infosung.atomic.app.storage.application.exception.InvalidImageRequestException
+import com.infosung.atomic.app.storage.application.exception.StorageApplicationException
+import com.infosung.atomic.app.storage.application.exception.StorageConfigurationException
+import com.infosung.atomic.app.storage.application.exception.StorageErrorCode
 import com.infosung.atomic.app.storage.application.model.DeleteAppImageCommand
 import com.infosung.atomic.app.storage.application.model.UploadAppImageCommand
 import com.infosung.atomic.app.storage.application.port.`in`.DeleteAppImageUseCase
 import com.infosung.atomic.app.storage.application.port.`in`.UploadAppImageUseCase
 import com.infosung.atomic.app.storage.autoconfigure.AtomicAppImageProperties
+import com.infosung.atomic.contract.exception.HttpStatusException
 import com.infosung.atomic.contract.response.BaseResponse
 import jakarta.servlet.http.HttpServletRequest
 import org.slf4j.LoggerFactory
@@ -42,18 +48,27 @@ class AppStorageController(
   ): BaseResponse<ImageResponse> {
     val resolvedQuality = quality ?: properties.defaultQuality
     val resolvedThumbnailEnabled = thumbnailEnabled ?: properties.thumbnailEnabled
-    val uploaderId = resolveUploaderId(request)
     val image =
-        uploadAppImageUseCase.uploadImage(
-            UploadAppImageCommand(
-                serviceName = service,
-                storageService = storageService,
-                quality = resolvedQuality,
-                uploaderId = uploaderId,
-                thumbnailEnabled = resolvedThumbnailEnabled,
-                uploadSource = MultipartFileUploadSource(multipartFile),
-            ),
-        )
+        try {
+          val uploaderId = resolveUploaderId(request)
+          uploadAppImageUseCase.uploadImage(
+              UploadAppImageCommand(
+                  serviceName = service,
+                  storageService = storageService,
+                  quality = resolvedQuality,
+                  uploaderId = uploaderId,
+                  thumbnailEnabled = resolvedThumbnailEnabled,
+                  uploadSource = MultipartFileUploadSource(multipartFile),
+              ),
+          )
+        } catch (e: StorageApplicationException) {
+          throw storageHttpStatusException(
+              operation = "upload image",
+              service = service,
+              storageService = storageService,
+              exception = e,
+          )
+        }
     log.debug(
         "Mapping persisted image to image response DTO: imageId={}, serviceName={}, storageService={}, status={}",
         image.id,
@@ -71,15 +86,24 @@ class AppStorageController(
       @RequestParam("imageId") imageId: String,
       request: HttpServletRequest,
   ): BaseResponse<Nothing> {
-    val uploaderId = resolveUploaderId(request)
-    deleteAppImageUseCase.deleteImage(
-        DeleteAppImageCommand(
-            serviceName = service,
-            storageService = storageService,
-            imageId = imageId,
-            uploaderId = uploaderId,
-        ),
-    )
+    try {
+      val uploaderId = resolveUploaderId(request)
+      deleteAppImageUseCase.deleteImage(
+          DeleteAppImageCommand(
+              serviceName = service,
+              storageService = storageService,
+              imageId = imageId,
+              uploaderId = uploaderId,
+          ),
+      )
+    } catch (e: StorageApplicationException) {
+      throw storageHttpStatusException(
+          operation = "delete image",
+          service = service,
+          storageService = storageService,
+          exception = e,
+      )
+    }
     return BaseResponse.ok()
   }
 
@@ -89,12 +113,55 @@ class AppStorageController(
     }
     val parameterName =
         properties.uploaderParameterName.trim().takeIf { it.isNotBlank() }
-            ?: throw IllegalStateException(
+            ?: throw StorageConfigurationException(
                 "atomic.app.image.uploader-parameter-name must not be blank when uploader parameter tracking is enabled.",
             )
     return request.getParameter(parameterName)?.takeIf { it.isNotBlank() }
-        ?: throw InvalidImageRequestException(
+        ?: throw StorageApplicationException(
+            errorCode = StorageErrorCode.STORAGE_UPLOADER_PARAMETER_REQUIRED,
             "$parameterName is required when uploader parameter tracking is enabled.",
         )
+  }
+
+  private fun storageHttpStatusException(
+      operation: String,
+      service: String,
+      storageService: String,
+      exception: StorageApplicationException,
+  ): HttpStatusException {
+    val status =
+        when (exception) {
+          is InvalidImageRequestException -> 400
+          is ImageNotFoundException -> 404
+          is ImageOwnershipMismatchException -> 403
+          is StorageConfigurationException -> 500
+          else -> 400
+        }
+    if (status >= 500) {
+      log.error(
+          "Storage request failed at web adapter: operation={}, service={}, storageService={}, errorCode={}, message={}",
+          operation,
+          service,
+          storageService,
+          exception.errorCode,
+          exception.message,
+          exception,
+      )
+    } else {
+      log.warn(
+          "Storage request rejected at web adapter: operation={}, service={}, storageService={}, errorCode={}, message={}",
+          operation,
+          service,
+          storageService,
+          exception.errorCode,
+          exception.message,
+      )
+    }
+    return HttpStatusException(
+        status = status,
+        code = exception.errorCode.name,
+        message = exception.message ?: exception.errorCode.name,
+        cause = exception,
+    )
   }
 }

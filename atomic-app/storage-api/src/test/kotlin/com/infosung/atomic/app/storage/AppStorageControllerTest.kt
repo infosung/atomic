@@ -1,13 +1,13 @@
 package com.infosung.atomic.app.storage
 
 import com.infosung.atomic.app.storage.adapter.`in`.web.AppStorageController
-import com.infosung.atomic.app.storage.application.exception.InvalidImageRequestException
 import com.infosung.atomic.app.storage.application.model.DeleteAppImageCommand
 import com.infosung.atomic.app.storage.application.model.UploadAppImageCommand
 import com.infosung.atomic.app.storage.application.port.`in`.DeleteAppImageUseCase
 import com.infosung.atomic.app.storage.application.port.`in`.UploadAppImageUseCase
 import com.infosung.atomic.app.storage.autoconfigure.AtomicAppImageProperties
 import com.infosung.atomic.app.storage.domain.StoredImage
+import com.infosung.atomic.contract.exception.HttpStatusException
 import jakarta.servlet.http.HttpServletRequest
 import java.util.UUID
 import kotlin.test.Test
@@ -60,7 +60,7 @@ class AppStorageControllerTest {
     `when`(request.getParameter("memberId")).thenReturn(null)
 
     val exception =
-        assertFailsWith<InvalidImageRequestException> {
+        assertFailsWith<HttpStatusException> {
           controller.uploadImage(
               service = "svc",
               storageService = "S3",
@@ -75,6 +75,7 @@ class AppStorageControllerTest {
         "memberId is required when uploader parameter tracking is enabled.",
         exception.message,
     )
+    assertEquals("STORAGE_UPLOADER_PARAMETER_REQUIRED", exception.code)
   }
 
   @Test

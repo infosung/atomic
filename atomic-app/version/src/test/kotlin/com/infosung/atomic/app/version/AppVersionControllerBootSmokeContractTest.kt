@@ -55,7 +55,7 @@ class AppVersionControllerBootSmokeContractTest {
                 .header(ApiHeaderNames.HEADER_X_APP_VERSION, "1.0.0"),
         )
         .andExpect(status().isBadRequest)
-        .andExpect(jsonPath("$.code").value("HttpStatusException"))
+        .andExpect(jsonPath("$.code").value("VERSION_SERVICE_NAME_REQUIRED"))
         .andExpect(jsonPath("$.message").value("Service name is required."))
   }
 

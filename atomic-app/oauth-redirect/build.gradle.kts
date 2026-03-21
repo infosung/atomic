@@ -17,6 +17,7 @@ repositories { mavenCentral() }
 
 dependencies {
   implementation(project(":atomic-contract"))
+  implementation(project(":atomic-spring-web"))
   implementation(project(":atomic-spring-oauth2"))
 
   implementation(libs.kotlin.reflect)

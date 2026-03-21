@@ -13,12 +13,6 @@ class OauthRedirectPackageBoundaryContractTest {
         requiredClass("com.infosung.atomic.app.oauth.adapter.in.web.AppOauthRedirectController")
             .name,
     )
-    assertEquals(
-        "com.infosung.atomic.app.oauth.adapter.in.web.AppOauthRedirectHttpExceptionHandler",
-        requiredClass(
-                "com.infosung.atomic.app.oauth.adapter.in.web.AppOauthRedirectHttpExceptionHandler")
-            .name,
-    )
   }
 
   @Test
@@ -73,6 +67,12 @@ class OauthRedirectPackageBoundaryContractTest {
           val exception = assertFailsWith<ClassNotFoundException> { Class.forName(legacyClassName) }
           assertTrue(exception.message?.contains(legacyClassName) != false)
         }
+
+    assertFailsWith<ClassNotFoundException> {
+      Class.forName(
+          "com.infosung.atomic.app.oauth.adapter.in.web.AppOauthRedirectHttpExceptionHandler",
+      )
+    }
   }
 
   private fun requiredClass(name: String): Class<*> {

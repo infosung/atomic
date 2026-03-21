@@ -1,6 +1,7 @@
 package com.infosung.atomic.app.oauth.application.exception
 
-internal open class OauthRelayCodeApplicationException(
+open class OauthRelayCodeApplicationException(
+    errorCode: OauthRedirectErrorCode,
     message: String,
     cause: Throwable? = null,
-) : OauthRedirectApplicationException(message, cause)
+) : OauthRedirectApplicationException(errorCode, message, cause)

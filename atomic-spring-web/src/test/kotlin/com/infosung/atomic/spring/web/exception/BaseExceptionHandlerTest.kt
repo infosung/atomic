@@ -1,10 +1,12 @@
 package com.infosung.atomic.spring.web.exception
 
+import com.infosung.atomic.contract.exception.HttpStatusException
 import com.infosung.atomic.contract.exception.HttpUnauthorizedException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import org.springframework.mock.env.MockEnvironment
 import org.springframework.mock.web.MockHttpServletRequest
+import org.springframework.web.bind.MissingServletRequestParameterException
 
 class BaseExceptionHandlerTest {
   @Test
@@ -21,6 +23,24 @@ class BaseExceptionHandlerTest {
   }
 
   @Test
+  fun `httpStatusException should prefer explicit stable code`() {
+    val handler = TestExceptionHandler()
+    val request = MockHttpServletRequest("GET", "/v1/test")
+    val exception =
+        HttpStatusException(
+            status = 404,
+            code = "VERSION_POLICY_NOT_FOUND",
+            message = "No version policy found.",
+        )
+
+    val response = handler.httpStatusException(exception, request)
+
+    assertEquals(404, response.statusCode.value())
+    assertEquals("VERSION_POLICY_NOT_FOUND", response.body?.code)
+    assertEquals("No version policy found.", response.body?.message)
+  }
+
+  @Test
   fun `exception should mask 500 message`() {
     val handler = TestExceptionHandler()
     val request = MockHttpServletRequest("GET", "/v1/test")
@@ -31,6 +51,37 @@ class BaseExceptionHandlerTest {
     assertEquals(500, response.statusCode.value())
     assertEquals("IllegalStateException", response.body?.code)
     assertEquals("Internal Server Error", response.body?.message)
+  }
+
+  @Test
+  fun `httpStatusException should keep stable code while masking 500 message`() {
+    val handler = TestExceptionHandler()
+    val request = MockHttpServletRequest("GET", "/v1/test")
+    val exception =
+        HttpStatusException(
+            status = 500,
+            code = "OAUTH_PROVIDER_REMOTE_FAILURE",
+            message = "Failed to exchange provider token.",
+        )
+
+    val response = handler.httpStatusException(exception, request)
+
+    assertEquals(500, response.statusCode.value())
+    assertEquals("OAUTH_PROVIDER_REMOTE_FAILURE", response.body?.code)
+    assertEquals("Internal Server Error", response.body?.message)
+  }
+
+  @Test
+  fun `missing request parameter should map to stable 400 client error`() {
+    val handler = TestExceptionHandler()
+    val request = MockHttpServletRequest("DELETE", "/api/v1/storage/image/svc/S3")
+    val exception = MissingServletRequestParameterException("imageId", "String")
+
+    val response = handler.missingServletRequestParameterException(exception, request)
+
+    assertEquals(400, response.statusCode.value())
+    assertEquals("MISSING_REQUEST_PARAMETER", response.body?.code)
+    assertEquals("Required request parameter 'imageId' is missing.", response.body?.message)
   }
 
   private class TestExceptionHandler :

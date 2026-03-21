@@ -1,5 +1,6 @@
 package com.infosung.atomic.contract.response
 
+import com.infosung.atomic.contract.exception.HttpStatusException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -21,6 +22,21 @@ class BaseResponseTest {
 
     assertEquals("IllegalStateException", response.code)
     assertEquals("boom", response.message)
+  }
+
+  @Test
+  fun `error should prefer stable HttpStatusException code when present`() {
+    val response =
+        BaseResponse.error<Any>(
+            HttpStatusException(
+                status = 400,
+                code = "VERSION_INVALID_APP_VERSION",
+                message = "Version must be semantic format: x.y.z",
+            ),
+        )
+
+    assertEquals("VERSION_INVALID_APP_VERSION", response.code)
+    assertEquals("Version must be semantic format: x.y.z", response.message)
   }
 
   @Test

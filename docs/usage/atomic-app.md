@@ -346,7 +346,8 @@ Behavior:
 - internal implementation is organized in `application`, `domain`, and `adapter` layers. Supported host seams are the exported build/issue/consume use-case beans, `OauthRelayCodeStore`, and the exported web adapter beans.
 - state verification is also translated at the adapter boundary into an application-owned verified-state model before callback use-cases read `redirect_uri`, `nonce`, or callback-binding attributes.
 - internal composition/support beans may appear in the Spring context, but host apps should not customize those directly. The build redirect use cases are the one exception: they are exported override seams for hosts that intentionally replace the default redirect/callback orchestration.
-- the exported `AppOauthRedirectController` and `AppOauthRedirectHttpExceptionHandler` types now live directly on the web adapter boundary.
+- the exported `AppOauthRedirectController` type lives on the web adapter boundary.
+- default HTTP envelope rendering now flows through the shared `atomic.spring.web` handler instead of a module-local oauth advice bean.
 - browser initiation is the intended model for non-web clients too: mobile and desktop apps should normally start the provider flow in the system browser or a system-browser-based tab, let the server receive the provider callback, and then return to an allowlisted app URI with `relayCode`.
 - redirect endpoint input `redirectUri` must be an absolute URI and must not include user-info.
 - callback binding validates redirect/callback continuity using one-time state attribute + cookie token.
@@ -434,11 +435,11 @@ OAuth redirect exception semantics:
 - `400` invalid/missing redirectUri
 - `400` invalid callback request/state validation
 - `400` relayCode is invalid/expired/already consumed (on consume API call)
-- callback/state validation errors are wrapped as `HttpStatusException(400)` in the app oauth redirect web adapter.
-- upstream provider I/O errors are mapped to `HttpStatusException(500)` by the app oauth redirect web adapter.
+- callback/state validation errors are exposed as public oauth redirect exceptions and mapped to stable `HttpStatusException.code` values at the web boundary.
+- upstream provider I/O errors are exposed as public oauth redirect remote-failure exceptions and mapped to stable `HttpStatusException.code` values at the web boundary.
 - errors after `relayCode` consumption belong to your login/session API, not to the redirect/callback relay module.
-- app modules now ship controller-specific `HttpStatusException` mapping, so the documented HTTP status and `BaseResponse.error(...)` envelope are returned by default.
-- if your host app wants a different error envelope, register a higher-precedence `@RestControllerAdvice` to override the built-in handler.
+- app modules rely on shared `atomic.spring.web` exception mapping instead of module-local `*HttpExceptionHandler` beans.
+- if your host app wants a different error envelope, keep one global `@RestControllerAdvice` and map from public module exceptions or `HttpStatusException.code`.
 - empty `allowed-redirect-uri-prefixes` fails startup (fail-fast).
 - malformed `allowed-redirect-uri-prefixes` entry also fails startup (absolute URI only; no user-info/query/fragment).
 - enabling oauth redirect without both `OauthServiceProvider` and store-backed `OauthStateManager` fails startup.
@@ -476,6 +477,12 @@ Relay store notes:
 - in-memory fallback is process-local per instance and can break one-time relay semantics in multi-instance deployments.
 - oauth redirect readiness now checks explicit `OauthStateManager.isReplayProtectionEnabled()` capability instead of reflecting internal fields.
 - oauth redirect now prefers typed state claims from `atomic.spring.oauth2` and only keeps public facade/web wrappers for compatibility.
+
+App exception seam direction:
+
+- `app-version`: host-facing application exceptions are public and documented; HTTP status translation happens at the web boundary.
+- `oauth-redirect`: host-facing redirect/relay exceptions are public and documented; HTTP status translation happens at the web boundary.
+- `storage-api`: storage application exceptions remain public and are the supported host seam.
 - entity store expects table columns:
   - `relay_code` (PK, string)
   - `payload_json` (text/json string)

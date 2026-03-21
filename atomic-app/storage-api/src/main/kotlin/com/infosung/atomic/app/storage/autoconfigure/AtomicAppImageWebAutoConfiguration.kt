@@ -1,7 +1,6 @@
 package com.infosung.atomic.app.storage.autoconfigure
 
 import com.infosung.atomic.app.storage.adapter.`in`.web.AppStorageController
-import com.infosung.atomic.app.storage.adapter.`in`.web.AppStorageHttpExceptionHandler
 import com.infosung.atomic.app.storage.application.port.`in`.DeleteAppImageUseCase
 import com.infosung.atomic.app.storage.application.port.`in`.UploadAppImageUseCase
 import org.slf4j.LoggerFactory
@@ -47,11 +46,5 @@ class AtomicAppImageWebAutoConfiguration {
         deleteAppImageUseCase = deleteAppImageUseCase,
         properties = properties,
     )
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  fun appStorageHttpExceptionHandler(): AppStorageHttpExceptionHandler {
-    return AppStorageHttpExceptionHandler()
   }
 }
