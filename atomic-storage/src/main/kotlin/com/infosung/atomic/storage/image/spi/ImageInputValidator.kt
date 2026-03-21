@@ -1,4 +1,4 @@
-package com.infosung.atomic.storage.image
+package com.infosung.atomic.storage.image.spi
 
 import java.io.File
 import org.apache.commons.imaging.ImageFormats

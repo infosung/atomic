@@ -13,16 +13,16 @@ This guide focuses only on getting a working flow quickly.
 
 Dependency notation:
 - Gradle snippets below assume a local multi-module setup (`project(":...")`).
-- Published artifact equivalents for `v0.0.3` are:
-  - version-only: `implementation("com.infosung:atomic.app.version:0.0.3")`
-  - image API: `implementation("com.infosung:atomic.starter:0.0.3")`, `implementation("com.infosung:atomic.app.storage.api:0.0.3")`, `implementation("com.infosung:atomic.storage:0.0.3")`
-  - oauth redirect relay API: `implementation("com.infosung:atomic.starter:0.0.3")`, `implementation("com.infosung:atomic.app.oauth.redirect:0.0.3")`, `implementation("com.infosung:atomic.spring.oauth2:0.0.3")`
-  - convenience bundle: `implementation("com.infosung:atomic.app:0.0.3")`
+- Published artifact equivalents for `v0.0.4` are:
+  - version-only: `implementation("com.infosung:atomic.app.version:0.0.4")`
+  - image API: `implementation("com.infosung:atomic.starter:0.0.4")`, `implementation("com.infosung:atomic.app.storage.api:0.0.4")`, `implementation("com.infosung:atomic.storage:0.0.4")`
+  - oauth redirect relay API: `implementation("com.infosung:atomic.starter:0.0.4")`, `implementation("com.infosung:atomic.app.oauth.redirect:0.0.4")`, `implementation("com.infosung:atomic.spring.oauth2:0.0.4")`
+  - convenience bundle: `implementation("com.infosung:atomic.app:0.0.4")`
 
 Quick decision:
 - If you are still pre-production, validate behavior first with this document.
 - For production or multi-instance deployment, continue with [advanced-playbook](advanced-playbook.md).
-- If you are upgrading from `v0.0.2`, also review [Release Migration Guide: v0.0.2 -> v0.0.3](../migration/v0.0.2-to-v0.0.3.md).
+- If you are upgrading from `v0.0.3`, also review [Release Migration Guide: v0.0.3 -> v0.0.4](../migration/v0.0.3-to-v0.0.4.md).
 
 ---
 
@@ -45,32 +45,32 @@ Published artifact equivalents for the same three tracks:
 ```kotlin
 // A. version-only
 dependencies {
-  implementation("com.infosung:atomic.app.version:0.0.3")
+  implementation("com.infosung:atomic.app.version:0.0.4")
 }
 ```
 
 ```kotlin
 // B. image API
 dependencies {
-  implementation("com.infosung:atomic.starter:0.0.3")
-  implementation("com.infosung:atomic.app.storage.api:0.0.3")
-  implementation("com.infosung:atomic.storage:0.0.3")
+  implementation("com.infosung:atomic.starter:0.0.4")
+  implementation("com.infosung:atomic.app.storage.api:0.0.4")
+  implementation("com.infosung:atomic.storage:0.0.4")
 }
 ```
 
 ```kotlin
 // C. oauth redirect relay API
 dependencies {
-  implementation("com.infosung:atomic.starter:0.0.3")
-  implementation("com.infosung:atomic.app.oauth.redirect:0.0.3")
-  implementation("com.infosung:atomic.spring.oauth2:0.0.3")
+  implementation("com.infosung:atomic.starter:0.0.4")
+  implementation("com.infosung:atomic.app.oauth.redirect:0.0.4")
+  implementation("com.infosung:atomic.spring.oauth2:0.0.4")
 }
 ```
 
 ```kotlin
 // Convenience bundle
 dependencies {
-  implementation("com.infosung:atomic.app:0.0.3")
+  implementation("com.infosung:atomic.app:0.0.4")
 }
 ```
 
@@ -94,7 +94,7 @@ Notes:
   store targets too early.
 - if no matched policy row contributes a non-blank `store_url`, the API falls back to `atomic.app.version.default-store-url` (default `https://www.infosung.com`). Override that default before QA if it is not your actual store destination.
 - keep one row per `(service, platform, main_version, minor_version, patch_number)` semantic version;
-  duplicate version-policy rows are not a valid `v0.0.3` schema state.
+  duplicate version-policy rows are not a valid schema state in this release line.
 
 ### B. image API
 

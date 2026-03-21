@@ -3,6 +3,12 @@ package com.infosung.atomic.storage.image
 import com.infosung.atomic.storage.PutObjectRequest
 import com.infosung.atomic.storage.StorageClient
 import com.infosung.atomic.storage.StorageProfile
+import com.infosung.atomic.storage.image.spi.GeneratedThumbnail
+import com.infosung.atomic.storage.image.spi.ImageInputValidator
+import com.infosung.atomic.storage.image.spi.ImageMetadataReader
+import com.infosung.atomic.storage.image.spi.ImageObjectKeyGenerator
+import com.infosung.atomic.storage.image.spi.ImageThumbnailGenerator
+import com.infosung.atomic.storage.image.spi.ValidatedImageInput
 import java.io.ByteArrayInputStream
 import java.io.File
 import kotlin.test.Test

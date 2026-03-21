@@ -19,6 +19,7 @@ import com.infosung.atomic.oauth.api.OauthTokenExchangeRequest
 import com.infosung.atomic.oauth.api.OauthTokenRefreshRequest
 import com.infosung.atomic.oauth.api.OauthTokenResult
 import com.infosung.atomic.oauth.api.OauthTokenRevokeRequest
+import com.infosung.atomic.oauth.exception.HttpIOException
 import com.infosung.atomic.oauth.state.InMemoryOauthStateStore
 import com.infosung.atomic.oauth.state.OauthStateManager
 import kotlin.test.Test
@@ -195,6 +196,39 @@ class AppOauthRedirectControllerHttpContractTest {
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
         .andExpect(jsonPath("$.code").value("HttpStatusException"))
         .andExpect(jsonPath("$.message").value("State token is already used, expired, or unknown."))
+  }
+
+  @Test
+  fun `callback should map upstream provider io failure to documented 500 envelope`() {
+    val properties = configuredProperties().apply { callbackBinding.enabled = false }
+    val provider =
+        object : ContractOauthProvider(providerName = OauthProviderName.GOOGLE) {
+          override fun exchangeCode(request: OauthTokenExchangeRequest): OauthTokenResult {
+            throw HttpIOException("Failed to exchange provider token.")
+          }
+        }
+    val stateManager = stateManager()
+    val controller =
+        newController(
+            properties = properties,
+            providers = listOf(provider),
+            stateManager = stateManager,
+        )
+    val mockMvc = newMockMvc(controller = controller, properties = properties)
+    val state =
+        stateManager.issueState(
+            provider = OauthProviderName.GOOGLE,
+            redirectUri = "https://app.example.com/oauth/callback",
+        )
+
+    mockMvc
+        .perform(
+            get("/oauth/callback/google").param("code", "code-123").param("state", state),
+        )
+        .andExpect(status().isInternalServerError)
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+        .andExpect(jsonPath("$.code").value("HttpStatusException"))
+        .andExpect(jsonPath("$.message").value("Failed to exchange provider token."))
   }
 
   @Test
@@ -786,7 +820,7 @@ class AppOauthRedirectControllerHttpContractTest {
         .build()
   }
 
-  private class ContractOauthProvider(
+  private open class ContractOauthProvider(
       override val providerName: OauthProviderName,
   ) : OauthProvider {
     var lastAuthorizationRequest: OauthAuthorizationRequest? = null

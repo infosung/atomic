@@ -1,5 +1,6 @@
 package com.infosung.atomic.storage.image
 
+import com.infosung.atomic.storage.image.spi.DefaultImageThumbnailGenerator
 import com.sksamuel.scrimage.ImmutableImage
 import com.sksamuel.scrimage.webp.WebpWriter
 import java.awt.Color

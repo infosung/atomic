@@ -20,7 +20,20 @@ For most services, start with `ImageService`.
 - `ImageService.deleteImage(...)`: delete original and thumbnail by key
 - `ImageService` remains the compatibility-stable public facade for this module; the upload/delete orchestration behind it is internal and not a supported host override seam in this line
 
+Advanced customization note:
+
+- if you override image strategy/helper seams, import them from `com.infosung.atomic.storage.image.spi.*`
+- the advanced seam now includes:
+  - `ImageObjectKeyGenerator`
+  - `ImageInputValidator`
+  - `ImageMetadataReader`
+  - `ImageThumbnailGenerator`
+  - their default implementations such as `DefaultImageObjectKeyGenerator` and `DefaultImageThumbnailGenerator`
+- old root-package imports under `com.infosung.atomic.storage.image.*` for these strategy types are no longer the current-line path
+
 Low-level `StorageClient.putObject(...)` request models have internal constructors and are intended for module-internal use.
+
+If you are upgrading an existing customization from the previous line, also review [Release Migration Guide: `v0.0.3` -> `v0.0.4`](../migration/v0.0.3-to-v0.0.4.md).
 
 ## Prerequisites
 

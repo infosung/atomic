@@ -1,11 +1,11 @@
 # Usage Overview
 
-> Status: `v0.0.3` usage guide for a pre-1.0 release line.
+> Status: `v0.0.4` usage guide for a pre-1.0 release line.
 
 ## Before You Start
 
 - Release-validation baseline: Java `25`, Kotlin `2.3.10`, Spring Boot `4.0.3`
-- Other runtime combinations are possible, but they are not part of the `v0.0.3` release
+- Other runtime combinations are possible, but they are not part of the `v0.0.4` release
   guarantee unless your team validates them in its own CI before rollout.
 - Use `atomic.starter` to enable conditional auto-configuration.
 - Add `atomic.contract` when your app directly uses `BaseResponse` / `HttpStatusException`.
@@ -14,7 +14,7 @@
 Recommended entry docs:
 - Start with minimal setup: [Atomic Quick Start](quick-start.md)
 - Move to production criteria: [Advanced Operations Playbook](advanced-playbook.md)
-- Release upgrade impact: [Release Migration Guide: v0.0.2 -> v0.0.3](../migration/v0.0.2-to-v0.0.3.md)
+- Release upgrade impact: [Release Migration Guide: v0.0.3 -> v0.0.4](../migration/v0.0.3-to-v0.0.4.md)
 
 ## What Atomic Solves
 
@@ -46,22 +46,22 @@ Use only the modules you need.
 
 ## 2. Dependencies
 
-Published artifact examples (`v0.0.3`):
+Published artifact examples (`v0.0.4`):
 
 ```kotlin
 dependencies {
-  implementation("com.infosung:atomic.contract:0.0.3")
-  implementation("com.infosung:atomic.storage:0.0.3")
-  implementation("com.infosung:atomic.spring.web:0.0.3")
-  implementation("com.infosung:atomic.spring.security:0.0.3")
-  implementation("com.infosung:atomic.spring.idempotency:0.0.3")
-  implementation("com.infosung:atomic.spring.oauth2:0.0.3")
-  implementation("com.infosung:atomic.heartbeat:0.0.3")
-  implementation("com.infosung:atomic.starter:0.0.3")
-  implementation("com.infosung:atomic.app.version:0.0.3")
-  implementation("com.infosung:atomic.app.storage.api:0.0.3")
-  implementation("com.infosung:atomic.app.oauth.redirect:0.0.3")
-  implementation("com.infosung:atomic.app:0.0.3")
+  implementation("com.infosung:atomic.contract:0.0.4")
+  implementation("com.infosung:atomic.storage:0.0.4")
+  implementation("com.infosung:atomic.spring.web:0.0.4")
+  implementation("com.infosung:atomic.spring.security:0.0.4")
+  implementation("com.infosung:atomic.spring.idempotency:0.0.4")
+  implementation("com.infosung:atomic.spring.oauth2:0.0.4")
+  implementation("com.infosung:atomic.heartbeat:0.0.4")
+  implementation("com.infosung:atomic.starter:0.0.4")
+  implementation("com.infosung:atomic.app.version:0.0.4")
+  implementation("com.infosung:atomic.app.storage.api:0.0.4")
+  implementation("com.infosung:atomic.app.oauth.redirect:0.0.4")
+  implementation("com.infosung:atomic.app:0.0.4")
 }
 ```
 

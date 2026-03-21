@@ -33,7 +33,7 @@ Internally, `atomic.app` is a bundle of:
 - `atomic.app.storage.api` requires storage beans, so starter-based setups usually add both.
 - `atomic.app.oauth.redirect` usually pairs with `atomic.starter` + `atomic.spring.oauth2`.
 
-Published artifact set (`v0.0.3`):
+Published artifact set (`v0.0.4`):
 
 - `atomic-contract`
 - `atomic-storage`
@@ -75,9 +75,9 @@ Published-artifact narrow-module selection:
 
 ```kotlin
 dependencies {
-  implementation("com.infosung:atomic.app.version:0.0.3")
-  implementation("com.infosung:atomic.app.storage.api:0.0.3")
-  implementation("com.infosung:atomic.app.oauth.redirect:0.0.3")
+  implementation("com.infosung:atomic.app.version:0.0.4")
+  implementation("com.infosung:atomic.app.storage.api:0.0.4")
+  implementation("com.infosung:atomic.app.oauth.redirect:0.0.4")
 }
 ```
 
@@ -313,6 +313,8 @@ Storage client resolution:
 - upload resolution also tries exact/upper/lower variants
 - delete does not re-resolve from path parameters; it uses the persisted `storageType` value only
 - if persisted `storageType` no longer matches a configured storage client key, delete returns `400` without deleting storage objects or metadata
+- advanced `atomic-storage` image strategy seams now live under `com.infosung.atomic.storage.image.spi`
+  - host apps overriding the old root `com.infosung.atomic.storage.image.*` strategy types must migrate imports
 
 Image API exception semantics:
 
@@ -424,8 +426,8 @@ OAuth redirect exception semantics:
 - `400` invalid/missing redirectUri
 - `400` invalid callback request/state validation
 - `400` relayCode is invalid/expired/already consumed (on consume API call)
-- callback/state validation errors are wrapped as `HttpStatusException(400)` in app oauth redirect service.
-- upstream provider I/O errors can propagate as `HttpStatusException(500)` from oauth module.
+- callback/state validation errors are wrapped as `HttpStatusException(400)` in the app oauth redirect web adapter.
+- upstream provider I/O errors are mapped to `HttpStatusException(500)` by the app oauth redirect web adapter.
 - errors after `relayCode` consumption belong to your login/session API, not to the redirect/callback relay module.
 - app modules now ship controller-specific `HttpStatusException` mapping, so the documented HTTP status and `BaseResponse.error(...)` envelope are returned by default.
 - if your host app wants a different error envelope, register a higher-precedence `@RestControllerAdvice` to override the built-in handler.
@@ -509,7 +511,7 @@ The authoritative PostgreSQL starting-point assets now ship in module resources:
 - `atomic-app/storage-api`: `META-INF/atomic/sql/postgresql/image.sql`
 - `atomic-app/oauth-redirect`: `META-INF/atomic/sql/postgresql/atomic_oauth_relay_code.sql`
 
-For `service_version` and `image`, these assets now match explicit JPA table/column mappings in code. The SQL below mirrors the shipped assets, including the `v0.0.3` recovery-claim columns and supporting indexes.
+For `service_version` and `image`, these assets now match explicit JPA table/column mappings in code. The SQL below mirrors the shipped assets, including the recovery-claim columns and supporting indexes used in the current line.
 
 - Identifier-like columns (`service`, `platform`, `bucket`, `service_name`, `storage_service`, `storage_type`) keep a bounded `VARCHAR(255)` contract.
 - Columns affected by external lengths (`store_url`, `file_name`, `thumbnail_file_name`, `url`, `thumbnail_url`) are shipped as `TEXT`.
@@ -594,7 +596,7 @@ CREATE INDEX IF NOT EXISTS idx_atomic_oauth_relay_code_expires_at
 
 If your database already has the older `VARCHAR(255)` shape for externally sized fields, `CREATE TABLE IF NOT EXISTS`
 alone will not widen those columns. Apply an explicit migration before rolling out builds that can persist longer values.
-If you maintain a custom `image` schema, also add the `v0.0.3` delete-recovery claim columns/index before enabling
+If you maintain a custom `image` schema, also ensure the delete-recovery claim columns/index exist before enabling
 `atomic.app.image`.
 
 When `atomic.app.version.enabled=true` or `atomic.app.image.enabled=true`, startup now validates these externally sized

@@ -1,5 +1,6 @@
-package com.infosung.atomic.storage.image
+package com.infosung.atomic.storage.image.spi
 
+import com.infosung.atomic.storage.image.ImageMetadata
 import com.sksamuel.scrimage.ImmutableImage
 import com.sksamuel.scrimage.nio.PngWriter
 import com.sksamuel.scrimage.webp.WebpWriter

@@ -1,12 +1,14 @@
 package com.infosung.atomic.app.oauth.adapter.`in`.web
 
 import com.infosung.atomic.app.oauth.application.exception.OauthRedirectApplicationException
+import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRemoteFailureException
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildAppleCallbackRedirectUseCase
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildAuthorizationRedirectUseCase
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildOauthCallbackRedirectUseCase
 import com.infosung.atomic.app.oauth.autoconfigure.AtomicAppOauthRedirectProperties
 import com.infosung.atomic.contract.exception.HttpStatusException
 import com.infosung.atomic.oauth.api.OauthProviderName
+import com.infosung.atomic.oauth.exception.HttpIOException
 import com.infosung.atomic.oauth.exception.OauthException
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -175,6 +177,10 @@ class AppOauthRedirectController(
   ): T {
     return try {
       block()
+    } catch (e: OauthRedirectRemoteFailureException) {
+      throwUpstreamCallbackFailure(provider = provider, cause = e)
+    } catch (e: HttpIOException) {
+      throwUpstreamCallbackFailure(provider = provider, cause = e)
     } catch (e: OauthRedirectApplicationException) {
       log.warn(
           "Rejected oauth callback at web adapter: provider={}, message={}", provider, e.message)
@@ -213,6 +219,10 @@ class AppOauthRedirectController(
   ): T {
     return try {
       block()
+    } catch (e: OauthRedirectRemoteFailureException) {
+      throwUpstreamApplicationFailure(provider = provider, action = action, cause = e)
+    } catch (e: HttpIOException) {
+      throwUpstreamApplicationFailure(provider = provider, action = action, cause = e)
     } catch (e: OauthRedirectApplicationException) {
       log.warn("Rejected {} at web adapter: provider={}, message={}", action, provider, e.message)
       throw HttpStatusException(
@@ -224,6 +234,37 @@ class AppOauthRedirectController(
       log.warn("Rejected {} at web adapter: provider={}, message={}", action, provider, e.message)
       throw e
     }
+  }
+
+  private fun throwUpstreamCallbackFailure(provider: String, cause: Exception): Nothing {
+    log.warn(
+        "Upstream oauth callback failed at web adapter: provider={}, message={}",
+        provider,
+        cause.message,
+    )
+    throw HttpStatusException(
+        status = 500,
+        message = cause.message ?: "Upstream OAuth callback failed for provider: $provider",
+        cause = cause,
+    )
+  }
+
+  private fun throwUpstreamApplicationFailure(
+      provider: String,
+      action: String,
+      cause: Exception,
+  ): Nothing {
+    log.warn(
+        "Upstream {} failed at web adapter: provider={}, message={}",
+        action,
+        provider,
+        cause.message,
+    )
+    throw HttpStatusException(
+        status = 500,
+        message = cause.message ?: "Upstream OAuth provider request failed for provider: $provider",
+        cause = cause,
+    )
   }
 
   private fun resolveCallbackBindingTokenForRedirect(

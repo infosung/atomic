@@ -1,6 +1,7 @@
 package com.infosung.atomic.storage.image
 
 import com.infosung.atomic.contract.time.TimeProvider
+import com.infosung.atomic.storage.image.spi.DefaultImageObjectKeyGenerator
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset

@@ -62,6 +62,32 @@ class ImagePublicApiContractTest {
     )
   }
 
+  @Test
+  fun `image service advanced constructor seams should live under image spi`() {
+    val parameterTypes =
+        ImageService::class
+            .java
+            .declaredConstructors
+            .maxByOrNull { it.parameterTypes.size }!!
+            .parameterTypes
+    assertEquals(
+        "com.infosung.atomic.storage.image.spi.ImageObjectKeyGenerator",
+        parameterTypes[2].name,
+    )
+    assertEquals(
+        "com.infosung.atomic.storage.image.spi.ImageInputValidator",
+        parameterTypes[3].name,
+    )
+    assertEquals(
+        "com.infosung.atomic.storage.image.spi.ImageMetadataReader",
+        parameterTypes[4].name,
+    )
+    assertEquals(
+        "com.infosung.atomic.storage.image.spi.ImageThumbnailGenerator",
+        parameterTypes[5].name,
+    )
+  }
+
   private fun declaredFieldNames(type: Class<*>): List<String> {
     return type.declaredFields.filterNot { it.isSynthetic }.map { it.name }
   }

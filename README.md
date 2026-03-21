@@ -2,7 +2,7 @@
 
 Atomic is a Kotlin/Spring library suite for backend services.
 
-> Status: `v0.0.3` documentation for a pre-1.0 release line.
+> Status: `v0.0.4` documentation for a pre-1.0 release line.
 
 ## Tested Baseline
 
@@ -10,14 +10,14 @@ Atomic is a Kotlin/Spring library suite for backend services.
 - Kotlin `2.3.10`
 - Spring Boot `4.0.3`
 - `atomic.spring.web` AOP dependency uses `org.springframework.boot:spring-boot-starter-aspectj` (BOM-managed).
-- `v0.0.3` release validation is written against this baseline. If you run a different runtime mix,
+- `v0.0.4` release validation is written against this baseline. If you run a different runtime mix,
   treat it as self-validated in your own CI before rollout.
 
 ## Start Here (Recommended Path)
 
 1. Minimal adoption: [Atomic Quick Start](docs/usage/quick-start.md)
 2. Production transition: [Advanced Operations Playbook](docs/usage/advanced-playbook.md)
-3. Upgrade from `v0.0.2`: [Release Migration Guide](docs/migration/v0.0.2-to-v0.0.3.md)
+3. Upgrade from `v0.0.3`: [Release Migration Guide](docs/migration/v0.0.3-to-v0.0.4.md)
 4. Module-level details: see `Detailed Guides` below
 
 ## Feature-First Onboarding
@@ -58,22 +58,22 @@ Relationship summary:
 
 ## Dependency Setup
 
-### Published Artifact Examples (`v0.0.3`)
+### Published Artifact Examples (`v0.0.4`)
 
 ```kotlin
 dependencies {
-  implementation("com.infosung:atomic.contract:0.0.3")
-  implementation("com.infosung:atomic.storage:0.0.3")
-  implementation("com.infosung:atomic.spring.web:0.0.3")
-  implementation("com.infosung:atomic.spring.security:0.0.3")
-  implementation("com.infosung:atomic.spring.idempotency:0.0.3")
-  implementation("com.infosung:atomic.spring.oauth2:0.0.3")
-  implementation("com.infosung:atomic.heartbeat:0.0.3")
-  implementation("com.infosung:atomic.starter:0.0.3")
-  implementation("com.infosung:atomic.app.version:0.0.3")
-  implementation("com.infosung:atomic.app.storage.api:0.0.3")
-  implementation("com.infosung:atomic.app.oauth.redirect:0.0.3")
-  implementation("com.infosung:atomic.app:0.0.3")
+  implementation("com.infosung:atomic.contract:0.0.4")
+  implementation("com.infosung:atomic.storage:0.0.4")
+  implementation("com.infosung:atomic.spring.web:0.0.4")
+  implementation("com.infosung:atomic.spring.security:0.0.4")
+  implementation("com.infosung:atomic.spring.idempotency:0.0.4")
+  implementation("com.infosung:atomic.spring.oauth2:0.0.4")
+  implementation("com.infosung:atomic.heartbeat:0.0.4")
+  implementation("com.infosung:atomic.starter:0.0.4")
+  implementation("com.infosung:atomic.app.version:0.0.4")
+  implementation("com.infosung:atomic.app.storage.api:0.0.4")
+  implementation("com.infosung:atomic.app.oauth.redirect:0.0.4")
+  implementation("com.infosung:atomic.app:0.0.4")
 }
 ```
 
@@ -131,6 +131,7 @@ dependencies {
 - OAuth redirect stops at relayCode handoff. Your app still owns the login/session exchange after `ConsumeOauthRelayCodeUseCase.consume(relayCode)` succeeds.
 - Internally the module is now packaged in `application`, `domain`, and `adapter` layers. Supported host seams are the exported build/issue/consume use-case beans, the exported `OauthRelayCodeStore` seam, and the exported web adapter beans `AppOauthRedirectController` / `AppOauthRedirectHttpExceptionHandler`.
 - `atomic.spring.oauth2` keeps legacy `Jwt`-returning seams for compatibility, but new integrations should prefer typed `OauthStateClaims` / typed id-token claim models where available. Provider registry startup now fails fast on duplicate `OauthProviderName` registration instead of silently shadowing one bean.
+- `HttpIOException` / `HttpJwtVerifyException` now remain oauth-domain exceptions instead of carrying `HttpStatusException` directly. Treat HTTP status mapping as adapter-owned behavior in your app/web layer.
 
 ## Reference application.yml (feature template)
 
@@ -503,8 +504,8 @@ OAuth relay option (without token in callback query):
 - cache/entity stores validate expiration on consume (`pop`) and remove consumed relay data.
 - for cache backends, configure backend TTL/eviction to avoid stale expired keys accumulating.
 - for entity store, run periodic cleanup (for example `DELETE FROM atomic_oauth_relay_code WHERE expires_at <= NOW()`) for unconsumed expired rows.
-- callback/state validation errors are wrapped as `HttpStatusException(400)` in app oauth redirect service.
-- upstream provider I/O errors can propagate as `HttpStatusException(500)` from oauth module.
+- callback/state validation errors are wrapped as `HttpStatusException(400)` in the app oauth redirect web adapter.
+- upstream provider I/O errors are mapped to `HttpStatusException(500)` by the app oauth redirect web adapter.
 - app module controllers map `HttpStatusException` to the documented HTTP status and `BaseResponse.error(...)` envelope by default.
 - with `store.fail-fast=false`, selected store errors (missing deps, invalid cache-name/ttl, unavailable cache, unsupported atomic cache backend) do not fail startup and fall back to in-memory store.
 - in-memory fallback is process-local per instance and can break relay one-time guarantees in multi-instance deployments.
@@ -535,7 +536,8 @@ Typical override points:
 - Storage
   - `storageClients` (bean name)
   - `storageProfiles` (bean name)
-  - `ImageObjectKeyGenerator`, `ImageInputValidator`, `ImageMetadataReader`, `ImageThumbnailGenerator`
+  - advanced image strategy seams under `com.infosung.atomic.storage.image.spi`:
+    `ImageObjectKeyGenerator`, `ImageInputValidator`, `ImageMetadataReader`, `ImageThumbnailGenerator`
 - Web
   - `JsonTransfer`, `ServiceLogger`, `ApiLogFilter`
   - `apiLogFilterRegistration` (bean name)
@@ -548,12 +550,16 @@ Typical override points:
 - App
   - `checkAppVersionUseCase`, `appVersionController`
   - `issueOauthRelayCodeUseCase`, `consumeOauthRelayCodeUseCase`, `oauthRelayCodeStore`, `appOauthRedirectController`
-  - `appImageApiService`, `appStorageController`
+  - `uploadAppImageUseCase`, `deleteAppImageUseCase`, `inspectDeletePendingImagesUseCase`, `recoverDeletePendingImagesUseCase`, `appStorageController`
 
 For oauth redirect specifically, treat the exported build/issue/consume use-case beans,
 `OauthRelayCodeStore`, and the web adapter beans as the supported host seams. Internal
 composition/support types may exist in the context, but host apps should not customize those
 directly.
+
+For storage specifically, treat the `.image.spi` move as an explicit advanced-seam migration:
+host apps overriding the old root `com.infosung.atomic.storage.image.*` strategy types must update
+their imports to `com.infosung.atomic.storage.image.spi.*`.
 
 ## What Was Ambiguous Before (Review Summary)
 
