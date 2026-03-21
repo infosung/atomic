@@ -1,5 +1,6 @@
 package com.infosung.atomic.storage.image
 
+import com.infosung.atomic.storage.image.spi.CommonsImagingMetadataReader
 import java.awt.Color
 import java.awt.image.BufferedImage
 import java.io.File

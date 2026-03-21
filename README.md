@@ -503,8 +503,8 @@ OAuth relay option (without token in callback query):
 - cache/entity stores validate expiration on consume (`pop`) and remove consumed relay data.
 - for cache backends, configure backend TTL/eviction to avoid stale expired keys accumulating.
 - for entity store, run periodic cleanup (for example `DELETE FROM atomic_oauth_relay_code WHERE expires_at <= NOW()`) for unconsumed expired rows.
-- callback/state validation errors are wrapped as `HttpStatusException(400)` in app oauth redirect service.
-- upstream provider I/O errors can propagate as `HttpStatusException(500)` from oauth module.
+- callback/state validation errors are wrapped as `HttpStatusException(400)` in the app oauth redirect web adapter.
+- upstream provider I/O errors are mapped to `HttpStatusException(500)` by the app oauth redirect web adapter.
 - app module controllers map `HttpStatusException` to the documented HTTP status and `BaseResponse.error(...)` envelope by default.
 - with `store.fail-fast=false`, selected store errors (missing deps, invalid cache-name/ttl, unavailable cache, unsupported atomic cache backend) do not fail startup and fall back to in-memory store.
 - in-memory fallback is process-local per instance and can break relay one-time guarantees in multi-instance deployments.
@@ -535,7 +535,8 @@ Typical override points:
 - Storage
   - `storageClients` (bean name)
   - `storageProfiles` (bean name)
-  - `ImageObjectKeyGenerator`, `ImageInputValidator`, `ImageMetadataReader`, `ImageThumbnailGenerator`
+  - advanced image strategy seams under `com.infosung.atomic.storage.image.spi`:
+    `ImageObjectKeyGenerator`, `ImageInputValidator`, `ImageMetadataReader`, `ImageThumbnailGenerator`
 - Web
   - `JsonTransfer`, `ServiceLogger`, `ApiLogFilter`
   - `apiLogFilterRegistration` (bean name)
@@ -548,12 +549,16 @@ Typical override points:
 - App
   - `checkAppVersionUseCase`, `appVersionController`
   - `issueOauthRelayCodeUseCase`, `consumeOauthRelayCodeUseCase`, `oauthRelayCodeStore`, `appOauthRedirectController`
-  - `appImageApiService`, `appStorageController`
+  - `uploadAppImageUseCase`, `deleteAppImageUseCase`, `inspectDeletePendingImagesUseCase`, `recoverDeletePendingImagesUseCase`, `appStorageController`
 
 For oauth redirect specifically, treat the exported build/issue/consume use-case beans,
 `OauthRelayCodeStore`, and the web adapter beans as the supported host seams. Internal
 composition/support types may exist in the context, but host apps should not customize those
 directly.
+
+For storage specifically, treat the `.image.spi` move as an explicit advanced-seam migration:
+host apps overriding the old root `com.infosung.atomic.storage.image.*` strategy types must update
+their imports to `com.infosung.atomic.storage.image.spi.*`.
 
 ## What Was Ambiguous Before (Review Summary)
 

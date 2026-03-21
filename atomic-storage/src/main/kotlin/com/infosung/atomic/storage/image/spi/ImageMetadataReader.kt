@@ -1,5 +1,6 @@
-package com.infosung.atomic.storage.image
+package com.infosung.atomic.storage.image.spi
 
+import com.infosung.atomic.storage.image.ImageMetadata
 import java.io.File
 import org.apache.commons.imaging.Imaging
 import org.apache.commons.imaging.formats.jpeg.JpegImageMetadata

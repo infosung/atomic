@@ -2,13 +2,13 @@ package com.infosung.atomic.storage.image.application.service
 
 import com.infosung.atomic.storage.PutObjectRequest
 import com.infosung.atomic.storage.image.ImageFileInfo
-import com.infosung.atomic.storage.image.ImageInputValidator
-import com.infosung.atomic.storage.image.ImageMetadataReader
-import com.infosung.atomic.storage.image.ImageObjectKeyGenerator
 import com.infosung.atomic.storage.image.ImageStorageBudgets
-import com.infosung.atomic.storage.image.ImageThumbnailGenerator
 import com.infosung.atomic.storage.image.ImageUploadResult
 import com.infosung.atomic.storage.image.application.support.ImageStorageAccessSupport
+import com.infosung.atomic.storage.image.spi.ImageInputValidator
+import com.infosung.atomic.storage.image.spi.ImageMetadataReader
+import com.infosung.atomic.storage.image.spi.ImageObjectKeyGenerator
+import com.infosung.atomic.storage.image.spi.ImageThumbnailGenerator
 import java.io.File
 import java.io.InputStream
 import java.io.InterruptedIOException

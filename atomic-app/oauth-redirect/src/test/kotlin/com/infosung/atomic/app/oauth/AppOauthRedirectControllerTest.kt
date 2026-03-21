@@ -18,6 +18,7 @@ import com.infosung.atomic.oauth.api.OauthTokenExchangeRequest
 import com.infosung.atomic.oauth.api.OauthTokenRefreshRequest
 import com.infosung.atomic.oauth.api.OauthTokenResult
 import com.infosung.atomic.oauth.api.OauthTokenRevokeRequest
+import com.infosung.atomic.oauth.exception.HttpIOException
 import com.infosung.atomic.oauth.state.OauthStateClaims
 import com.infosung.atomic.oauth.state.OauthStateManager
 import jakarta.servlet.http.Cookie
@@ -204,6 +205,58 @@ class AppOauthRedirectControllerTest {
 
     assertTrue(result.startsWith("redirect:https://client.example.com/oauth/callback?relayCode="))
     assertNull(response.getHeader("Set-Cookie"))
+  }
+
+  @Test
+  fun `callback should map upstream provider io failure to 500 http status`() {
+    val properties = configuredProperties().apply { callbackBinding.enabled = false }
+    val provider =
+        object : CapturingOauthProvider() {
+          override fun exchangeCode(request: OauthTokenExchangeRequest): OauthTokenResult {
+            throw HttpIOException("Failed to exchange provider token.")
+          }
+        }
+    val stateManager = mock(OauthStateManager::class.java)
+    val controller =
+        newController(
+            properties = properties,
+            providers = listOf(provider),
+            stateManager = stateManager,
+        )
+
+    `when`(
+            stateManager.verifyStateClaims(
+                "state-value",
+                OauthProviderName.GOOGLE,
+                null,
+                null,
+            ),
+        )
+        .thenReturn(
+            stateClaims(
+                provider = "GOOGLE",
+                redirectUri = "https://client.example.com/oauth/callback",
+                callbackBindingKey = properties.callbackBinding.stateAttributeKey,
+                callbackBindingToken = "unused-binding-token",
+            ),
+        )
+
+    val request = MockHttpServletRequest("GET", "/oauth/callback/google")
+    val response = MockHttpServletResponse()
+
+    val exception =
+        assertFailsWith<HttpStatusException> {
+          controller.callback(
+              provider = "google",
+              code = "code-value",
+              state = "state-value",
+              request = request,
+              response = response,
+          )
+        }
+
+    assertEquals(500, exception.status)
+    assertEquals("Failed to exchange provider token.", exception.message)
   }
 
   @Test
@@ -421,7 +474,7 @@ class AppOauthRedirectControllerTest {
     )
   }
 
-  private class CapturingOauthProvider : OauthProvider {
+  private open class CapturingOauthProvider : OauthProvider {
     override val providerName: OauthProviderName = OauthProviderName.GOOGLE
     var lastAuthorizationRequest: OauthAuthorizationRequest? = null
     var lastExchangeRequest: OauthTokenExchangeRequest? = null

@@ -1,6 +1,7 @@
-package com.infosung.atomic.storage.image
+package com.infosung.atomic.storage.image.spi
 
 import com.infosung.atomic.contract.time.TimeProvider
+import com.infosung.atomic.storage.image.ImageStorageBudgets
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter

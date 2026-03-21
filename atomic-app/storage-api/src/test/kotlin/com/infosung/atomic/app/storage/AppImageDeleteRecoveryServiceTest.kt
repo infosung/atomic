@@ -11,13 +11,14 @@ import com.infosung.atomic.app.storage.domain.StoredImage
 import com.infosung.atomic.storage.PutObjectRequest
 import com.infosung.atomic.storage.StorageClient
 import com.infosung.atomic.storage.StorageProfile
-import com.infosung.atomic.storage.image.ImageInputValidator
 import com.infosung.atomic.storage.image.ImageMetadata
-import com.infosung.atomic.storage.image.ImageMetadataReader
-import com.infosung.atomic.storage.image.ImageObjectKeyGenerator
 import com.infosung.atomic.storage.image.ImageService
-import com.infosung.atomic.storage.image.ImageThumbnailGenerator
-import com.infosung.atomic.storage.image.ValidatedImageInput
+import com.infosung.atomic.storage.image.spi.GeneratedThumbnail
+import com.infosung.atomic.storage.image.spi.ImageInputValidator
+import com.infosung.atomic.storage.image.spi.ImageMetadataReader
+import com.infosung.atomic.storage.image.spi.ImageObjectKeyGenerator
+import com.infosung.atomic.storage.image.spi.ImageThumbnailGenerator
+import com.infosung.atomic.storage.image.spi.ValidatedImageInput
 import java.io.File
 import java.time.Clock
 import java.time.Instant
@@ -233,7 +234,7 @@ class AppImageDeleteRecoveryServiceTest {
             ImageThumbnailGenerator { _, _, _, _ ->
               val thumbnailFile = File.createTempFile("atomic-app-storage-thumb-", ".webp")
               thumbnailFile.writeBytes(byteArrayOf(1, 2, 3))
-              com.infosung.atomic.storage.image.GeneratedThumbnail(
+              GeneratedThumbnail(
                   objectKey = "images/test/original_thumb.webp",
                   file = thumbnailFile,
                   metadata = ImageMetadata(width = 50, height = 40, size = thumbnailFile.length()),

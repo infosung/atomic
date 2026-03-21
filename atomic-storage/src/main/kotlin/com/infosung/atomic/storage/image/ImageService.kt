@@ -5,6 +5,14 @@ import com.infosung.atomic.storage.StorageProfile
 import com.infosung.atomic.storage.image.application.service.DeleteImageService
 import com.infosung.atomic.storage.image.application.service.UploadImageService
 import com.infosung.atomic.storage.image.application.support.ImageStorageAccessSupport
+import com.infosung.atomic.storage.image.spi.CommonsImagingImageInputValidator
+import com.infosung.atomic.storage.image.spi.CommonsImagingMetadataReader
+import com.infosung.atomic.storage.image.spi.DefaultImageObjectKeyGenerator
+import com.infosung.atomic.storage.image.spi.DefaultImageThumbnailGenerator
+import com.infosung.atomic.storage.image.spi.ImageInputValidator
+import com.infosung.atomic.storage.image.spi.ImageMetadataReader
+import com.infosung.atomic.storage.image.spi.ImageObjectKeyGenerator
+import com.infosung.atomic.storage.image.spi.ImageThumbnailGenerator
 import java.io.File
 import java.io.InputStream
 

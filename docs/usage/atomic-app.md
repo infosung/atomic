@@ -313,6 +313,8 @@ Storage client resolution:
 - upload resolution also tries exact/upper/lower variants
 - delete does not re-resolve from path parameters; it uses the persisted `storageType` value only
 - if persisted `storageType` no longer matches a configured storage client key, delete returns `400` without deleting storage objects or metadata
+- advanced `atomic-storage` image strategy seams now live under `com.infosung.atomic.storage.image.spi`
+  - host apps overriding the old root `com.infosung.atomic.storage.image.*` strategy types must migrate imports
 
 Image API exception semantics:
 
@@ -424,8 +426,8 @@ OAuth redirect exception semantics:
 - `400` invalid/missing redirectUri
 - `400` invalid callback request/state validation
 - `400` relayCode is invalid/expired/already consumed (on consume API call)
-- callback/state validation errors are wrapped as `HttpStatusException(400)` in app oauth redirect service.
-- upstream provider I/O errors can propagate as `HttpStatusException(500)` from oauth module.
+- callback/state validation errors are wrapped as `HttpStatusException(400)` in the app oauth redirect web adapter.
+- upstream provider I/O errors are mapped to `HttpStatusException(500)` by the app oauth redirect web adapter.
 - errors after `relayCode` consumption belong to your login/session API, not to the redirect/callback relay module.
 - app modules now ship controller-specific `HttpStatusException` mapping, so the documented HTTP status and `BaseResponse.error(...)` envelope are returned by default.
 - if your host app wants a different error envelope, register a higher-precedence `@RestControllerAdvice` to override the built-in handler.

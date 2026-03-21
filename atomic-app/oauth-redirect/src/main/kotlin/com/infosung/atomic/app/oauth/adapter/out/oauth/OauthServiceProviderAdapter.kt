@@ -1,5 +1,6 @@
 package com.infosung.atomic.app.oauth.adapter.out.oauth
 
+import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRemoteFailureException
 import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRequestException
 import com.infosung.atomic.app.oauth.application.port.out.OauthProviderAuthorization
 import com.infosung.atomic.app.oauth.application.port.out.OauthProviderOperationsPort
@@ -8,6 +9,7 @@ import com.infosung.atomic.oauth.api.OauthAuthorizationRequest
 import com.infosung.atomic.oauth.api.OauthProviderName
 import com.infosung.atomic.oauth.api.OauthServiceProvider
 import com.infosung.atomic.oauth.api.OauthTokenExchangeRequest
+import com.infosung.atomic.oauth.exception.HttpIOException
 import com.infosung.atomic.oauth.exception.OauthException
 import org.slf4j.LoggerFactory
 
@@ -33,6 +35,11 @@ internal class OauthServiceProviderAdapter(
     val authorizationUrl =
         try {
           oauthProvider.buildAuthorizationUrl(request)
+        } catch (e: HttpIOException) {
+          throw OauthRedirectRemoteFailureException(
+              e.message ?: "Upstream OAuth provider request failed for provider: $provider",
+              e,
+          )
         } catch (e: OauthException) {
           throw OauthRedirectRequestException(
               e.message ?: "Invalid OAuth authorization request for provider: $provider",
@@ -65,6 +72,11 @@ internal class OauthServiceProviderAdapter(
     val tokenResult =
         try {
           oauthProvider.exchangeCode(request)
+        } catch (e: HttpIOException) {
+          throw OauthRedirectRemoteFailureException(
+              e.message ?: "Upstream OAuth provider callback failed for provider: $provider",
+              e,
+          )
         } catch (e: OauthException) {
           throw OauthRedirectRequestException(
               e.message ?: "Invalid OAuth callback request for provider: $provider",
