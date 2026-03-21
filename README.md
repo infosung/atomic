@@ -410,7 +410,7 @@ If you use `atomic.app.oauth.redirect.enabled=true`, `AppOauthRedirectController
 `atomic.app` provides ready-to-use APIs:
 
 - version check (`AppVersionController`)
-- image upload/delete (`AppStorageController`)
+- image upload/delete (`adapter.in.web.AppStorageController`)
 - oauth redirect/callback relay (`AppOauthRedirectController`)
 
 For new adoption, prefer the narrow modules `atomic.app.version`, `atomic.app.storage.api`, and `atomic.app.oauth.redirect`. Use `atomic.app` when you want the convenience bundle on purpose.
@@ -430,7 +430,6 @@ Prerequisites:
   - example: `spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration`
 - if `store.type=entity` (default), prepare relay table (`atomic_oauth_relay_code` or configured table-name) before rollout.
 - official PostgreSQL starting-point SQL assets ship in module resources:
-- official PostgreSQL starting-point SQL assets ship in module resources:
   - `atomic-app/version`: `META-INF/atomic/sql/postgresql/service_version.sql`
   - `atomic-app/storage-api`: `META-INF/atomic/sql/postgresql/image.sql`
   - `atomic-app/oauth-redirect`: `META-INF/atomic/sql/postgresql/atomic_oauth_relay_code.sql`
@@ -449,10 +448,10 @@ Image uploader identity option (without security coupling):
 - `atomic.app.image.uploader-parameter-enabled=true` enables uploader parameter enforcement.
 - `atomic.app.image.uploader-parameter-name` defines which request parameter to use (for example `memberId`).
 - `atomic.app.image.thumbnail-enabled=true` enables thumbnail generation by default; upload requests can override with `thumbnailEnabled=true|false`.
-- upload stores that value in `ImageEntity.uploaderId`.
+- upload stores that value in persisted image metadata (`image.uploader_id`).
 - delete requires same parameter value and rejects mismatch (`403`).
 - delete reserves metadata as `DELETE_PENDING`, deletes storage, and purges metadata only after storage cleanup succeeds.
-- host apps can recover lingering `DELETE_PENDING` rows by calling `AppImageDeleteRecoveryService.recoverDeletePendingImages(limit)` from their own admin job or scheduler. The library does not ship a built-in reaper.
+- host apps can inspect lingering `DELETE_PENDING` rows via `InspectDeletePendingImagesUseCase.inspectDeletePendingImages()` and recover them via `RecoverDeletePendingImagesUseCase.recoverDeletePendingImages(limit)` from their own admin job or scheduler. The library does not ship a built-in reaper.
 - when enabled in production, align `image` table with nullable `uploader_id` column.
 
 OAuth relay option (without token in callback query):

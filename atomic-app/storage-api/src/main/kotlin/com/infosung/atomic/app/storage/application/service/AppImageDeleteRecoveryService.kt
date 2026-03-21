@@ -1,23 +1,28 @@
-package com.infosung.atomic.app.storage
+package com.infosung.atomic.app.storage.application.service
 
+import com.infosung.atomic.app.storage.application.port.`in`.InspectDeletePendingImagesUseCase
+import com.infosung.atomic.app.storage.application.port.`in`.RecoverDeletePendingImagesUseCase
+import com.infosung.atomic.app.storage.application.port.out.ImageMetadataPort
+import com.infosung.atomic.app.storage.application.port.out.ImageObjectStoragePort
+import com.infosung.atomic.app.storage.domain.ImageDeletePendingSnapshot
+import com.infosung.atomic.app.storage.domain.ImageDeleteRecoveryResult
 import com.infosung.atomic.contract.log.LogStringPreview
-import com.infosung.atomic.storage.image.ImageService
 import java.time.Clock
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 import java.util.UUID
 import org.slf4j.LoggerFactory
 
-/** Retries cleanup for metadata rows that remain in `DELETE_PENDING`. */
+/** Retries cleanup for metadata rows that remain in DELETE_PENDING. */
 class AppImageDeleteRecoveryService(
-    private val imageEntityTxService: AppImageEntityTxService,
-    private val imageService: ImageService,
+    private val imageMetadataPort: ImageMetadataPort,
+    private val imageObjectStoragePort: ImageObjectStoragePort,
     private val clock: Clock = Clock.systemUTC(),
-) {
+) : InspectDeletePendingImagesUseCase, RecoverDeletePendingImagesUseCase {
   private val log = LoggerFactory.getLogger(this::class.java)
 
-  fun inspectDeletePendingImages(): ImageDeletePendingSnapshot {
-    val snapshot = imageEntityTxService.inspectDeletePendingImages()
+  override fun inspectDeletePendingImages(): ImageDeletePendingSnapshot {
+    val snapshot = imageMetadataPort.inspectDeletePendingImages()
     log.debug(
         "Inspected delete-pending image metadata snapshot: pendingCount={}, oldestPendingCreatedAt={}, oldestPendingAgeSeconds={}",
         snapshot.pendingCount,
@@ -27,14 +32,14 @@ class AppImageDeleteRecoveryService(
     return snapshot
   }
 
-  fun recoverDeletePendingImages(limit: Int = DEFAULT_RECOVERY_LIMIT): ImageDeleteRecoveryResult {
+  override fun recoverDeletePendingImages(limit: Int): ImageDeleteRecoveryResult {
     require(limit > 0) { "limit must be greater than zero." }
 
     val beforeSnapshot = inspectDeletePendingImages()
     val batchToken = UUID.randomUUID().toString()
     val claimedAt = LocalDateTime.now(clock)
     val pendingImages =
-        imageEntityTxService.claimDeletePending(
+        imageMetadataPort.claimDeletePending(
             limit = limit,
             claimToken = batchToken,
             claimedAt = claimedAt,
@@ -61,37 +66,37 @@ class AppImageDeleteRecoveryService(
 
     var recoveredCount = 0
     var failedCount = 0
-    pendingImages.forEach { imageEntity ->
-      val imageId = imageEntity.id
+    pendingImages.forEach { image ->
+      val imageId = image.id
       log.info(
           "Recovering claimed delete-pending image metadata: imageId={}, claimToken={}, storageType={}, fileNamePreview={}, thumbnailFileNamePreview={}, status={}",
           imageId,
           batchToken,
-          imageEntity.storageType,
-          LogStringPreview.summarize(imageEntity.fileName),
-          LogStringPreview.summarize(imageEntity.thumbnailFileName),
-          imageEntity.status,
+          image.storageType,
+          LogStringPreview.summarize(image.fileName),
+          LogStringPreview.summarize(image.thumbnailFileName),
+          image.status,
       )
       try {
-        imageService.deleteImage(
-            storageType = imageEntity.storageType,
-            fileName = imageEntity.fileName,
-            thumbnailFileName = imageEntity.thumbnailFileName,
+        imageObjectStoragePort.deleteUploadedImageObject(
+            storageType = image.storageType,
+            fileName = image.fileName,
+            thumbnailFileName = image.thumbnailFileName,
         )
         log.info(
             "Recovered storage cleanup for claimed delete-pending image: imageId={}, claimToken={}, storageType={}, fileNamePreview={}, thumbnailFileNamePreview={}",
             imageId,
             batchToken,
-            imageEntity.storageType,
-            LogStringPreview.summarize(imageEntity.fileName),
-            LogStringPreview.summarize(imageEntity.thumbnailFileName),
+            image.storageType,
+            LogStringPreview.summarize(image.fileName),
+            LogStringPreview.summarize(image.thumbnailFileName),
         )
-        imageEntityTxService.purgeDeletePending(imageEntity)
+        imageMetadataPort.purgeDeletePending(image)
         recoveredCount += 1
       } catch (e: Exception) {
         failedCount += 1
         if (imageId != null) {
-          imageEntityTxService.releaseDeleteRecoveryClaim(
+          imageMetadataPort.releaseDeleteRecoveryClaim(
               imageId = imageId,
               claimToken = batchToken,
           )
@@ -100,10 +105,10 @@ class AppImageDeleteRecoveryService(
             "Delete-pending recovery failed and claim was released for retry: imageId={}, claimToken={}, storageType={}, fileNamePreview={}, thumbnailFileNamePreview={}, status={}",
             imageId,
             batchToken,
-            imageEntity.storageType,
-            LogStringPreview.summarize(imageEntity.fileName),
-            LogStringPreview.summarize(imageEntity.thumbnailFileName),
-            imageEntity.status,
+            image.storageType,
+            LogStringPreview.summarize(image.fileName),
+            LogStringPreview.summarize(image.thumbnailFileName),
+            image.status,
             e,
         )
       }
@@ -150,21 +155,4 @@ class AppImageDeleteRecoveryService(
     return ChronoUnit.SECONDS.between(oldestPendingCreatedAt, LocalDateTime.now(clock))
         .coerceAtLeast(0)
   }
-
-  companion object {
-    const val DEFAULT_RECOVERY_LIMIT: Int = 50
-  }
 }
-
-data class ImageDeletePendingSnapshot(
-    val pendingCount: Long,
-    val oldestPendingCreatedAt: LocalDateTime?,
-)
-
-data class ImageDeleteRecoveryResult(
-    val scannedCount: Int,
-    val recoveredCount: Int,
-    val failedCount: Int,
-    val remainingPendingCount: Long,
-    val oldestPendingCreatedAt: LocalDateTime?,
-)

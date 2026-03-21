@@ -1,5 +1,6 @@
-package com.infosung.atomic.app.storage
+package com.infosung.atomic.app.storage.adapter.out.persistence
 
+import com.infosung.atomic.app.storage.domain.StoredImage
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Id
@@ -10,7 +11,7 @@ import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.annotations.UuidGenerator
 import org.hibernate.type.SqlTypes
 
-/** Stored image metadata. */
+/** Stored image metadata entity. */
 @Entity(name = "image")
 @Table(name = "image")
 class ImageEntity(
@@ -18,7 +19,7 @@ class ImageEntity(
     @Column(name = "bucket", length = 255) val bucket: String,
     @Column(name = "service_name", length = 255) val serviceName: String,
     @Column(name = "storage_service", length = 255) val storageService: String,
-    @Column(name = "status") val status: String = STATUS_ACTIVE,
+    @Column(name = "status") val status: String = StoredImage.STATUS_ACTIVE,
     @Column(name = "uploader_id") val uploaderId: String? = null,
     @Column(name = "storage_type", length = 255) val storageType: String,
     @Column(name = "file_name", columnDefinition = "TEXT") val fileName: String? = null,
@@ -33,32 +34,4 @@ class ImageEntity(
     @Column(name = "thumbnail_height") val thumbnailHeight: Int? = null,
     @Column(name = "thumbnail_file_size") val thumbnailFileSize: Long? = null,
     @Column(name = "created_at") val createdAt: LocalDateTime = LocalDateTime.now(),
-) {
-  fun toDeletePending(): ImageEntity {
-    return ImageEntity(
-        id = id,
-        bucket = bucket,
-        serviceName = serviceName,
-        storageService = storageService,
-        status = STATUS_DELETE_PENDING,
-        uploaderId = uploaderId,
-        storageType = storageType,
-        fileName = fileName,
-        thumbnailFileName = thumbnailFileName,
-        url = url,
-        thumbnailUrl = thumbnailUrl,
-        width = width,
-        height = height,
-        fileSize = fileSize,
-        thumbnailWidth = thumbnailWidth,
-        thumbnailHeight = thumbnailHeight,
-        thumbnailFileSize = thumbnailFileSize,
-        createdAt = createdAt,
-    )
-  }
-
-  companion object {
-    const val STATUS_ACTIVE: String = "ACTIVE"
-    const val STATUS_DELETE_PENDING: String = "DELETE_PENDING"
-  }
-}
+)

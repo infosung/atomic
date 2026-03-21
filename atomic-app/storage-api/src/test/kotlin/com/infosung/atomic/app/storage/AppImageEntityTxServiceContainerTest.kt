@@ -1,5 +1,9 @@
 package com.infosung.atomic.app.storage
 
+import com.infosung.atomic.app.storage.adapter.out.persistence.AppImageEntityTxService
+import com.infosung.atomic.app.storage.adapter.out.persistence.ImageEntity
+import com.infosung.atomic.app.storage.adapter.out.persistence.ImageRepository
+import com.infosung.atomic.app.storage.domain.StoredImage
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -44,20 +48,20 @@ class AppImageEntityTxServiceContainerTest {
     val saved = imageEntityTxService.save(newEntity())
     val imageId = requireNotNull(saved.id)
 
-    imageEntityTxService.delete(saved)
+    imageEntityTxService.purgeDeletePending(saved)
 
     val exception =
-        assertThrows<IllegalArgumentException> {
+        assertThrows<com.infosung.atomic.app.storage.application.exception.ImageNotFoundException> {
           imageEntityTxService.findByIdOrThrow(imageId, imageId.toString())
         }
     assertTrue(exception.message?.contains("image not found") == true)
   }
 
-  private fun newEntity(): ImageEntity {
+  private fun newEntity(): StoredImage {
     val suffix = UUID.randomUUID().toString().take(8)
     val objectKey = "images/$suffix/original.png"
     val thumbnailKey = "images/$suffix/original_thumb.webp"
-    return ImageEntity(
+    return StoredImage(
         bucket = "bucket",
         serviceName = "svc",
         storageService = "S3",

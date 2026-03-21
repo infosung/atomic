@@ -2,23 +2,16 @@ package com.infosung.atomic.app.storage
 
 import com.infosung.atomic.app.storage.autoconfigure.AtomicAppImageProperties
 import com.infosung.atomic.contract.response.BaseResponse
-import jakarta.persistence.Column
-import jakarta.persistence.Entity
-import jakarta.persistence.Id
-import jakarta.persistence.Table
 import java.lang.reflect.Modifier
 import java.time.LocalDateTime
 import java.util.UUID
+import kotlin.reflect.KClass
 import kotlin.reflect.full.declaredFunctions
 import kotlin.reflect.full.memberProperties
 import kotlin.reflect.full.primaryConstructor
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
-import org.hibernate.annotations.JdbcTypeCode
-import org.hibernate.annotations.UuidGenerator
-import org.hibernate.type.SqlTypes
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
@@ -31,7 +24,44 @@ class StorageApiPublicContractTest {
 
   @Test
   fun `image entity constructor contract should remain stable`() {
-    val parameterNames = ImageEntity::class.primaryConstructor!!.parameters.mapNotNull { it.name }
+    val parameterNames =
+        loadKClass("com.infosung.atomic.app.storage.adapter.out.persistence.ImageEntity")
+            .primaryConstructor!!
+            .parameters
+            .mapNotNull { it.name }
+
+    assertEquals(
+        listOf(
+            "id",
+            "bucket",
+            "serviceName",
+            "storageService",
+            "status",
+            "uploaderId",
+            "storageType",
+            "fileName",
+            "thumbnailFileName",
+            "url",
+            "thumbnailUrl",
+            "width",
+            "height",
+            "fileSize",
+            "thumbnailWidth",
+            "thumbnailHeight",
+            "thumbnailFileSize",
+            "createdAt",
+        ),
+        parameterNames,
+    )
+  }
+
+  @Test
+  fun `stored image constructor contract should remain stable`() {
+    val parameterNames =
+        loadKClass("com.infosung.atomic.app.storage.domain.StoredImage")
+            .primaryConstructor!!
+            .parameters
+            .mapNotNull { it.name }
 
     assertEquals(
         listOf(
@@ -60,7 +90,11 @@ class StorageApiPublicContractTest {
 
   @Test
   fun `image response constructor contract should remain stable`() {
-    val parameterNames = ImageResponse::class.primaryConstructor!!.parameters.mapNotNull { it.name }
+    val parameterNames =
+        loadKClass("com.infosung.atomic.app.storage.adapter.in.web.ImageResponse")
+            .primaryConstructor!!
+            .parameters
+            .mapNotNull { it.name }
 
     assertEquals(
         listOf(
@@ -90,7 +124,10 @@ class StorageApiPublicContractTest {
   @Test
   fun `image delete pending snapshot constructor contract should remain stable`() {
     val parameterNames =
-        ImageDeletePendingSnapshot::class.primaryConstructor!!.parameters.mapNotNull { it.name }
+        loadKClass("com.infosung.atomic.app.storage.domain.ImageDeletePendingSnapshot")
+            .primaryConstructor!!
+            .parameters
+            .mapNotNull { it.name }
 
     assertEquals(
         listOf(
@@ -104,7 +141,10 @@ class StorageApiPublicContractTest {
   @Test
   fun `image delete recovery result constructor contract should remain stable`() {
     val parameterNames =
-        ImageDeleteRecoveryResult::class.primaryConstructor!!.parameters.mapNotNull { it.name }
+        loadKClass("com.infosung.atomic.app.storage.domain.ImageDeleteRecoveryResult")
+            .primaryConstructor!!
+            .parameters
+            .mapNotNull { it.name }
 
     assertEquals(
         listOf(
@@ -116,46 +156,6 @@ class StorageApiPublicContractTest {
         ),
         parameterNames,
     )
-  }
-
-  @Test
-  fun `image entity schema annotations should remain stable`() {
-    val entity = ImageEntity::class.java.getAnnotation(Entity::class.java)
-    val table = ImageEntity::class.java.getAnnotation(Table::class.java)
-    val idField = ImageEntity::class.java.getDeclaredField("id")
-    val jdbcTypeCode = idField.getAnnotation(JdbcTypeCode::class.java)
-    val bucketField = ImageEntity::class.java.getDeclaredField("bucket")
-    val serviceNameField = ImageEntity::class.java.getDeclaredField("serviceName")
-    val storageServiceField = ImageEntity::class.java.getDeclaredField("storageService")
-    val storageTypeField = ImageEntity::class.java.getDeclaredField("storageType")
-    val fileNameField = ImageEntity::class.java.getDeclaredField("fileName")
-    val thumbnailFileNameField = ImageEntity::class.java.getDeclaredField("thumbnailFileName")
-    val urlField = ImageEntity::class.java.getDeclaredField("url")
-    val thumbnailUrlField = ImageEntity::class.java.getDeclaredField("thumbnailUrl")
-
-    assertEquals("image", entity.name)
-    assertEquals("image", table.name)
-    assertNotNull(idField.getAnnotation(Id::class.java))
-    assertNotNull(idField.getAnnotation(UuidGenerator::class.java))
-    assertEquals(SqlTypes.VARCHAR, jdbcTypeCode.value)
-    assertEquals("id", idField.getAnnotation(Column::class.java).name)
-    assertEquals("bucket", bucketField.getAnnotation(Column::class.java).name)
-    assertEquals(255, bucketField.getAnnotation(Column::class.java).length)
-    assertEquals("service_name", serviceNameField.getAnnotation(Column::class.java).name)
-    assertEquals(255, serviceNameField.getAnnotation(Column::class.java).length)
-    assertEquals("storage_service", storageServiceField.getAnnotation(Column::class.java).name)
-    assertEquals(255, storageServiceField.getAnnotation(Column::class.java).length)
-    assertEquals("storage_type", storageTypeField.getAnnotation(Column::class.java).name)
-    assertEquals(255, storageTypeField.getAnnotation(Column::class.java).length)
-    assertEquals("file_name", fileNameField.getAnnotation(Column::class.java).name)
-    assertEquals("TEXT", fileNameField.getAnnotation(Column::class.java).columnDefinition)
-    assertEquals(
-        "TEXT",
-        thumbnailFileNameField.getAnnotation(Column::class.java).columnDefinition,
-    )
-    assertEquals("TEXT", urlField.getAnnotation(Column::class.java).columnDefinition)
-    assertEquals("thumbnail_url", thumbnailUrlField.getAnnotation(Column::class.java).name)
-    assertEquals("TEXT", thumbnailUrlField.getAnnotation(Column::class.java).columnDefinition)
   }
 
   @Test
@@ -177,64 +177,82 @@ class StorageApiPublicContractTest {
   }
 
   @Test
-  fun `app image api service public methods should remain stable`() {
+  fun `storage use case seams should remain stable`() {
     assertEquals(
-        listOf(
-            "deleteImage(String, String, String, String):void",
-            "uploadImage(String, String, MultipartFile, double, String):ImageEntity",
-            "uploadImage(String, String, MultipartFile, double, String, boolean):ImageEntity",
-        ),
-        publicSignatures(AppImageApiService::class.java),
+        listOf("uploadImage(UploadAppImageCommand):StoredImage"),
+        publicSignatures(
+            loadClass("com.infosung.atomic.app.storage.application.port.in.UploadAppImageUseCase")),
     )
-  }
-
-  @Test
-  fun `app image delete recovery service public methods should remain stable`() {
     assertEquals(
-        listOf(
-            "inspectDeletePendingImages():ImageDeletePendingSnapshot",
-            "recoverDeletePendingImages(int):ImageDeleteRecoveryResult",
-        ),
-        publicSignatures(AppImageDeleteRecoveryService::class.java),
+        listOf("deleteImage(DeleteAppImageCommand):void"),
+        publicSignatures(
+            loadClass("com.infosung.atomic.app.storage.application.port.in.DeleteAppImageUseCase")),
+    )
+    assertEquals(
+        listOf("inspectDeletePendingImages():ImageDeletePendingSnapshot"),
+        publicSignatures(
+            loadClass(
+                "com.infosung.atomic.app.storage.application.port.in.InspectDeletePendingImagesUseCase")),
+    )
+    assertEquals(
+        listOf("recoverDeletePendingImages(int):ImageDeleteRecoveryResult"),
+        publicSignatures(
+            loadClass(
+                "com.infosung.atomic.app.storage.application.port.in.RecoverDeletePendingImagesUseCase")),
     )
   }
 
   @Test
   fun `app storage controller upload response type should use image response dto`() {
     val uploadImageMethod =
-        AppStorageController::class.declaredFunctions.first { it.name == "uploadImage" }
+        loadKClass("com.infosung.atomic.app.storage.adapter.in.web.AppStorageController")
+            .declaredFunctions
+            .first { it.name == "uploadImage" }
     val responseType = uploadImageMethod.returnType
 
     assertEquals(BaseResponse::class, responseType.classifier)
-    assertEquals(ImageResponse::class, responseType.arguments.single().type?.classifier)
+    assertEquals(
+        loadKClass("com.infosung.atomic.app.storage.adapter.in.web.ImageResponse"),
+        responseType.arguments.single().type?.classifier,
+    )
   }
 
   @Test
   fun `base response with image response should serialize with stable boot json contract`() {
     contextRunner.run { context ->
       val objectMapper = context.getBean(ObjectMapper::class.java)
+      val imageResponseType =
+          loadKClass("com.infosung.atomic.app.storage.adapter.in.web.ImageResponse")
+      val constructor = imageResponseType.primaryConstructor!!
       val imageId = UUID.fromString("11111111-1111-1111-1111-111111111111")
       val response =
           BaseResponse.ok(
-              ImageResponse(
-                  id = imageId,
-                  bucket = "image-bucket",
-                  serviceName = "gallery",
-                  storageService = "cdn",
-                  status = "ACTIVE",
-                  uploaderId = "member-1",
-                  storageType = "R2",
-                  fileName = "image-bucket/original.webp",
-                  thumbnailFileName = "image-bucket/thumb.webp",
-                  url = "https://cdn.example.com/original.webp",
-                  thumbnailUrl = "https://cdn.example.com/thumb.webp",
-                  width = 640,
-                  height = 480,
-                  fileSize = 12345,
-                  thumbnailWidth = 320,
-                  thumbnailHeight = 240,
-                  thumbnailFileSize = 4567,
-                  createdAt = LocalDateTime.of(2024, 1, 2, 3, 4, 5),
+              constructor.callBy(
+                  mapOf(
+                      constructor.parameters.first { it.name == "id" } to imageId,
+                      constructor.parameters.first { it.name == "bucket" } to "image-bucket",
+                      constructor.parameters.first { it.name == "serviceName" } to "gallery",
+                      constructor.parameters.first { it.name == "storageService" } to "cdn",
+                      constructor.parameters.first { it.name == "status" } to "ACTIVE",
+                      constructor.parameters.first { it.name == "uploaderId" } to "member-1",
+                      constructor.parameters.first { it.name == "storageType" } to "R2",
+                      constructor.parameters.first { it.name == "fileName" } to
+                          "image-bucket/original.webp",
+                      constructor.parameters.first { it.name == "thumbnailFileName" } to
+                          "image-bucket/thumb.webp",
+                      constructor.parameters.first { it.name == "url" } to
+                          "https://cdn.example.com/original.webp",
+                      constructor.parameters.first { it.name == "thumbnailUrl" } to
+                          "https://cdn.example.com/thumb.webp",
+                      constructor.parameters.first { it.name == "width" } to 640,
+                      constructor.parameters.first { it.name == "height" } to 480,
+                      constructor.parameters.first { it.name == "fileSize" } to 12345L,
+                      constructor.parameters.first { it.name == "thumbnailWidth" } to 320,
+                      constructor.parameters.first { it.name == "thumbnailHeight" } to 240,
+                      constructor.parameters.first { it.name == "thumbnailFileSize" } to 4567L,
+                      constructor.parameters.first { it.name == "createdAt" } to
+                          LocalDateTime.of(2024, 1, 2, 3, 4, 5),
+                  ),
               ),
           )
 
@@ -254,6 +272,10 @@ class StorageApiPublicContractTest {
       assertTrue(json["data"].has("thumbnailFileSize"))
     }
   }
+
+  private fun loadClass(name: String): Class<*> = Class.forName(name)
+
+  private fun loadKClass(name: String): KClass<*> = loadClass(name).kotlin
 
   private fun publicSignatures(type: Class<*>): List<String> {
     return type.declaredMethods

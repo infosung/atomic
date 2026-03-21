@@ -1,6 +1,14 @@
 package com.infosung.atomic.app.storage
 
-import com.infosung.atomic.app.storage.autoconfigure.AtomicAppImageProperties
+import com.infosung.atomic.app.storage.adapter.out.persistence.AppImageEntityTxService
+import com.infosung.atomic.app.storage.adapter.out.persistence.ImageEntity
+import com.infosung.atomic.app.storage.adapter.out.persistence.ImageRepository
+import com.infosung.atomic.app.storage.adapter.out.storage.ImageServiceStoragePortAdapter
+import com.infosung.atomic.app.storage.application.model.AppImageRequestPolicy
+import com.infosung.atomic.app.storage.application.model.DeleteAppImageCommand
+import com.infosung.atomic.app.storage.application.model.UploadAppImageCommand
+import com.infosung.atomic.app.storage.application.model.UploadImageSource
+import com.infosung.atomic.app.storage.application.service.AppImageApiService
 import com.infosung.atomic.storage.StorageProfile
 import com.infosung.atomic.storage.image.GeneratedThumbnail
 import com.infosung.atomic.storage.image.ImageInputValidator
@@ -76,10 +84,19 @@ class AppImageApiServiceMinioContainerTest {
         )
     val appImageApiService =
         AppImageApiService(
-            imageEntityTxService = imageEntityTxService,
-            imageService = imageService,
-            storageClients = mapOf(storageType to storageClient),
-            properties = AtomicAppImageProperties(),
+            imageMetadataPort = imageEntityTxService,
+            imageObjectStoragePort =
+                ImageServiceStoragePortAdapter(
+                    imageService = imageService,
+                    storageClients = mapOf(storageType to storageClient),
+                ),
+            requestPolicy =
+                AppImageRequestPolicy(
+                    minQuality = 0.1,
+                    maxQuality = 1.0,
+                    uploaderParameterEnabled = false,
+                    uploaderParameterName = "uploaderId",
+                ),
         )
 
     try {
@@ -92,10 +109,21 @@ class AppImageApiServiceMinioContainerTest {
           )
       val uploaded =
           appImageApiService.uploadImage(
-              serviceName = "svc",
-              storageService = "S3",
-              multipartFile = multipartFile,
-              quality = 1.0,
+              UploadAppImageCommand(
+                  serviceName = "svc",
+                  storageService = "S3",
+                  quality = 1.0,
+                  thumbnailEnabled = true,
+                  uploadSource =
+                      object : UploadImageSource {
+                        override val originalFilename: String?
+                          get() = multipartFile.originalFilename
+
+                        override fun transferTo(destinationFile: File) {
+                          multipartFile.transferTo(destinationFile)
+                        }
+                      },
+              ),
           )
       val imageId = requireNotNull(uploaded.id)
       val originalObjectKey = requireNotNull(uploaded.fileName)
@@ -105,9 +133,11 @@ class AppImageApiServiceMinioContainerTest {
       assertTrue(objectExists(s3Client = s3Client, bucket = bucket, objectKey = thumbnailObjectKey))
 
       appImageApiService.deleteImage(
-          serviceName = "svc",
-          storageService = "S3",
-          imageId = imageId.toString(),
+          DeleteAppImageCommand(
+              serviceName = "svc",
+              storageService = "S3",
+              imageId = imageId.toString(),
+          ),
       )
 
       assertFalse(objectExists(s3Client = s3Client, bucket = bucket, objectKey = originalObjectKey))

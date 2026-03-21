@@ -1,5 +1,8 @@
 package com.infosung.atomic.app.storage
 
+import com.infosung.atomic.app.storage.adapter.out.persistence.AppImageEntityTxService
+import com.infosung.atomic.app.storage.adapter.out.persistence.ImageEntity
+import com.infosung.atomic.app.storage.adapter.out.persistence.ImageRepository
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertNotNull
