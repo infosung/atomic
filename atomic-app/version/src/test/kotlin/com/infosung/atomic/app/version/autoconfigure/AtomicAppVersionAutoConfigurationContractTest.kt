@@ -1,7 +1,6 @@
 package com.infosung.atomic.app.version.autoconfigure
 
 import com.infosung.atomic.app.version.adapter.`in`.web.AppVersionController
-import com.infosung.atomic.app.version.adapter.`in`.web.AppVersionHttpExceptionHandler
 import com.infosung.atomic.app.version.adapter.out.persistence.JpaLoadVersionPolicyAdapter
 import com.infosung.atomic.app.version.adapter.out.persistence.ServiceVersionRepository
 import com.infosung.atomic.app.version.application.port.`in`.CheckAppVersionUseCase
@@ -33,7 +32,6 @@ class AtomicAppVersionAutoConfigurationContractTest {
     contextRunner.run { context ->
       assertTrue(context.getBeansOfType(CheckAppVersionUseCase::class.java).isEmpty())
       assertTrue(context.getBeansOfType(AppVersionController::class.java).isEmpty())
-      assertTrue(context.getBeansOfType(AppVersionHttpExceptionHandler::class.java).isEmpty())
     }
   }
 
@@ -71,14 +69,12 @@ class AtomicAppVersionAutoConfigurationContractTest {
     val loadPort = persistenceAutoConfiguration.loadVersionPolicyPort(repository)
     val useCase = coreAutoConfiguration.checkAppVersionUseCase(loadPort, properties)
     val controller = webAutoConfiguration.appVersionController(useCase)
-    val handler = webAutoConfiguration.appVersionHttpExceptionHandler()
 
     assertIs<LoadVersionPolicyPort>(loadPort)
     assertIs<JpaLoadVersionPolicyAdapter>(loadPort)
     assertIs<CheckAppVersionUseCase>(useCase)
     assertIs<CheckAppVersionService>(useCase)
     assertIs<AppVersionController>(controller)
-    assertIs<AppVersionHttpExceptionHandler>(handler)
   }
 
   @Test
@@ -103,7 +99,6 @@ class AtomicAppVersionAutoConfigurationContractTest {
         .run { context ->
           assertSame(customUseCase, context.getBean(CheckAppVersionUseCase::class.java))
           val controller = context.getBean(AppVersionController::class.java)
-          assertTrue(context.containsBean("appVersionHttpExceptionHandler"))
 
           val response = controller.getVersion("MY_SERVICE", "ANDROID", "1.2.3")
 
@@ -148,18 +143,6 @@ class AtomicAppVersionAutoConfigurationContractTest {
     assertEquals(AppVersionController::class.java, beanMethod.returnType)
   }
 
-  @Test
-  fun `auto configuration should keep app version exception handler override guard on exported bean`() {
-    val beanMethod =
-        AtomicAppVersionWebAutoConfiguration::class
-            .java
-            .declaredMethods
-            .single(::isAppVersionHttpExceptionHandlerBeanMethod)
-
-    assertTrue(beanMethod.isAnnotationPresent(ConditionalOnMissingBean::class.java))
-    assertEquals(AppVersionHttpExceptionHandler::class.java, beanMethod.returnType)
-  }
-
   private fun isCheckAppVersionUseCaseBeanMethod(method: Method): Boolean {
     return method.name.substringBefore('$') == "checkAppVersionUseCase" &&
         method.returnType == CheckAppVersionUseCase::class.java &&
@@ -175,12 +158,6 @@ class AtomicAppVersionAutoConfigurationContractTest {
     return method.name == "appVersionController" &&
         method.returnType == AppVersionController::class.java &&
         method.parameterTypes.contentEquals(arrayOf(CheckAppVersionUseCase::class.java))
-  }
-
-  private fun isAppVersionHttpExceptionHandlerBeanMethod(method: Method): Boolean {
-    return method.name == "appVersionHttpExceptionHandler" &&
-        method.returnType == AppVersionHttpExceptionHandler::class.java &&
-        method.parameterTypes.isEmpty()
   }
 
   private class RecordingCheckAppVersionUseCase : CheckAppVersionUseCase {

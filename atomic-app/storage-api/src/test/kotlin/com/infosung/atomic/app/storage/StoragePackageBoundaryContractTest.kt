@@ -9,10 +9,6 @@ class StoragePackageBoundaryContractTest {
   fun `storage legal topology classes should exist in adapter application and domain packages`() {
     assertNotNull(
         Class.forName("com.infosung.atomic.app.storage.adapter.in.web.AppStorageController"))
-    assertNotNull(
-        Class.forName(
-            "com.infosung.atomic.app.storage.adapter.in.web.AppStorageHttpExceptionHandler"),
-    )
     assertNotNull(Class.forName("com.infosung.atomic.app.storage.adapter.in.web.ImageResponse"))
     assertNotNull(
         Class.forName("com.infosung.atomic.app.storage.application.port.in.UploadAppImageUseCase"))

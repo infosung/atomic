@@ -37,14 +37,22 @@ Property reference:
 Purpose:
 
 - convert `HttpStatusException` and common exceptions to consistent `BaseResponse`
+- centralize shared HTTP mapping for `atomic.app.*` modules
 
 Required:
 
-- your subclass of `BaseExceptionHandler`
+- either the shared Atomic web exception handler
+- or your subclass of `BaseExceptionHandler`
 
 Optional:
 
 - custom `alert(...)` integration (Slack/webhook)
+
+Recommended direction:
+
+- atomic app modules expose public typed exceptions for host/use-case integration
+- web adapters translate transport failures into `HttpStatusException`
+- your global web exception layer should branch on `HttpStatusException.code` or typed module exceptions, not message text
 
 ### B) API Logging (Request/Response)
 

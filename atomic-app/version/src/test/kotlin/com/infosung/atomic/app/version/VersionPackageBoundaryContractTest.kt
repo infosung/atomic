@@ -1,24 +1,24 @@
 package com.infosung.atomic.app.version
 
 import com.infosung.atomic.app.version.adapter.`in`.web.AppVersionController
-import com.infosung.atomic.app.version.adapter.`in`.web.AppVersionHttpExceptionHandler
 import com.infosung.atomic.app.version.adapter.out.persistence.ServiceVersionEntity
 import com.infosung.atomic.app.version.adapter.out.persistence.ServiceVersionRepository
+import com.infosung.atomic.app.version.application.exception.AppVersionApplicationException
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
 
 class VersionPackageBoundaryContractTest {
   @Test
-  fun `version legal style topology should place web and persistence types in adapter packages`() {
+  fun `version legal style topology should place web persistence and public exception types in stable packages`() {
     assertEquals(
         "com.infosung.atomic.app.version.adapter.in.web",
         AppVersionController::class.java.packageName,
     )
     assertEquals(
-        "com.infosung.atomic.app.version.adapter.in.web",
-        AppVersionHttpExceptionHandler::class.java.packageName,
+        "com.infosung.atomic.app.version.application.exception",
+        AppVersionApplicationException::class.java.packageName,
     )
     assertEquals(
         "com.infosung.atomic.app.version.adapter.out.persistence",
@@ -37,8 +37,8 @@ class VersionPackageBoundaryContractTest {
         AppVersionController::class.java.name,
     )
     assertEquals(
-        "com.infosung.atomic.app.version.adapter.in.web.AppVersionHttpExceptionHandler",
-        AppVersionHttpExceptionHandler::class.java.name,
+        "com.infosung.atomic.app.version.application.exception.AppVersionApplicationException",
+        AppVersionApplicationException::class.java.name,
     )
     assertEquals(
         "com.infosung.atomic.app.version.adapter.out.persistence.ServiceVersionEntity",
@@ -49,6 +49,12 @@ class VersionPackageBoundaryContractTest {
         ServiceVersionRepository::class.java.name,
     )
     assertNotNull(AppVersionController::class.java.constructors.singleOrNull())
-    assertTrue(AppVersionHttpExceptionHandler::class.java.declaredConstructors.isNotEmpty())
+  }
+
+  @Test
+  fun `legacy version module http advice should be removed`() {
+    assertFailsWith<ClassNotFoundException> {
+      Class.forName("com.infosung.atomic.app.version.adapter.in.web.AppVersionHttpExceptionHandler")
+    }
   }
 }

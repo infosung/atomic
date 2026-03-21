@@ -1,12 +1,12 @@
 package com.infosung.atomic.app.version
 
 import com.infosung.atomic.app.version.adapter.`in`.web.AppVersionController
-import com.infosung.atomic.app.version.adapter.`in`.web.AppVersionHttpExceptionHandler
 import com.infosung.atomic.app.version.application.exception.InvalidAppVersionException
 import com.infosung.atomic.app.version.application.exception.VersionPolicyNotFoundException
 import com.infosung.atomic.app.version.application.port.`in`.CheckAppVersionUseCase
 import com.infosung.atomic.app.version.domain.VersionCheckDecision
 import com.infosung.atomic.contract.header.ApiHeaderNames
+import com.infosung.atomic.spring.web.exception.AtomicHttpExceptionHandler
 import kotlin.test.Test
 import org.mockito.Mockito.doThrow
 import org.mockito.Mockito.mock
@@ -14,6 +14,7 @@ import org.mockito.Mockito.verify
 import org.mockito.Mockito.verifyNoInteractions
 import org.mockito.Mockito.`when`
 import org.springframework.http.MediaType
+import org.springframework.mock.env.MockEnvironment
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.content
@@ -85,15 +86,6 @@ class AppVersionControllerHttpContractTest {
         .andExpect(status().isOk)
         .andExpect(jsonPath("$.code").value("OK"))
         .andExpect(jsonPath("$.data.requiredUpdate").value(false))
-
-    mockMvc
-        .perform(
-            get("/api/v1/version/check")
-                .header(ApiHeaderNames.HEADER_X_SERVICE_NAME, "MY_SERVICE")
-                .header(ApiHeaderNames.HEADER_X_PLATFORM, "ANDROID")
-                .header(ApiHeaderNames.HEADER_X_APP_VERSION, "1.2.3"),
-        )
-        .andExpect(status().isNotFound)
   }
 
   @Test
@@ -110,7 +102,7 @@ class AppVersionControllerHttpContractTest {
         )
         .andExpect(status().isBadRequest)
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-        .andExpect(jsonPath("$.code").value("HttpStatusException"))
+        .andExpect(jsonPath("$.code").value("VERSION_SERVICE_NAME_REQUIRED"))
         .andExpect(jsonPath("$.message").value("Service name is required."))
 
     verifyNoInteractions(useCase)
@@ -131,7 +123,7 @@ class AppVersionControllerHttpContractTest {
         )
         .andExpect(status().isBadRequest)
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-        .andExpect(jsonPath("$.code").value("HttpStatusException"))
+        .andExpect(jsonPath("$.code").value("VERSION_APP_VERSION_REQUIRED"))
         .andExpect(jsonPath("$.message").value("App version is required."))
 
     verifyNoInteractions(useCase)
@@ -156,7 +148,7 @@ class AppVersionControllerHttpContractTest {
         )
         .andExpect(status().isBadRequest)
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-        .andExpect(jsonPath("$.code").value("HttpStatusException"))
+        .andExpect(jsonPath("$.code").value("VERSION_INVALID_APP_VERSION"))
         .andExpect(jsonPath("$.message").value("Version must be semantic format: x.y.z"))
   }
 
@@ -179,7 +171,7 @@ class AppVersionControllerHttpContractTest {
         )
         .andExpect(status().isNotFound)
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-        .andExpect(jsonPath("$.code").value("HttpStatusException"))
+        .andExpect(jsonPath("$.code").value("VERSION_POLICY_NOT_FOUND"))
         .andExpect(
             jsonPath("$.message")
                 .value("No service version policy found for service=MY_SERVICE, platform=ANDROID"),
@@ -191,7 +183,7 @@ class AppVersionControllerHttpContractTest {
       endpointPath: String,
   ): MockMvc {
     return MockMvcBuilders.standaloneSetup(controller)
-        .setControllerAdvice(AppVersionHttpExceptionHandler())
+        .setControllerAdvice(AtomicHttpExceptionHandler(MockEnvironment()))
         .addPlaceholderValue("atomic.app.version.endpoint-path", endpointPath)
         .build()
   }

@@ -1,11 +1,16 @@
 package com.infosung.atomic.app.oauth
 
 import com.infosung.atomic.app.oauth.adapter.`in`.web.AppOauthRedirectController
-import com.infosung.atomic.app.oauth.adapter.`in`.web.AppOauthRedirectHttpExceptionHandler
 import com.infosung.atomic.app.oauth.adapter.out.relay.store.CacheOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.adapter.out.relay.store.EntityOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.adapter.out.relay.store.InMemoryOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.adapter.out.relay.store.OauthRelayCodeStore
+import com.infosung.atomic.app.oauth.application.exception.OauthRedirectApplicationException
+import com.infosung.atomic.app.oauth.application.exception.OauthRedirectErrorCode
+import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRemoteFailureException
+import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRequestException
+import com.infosung.atomic.app.oauth.application.exception.OauthRelayCodeApplicationException
+import com.infosung.atomic.app.oauth.application.exception.OauthRelayCodeRequestException
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildAppleCallbackRedirectUseCase
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildAuthorizationRedirectUseCase
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildOauthCallbackRedirectUseCase
@@ -132,16 +137,46 @@ class OauthRedirectPublicContractTest {
   }
 
   @Test
-  fun `oauth redirect web entry types should remain exported from adapter in web`() {
+  fun `oauth redirect web entry type should remain exported from adapter in web`() {
     assertTrue(Modifier.isPublic(AppOauthRedirectController::class.java.modifiers))
-    assertTrue(Modifier.isPublic(AppOauthRedirectHttpExceptionHandler::class.java.modifiers))
     assertEquals(
         "com.infosung.atomic.app.oauth.adapter.in.web.AppOauthRedirectController",
         AppOauthRedirectController::class.java.name,
     )
+  }
+
+  @Test
+  fun `oauth redirect public error seams should remain exported from application exception`() {
     assertEquals(
-        "com.infosung.atomic.app.oauth.adapter.in.web.AppOauthRedirectHttpExceptionHandler",
-        AppOauthRedirectHttpExceptionHandler::class.java.name,
+        "com.infosung.atomic.app.oauth.application.exception.OauthRedirectApplicationException",
+        OauthRedirectApplicationException::class.java.name,
+    )
+    assertEquals(
+        "com.infosung.atomic.app.oauth.application.exception.OauthRedirectRequestException",
+        OauthRedirectRequestException::class.java.name,
+    )
+    assertEquals(
+        "com.infosung.atomic.app.oauth.application.exception.OauthRedirectRemoteFailureException",
+        OauthRedirectRemoteFailureException::class.java.name,
+    )
+    assertEquals(
+        "com.infosung.atomic.app.oauth.application.exception.OauthRelayCodeApplicationException",
+        OauthRelayCodeApplicationException::class.java.name,
+    )
+    assertEquals(
+        "com.infosung.atomic.app.oauth.application.exception.OauthRelayCodeRequestException",
+        OauthRelayCodeRequestException::class.java.name,
+    )
+    assertEquals(
+        listOf(
+            "OAUTH_REDIRECT_INVALID_REQUEST",
+            "OAUTH_CALLBACK_INVALID_REQUEST",
+            "OAUTH_PROVIDER_REMOTE_FAILURE",
+            "OAUTH_APPLE_CALLBACK_POST_ONLY",
+            "OAUTH_REDIRECT_CONFIGURATION_INVALID",
+            "OAUTH_RELAY_CODE_INVALID_REQUEST",
+        ),
+        OauthRedirectErrorCode.entries.map { it.name },
     )
   }
 

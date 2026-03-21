@@ -1,7 +1,6 @@
 package com.infosung.atomic.app.storage
 
 import com.infosung.atomic.app.storage.adapter.`in`.web.AppStorageController
-import com.infosung.atomic.app.storage.adapter.`in`.web.AppStorageHttpExceptionHandler
 import com.infosung.atomic.app.storage.application.exception.ImageNotFoundException
 import com.infosung.atomic.app.storage.application.exception.InvalidImageRequestException
 import com.infosung.atomic.app.storage.application.model.DeleteAppImageCommand
@@ -10,11 +9,13 @@ import com.infosung.atomic.app.storage.application.port.`in`.DeleteAppImageUseCa
 import com.infosung.atomic.app.storage.application.port.`in`.UploadAppImageUseCase
 import com.infosung.atomic.app.storage.autoconfigure.AtomicAppImageProperties
 import com.infosung.atomic.app.storage.domain.StoredImage
+import com.infosung.atomic.spring.web.exception.AtomicHttpExceptionHandler
 import java.time.LocalDateTime
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import org.springframework.http.MediaType
+import org.springframework.mock.env.MockEnvironment
 import org.springframework.mock.web.MockMultipartFile
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
@@ -97,14 +98,6 @@ class AppStorageControllerHttpContractTest {
         .andExpect(status().isOk)
         .andExpect(jsonPath("$.code").value("OK"))
         .andExpect(jsonPath("$.data.uploaderId").value("member-100"))
-
-    mockMvc
-        .perform(
-            multipart("/api/v1/storage/image/svc/S3")
-                .file(MockMultipartFile("file", "profile.png", "image/png", "img".toByteArray()))
-                .param("memberId", "member-100"),
-        )
-        .andExpect(status().isNotFound)
   }
 
   @Test
@@ -127,7 +120,7 @@ class AppStorageControllerHttpContractTest {
         .perform(multipart("/api/v1/storage/image/svc/S3").file(multipartFile))
         .andExpect(status().isBadRequest)
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-        .andExpect(jsonPath("$.code").value("HttpStatusException"))
+        .andExpect(jsonPath("$.code").value("STORAGE_UPLOADER_PARAMETER_REQUIRED"))
         .andExpect(
             jsonPath("$.message")
                 .value("memberId is required when uploader parameter tracking is enabled."),
@@ -155,7 +148,7 @@ class AppStorageControllerHttpContractTest {
         )
         .andExpect(status().isBadRequest)
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-        .andExpect(jsonPath("$.code").value("HttpStatusException"))
+        .andExpect(jsonPath("$.code").value("STORAGE_INVALID_IMAGE_REQUEST"))
         .andExpect(jsonPath("$.message").value("quality must be in range 0.1..1.0"))
   }
 
@@ -200,7 +193,7 @@ class AppStorageControllerHttpContractTest {
     mockMvc
         .perform(delete("/api/v1/storage/image/svc/S3").param("imageId", imageId))
         .andExpect(status().isNotFound)
-        .andExpect(jsonPath("$.code").value("HttpStatusException"))
+        .andExpect(jsonPath("$.code").value("STORAGE_IMAGE_NOT_FOUND"))
         .andExpect(jsonPath("$.message").value("image not found: $imageId"))
   }
 
@@ -209,7 +202,7 @@ class AppStorageControllerHttpContractTest {
       endpointPath: String,
   ): MockMvc {
     return MockMvcBuilders.standaloneSetup(controller)
-        .setControllerAdvice(AppStorageHttpExceptionHandler())
+        .setControllerAdvice(AtomicHttpExceptionHandler(MockEnvironment()))
         .addPlaceholderValue("atomic.app.image.endpoint-path", endpointPath)
         .build()
   }

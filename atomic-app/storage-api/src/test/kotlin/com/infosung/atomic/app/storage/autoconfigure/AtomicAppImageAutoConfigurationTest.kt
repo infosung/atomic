@@ -1,7 +1,6 @@
 package com.infosung.atomic.app.storage.autoconfigure
 
 import com.infosung.atomic.app.storage.adapter.`in`.web.AppStorageController
-import com.infosung.atomic.app.storage.adapter.`in`.web.AppStorageHttpExceptionHandler
 import com.infosung.atomic.app.storage.application.port.`in`.DeleteAppImageUseCase
 import com.infosung.atomic.app.storage.application.port.`in`.InspectDeletePendingImagesUseCase
 import com.infosung.atomic.app.storage.application.port.`in`.RecoverDeletePendingImagesUseCase
@@ -53,11 +52,6 @@ class AtomicAppImageAutoConfigurationTest {
         )
 
     assertIs<AppStorageController>(controller)
-  }
-
-  @Test
-  fun `app storage http exception handler should be created`() {
-    assertIs<AppStorageHttpExceptionHandler>(webAutoConfiguration.appStorageHttpExceptionHandler())
   }
 
   @Test

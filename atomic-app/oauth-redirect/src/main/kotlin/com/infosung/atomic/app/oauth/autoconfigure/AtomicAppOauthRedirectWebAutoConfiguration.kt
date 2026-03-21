@@ -1,7 +1,6 @@
 package com.infosung.atomic.app.oauth.autoconfigure
 
 import com.infosung.atomic.app.oauth.adapter.`in`.web.AppOauthRedirectController
-import com.infosung.atomic.app.oauth.adapter.`in`.web.AppOauthRedirectHttpExceptionHandler
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildAppleCallbackRedirectUseCase
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildAuthorizationRedirectUseCase
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildOauthCallbackRedirectUseCase
@@ -40,12 +39,5 @@ class AtomicAppOauthRedirectWebAutoConfiguration {
         buildAppleCallbackRedirectUseCase = buildAppleCallbackRedirectUseCase,
         properties = properties,
     )
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  @ConditionalOnBean(AppOauthRedirectController::class)
-  fun appOauthRedirectHttpExceptionHandler(): AppOauthRedirectHttpExceptionHandler {
-    return AppOauthRedirectHttpExceptionHandler()
   }
 }

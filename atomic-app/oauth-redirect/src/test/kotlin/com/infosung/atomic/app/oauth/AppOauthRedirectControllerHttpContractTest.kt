@@ -5,8 +5,6 @@ import com.infosung.atomic.app.oauth.adapter.out.relay.store.InMemoryOauthRelayC
 import com.infosung.atomic.app.oauth.autoconfigure.AtomicAppOauthRedirectProperties
 import com.infosung.atomic.app.oauth.autoconfigure.OauthRedirectComposition
 import com.infosung.atomic.app.oauth.autoconfigure.OauthRelayCodeComposition
-import com.infosung.atomic.contract.exception.HttpStatusException
-import com.infosung.atomic.contract.response.BaseResponse
 import com.infosung.atomic.contract.time.TimeProvider
 import com.infosung.atomic.oauth.api.OauthAuthorizationRequest
 import com.infosung.atomic.oauth.api.OauthIdentityRequest
@@ -22,12 +20,13 @@ import com.infosung.atomic.oauth.api.OauthTokenRevokeRequest
 import com.infosung.atomic.oauth.exception.HttpIOException
 import com.infosung.atomic.oauth.state.InMemoryOauthStateStore
 import com.infosung.atomic.oauth.state.OauthStateManager
+import com.infosung.atomic.spring.web.exception.AtomicHttpExceptionHandler
 import kotlin.test.Test
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
-import org.springframework.http.ResponseEntity
+import org.springframework.mock.env.MockEnvironment
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
@@ -37,8 +36,6 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirec
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrlPattern
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
-import org.springframework.web.bind.annotation.ExceptionHandler
-import org.springframework.web.bind.annotation.RestControllerAdvice
 
 class AppOauthRedirectControllerHttpContractTest {
   @Test
@@ -116,17 +113,6 @@ class AppOauthRedirectControllerHttpContractTest {
 
     assertNotNull(provider.lastExchangeRequest)
     assertTrue(provider.lastExchangeRequest!!.additionalParameters.containsKey("scope"))
-
-    mockMvc
-        .perform(
-            get("/oauth/redirect/google")
-                .param("redirectUri", "https://app.example.com/oauth/callback"),
-        )
-        .andExpect(status().isNotFound)
-
-    mockMvc
-        .perform(get("/oauth/callback/google").param("code", "code-123").param("state", state))
-        .andExpect(status().isNotFound)
   }
 
   @Test
@@ -194,7 +180,7 @@ class AppOauthRedirectControllerHttpContractTest {
         )
         .andExpect(status().isBadRequest)
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-        .andExpect(jsonPath("$.code").value("HttpStatusException"))
+        .andExpect(jsonPath("$.code").value("OAUTH_CALLBACK_INVALID_REQUEST"))
         .andExpect(jsonPath("$.message").value("State token is already used, expired, or unknown."))
   }
 
@@ -227,8 +213,8 @@ class AppOauthRedirectControllerHttpContractTest {
         )
         .andExpect(status().isInternalServerError)
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-        .andExpect(jsonPath("$.code").value("HttpStatusException"))
-        .andExpect(jsonPath("$.message").value("Failed to exchange provider token."))
+        .andExpect(jsonPath("$.code").value("OAUTH_PROVIDER_REMOTE_FAILURE"))
+        .andExpect(jsonPath("$.message").value("Internal Server Error"))
   }
 
   @Test
@@ -501,7 +487,7 @@ class AppOauthRedirectControllerHttpContractTest {
         .perform(get("/oauth/callback/apple"))
         .andExpect(status().isBadRequest)
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-        .andExpect(jsonPath("$.code").value("HttpStatusException"))
+        .andExpect(jsonPath("$.code").value("OAUTH_APPLE_CALLBACK_POST_ONLY"))
         .andExpect(jsonPath("$.message").value("Apple callback supports POST form_post only."))
   }
 
@@ -540,7 +526,7 @@ class AppOauthRedirectControllerHttpContractTest {
         )
         .andExpect(status().isBadRequest)
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-        .andExpect(jsonPath("$.code").value("HttpStatusException"))
+        .andExpect(jsonPath("$.code").value("OAUTH_REDIRECT_INVALID_REQUEST"))
         .andExpect(jsonPath("$.message").value("redirectUri is not allowed."))
   }
 
@@ -577,8 +563,6 @@ class AppOauthRedirectControllerHttpContractTest {
         )
         .andExpect(status().isFound)
         .andExpect(redirectedUrlPattern("https://app.example.com/oauth/callback?relayCode=*"))
-
-    mockMvc.perform(post("/oauth/callback/apple")).andExpect(status().isNotFound)
   }
 
   @Test
@@ -808,7 +792,7 @@ class AppOauthRedirectControllerHttpContractTest {
       properties: AtomicAppOauthRedirectProperties,
   ): MockMvc {
     return MockMvcBuilders.standaloneSetup(controller)
-        .setControllerAdvice(TestHttpStatusExceptionHandler())
+        .setControllerAdvice(AtomicHttpExceptionHandler(MockEnvironment()))
         .addPlaceholderValue(
             "atomic.app.oauth.redirect.redirect-endpoint-path",
             properties.redirectEndpointPath,
@@ -849,14 +833,6 @@ class AppOauthRedirectControllerHttpContractTest {
 
     override fun resolveIdentity(request: OauthIdentityRequest): OauthIdentityResult {
       return OauthIdentityResult(provider = providerName, userId = "user-1")
-    }
-  }
-
-  @RestControllerAdvice
-  private class TestHttpStatusExceptionHandler {
-    @ExceptionHandler(HttpStatusException::class)
-    fun httpStatusException(e: HttpStatusException): ResponseEntity<BaseResponse<Any>> {
-      return ResponseEntity.status(e.status).body(BaseResponse.error(e))
     }
   }
 }

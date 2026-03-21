@@ -1,7 +1,6 @@
 package com.infosung.atomic.app.version.autoconfigure
 
 import com.infosung.atomic.app.version.adapter.`in`.web.AppVersionController
-import com.infosung.atomic.app.version.adapter.`in`.web.AppVersionHttpExceptionHandler
 import com.infosung.atomic.app.version.application.port.`in`.CheckAppVersionUseCase
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
@@ -26,12 +25,5 @@ class AtomicAppVersionWebAutoConfiguration {
       checkAppVersionUseCase: CheckAppVersionUseCase,
   ): AppVersionController {
     return AppVersionController(checkAppVersionUseCase = checkAppVersionUseCase)
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  @ConditionalOnBean(AppVersionController::class)
-  fun appVersionHttpExceptionHandler(): AppVersionHttpExceptionHandler {
-    return AppVersionHttpExceptionHandler()
   }
 }

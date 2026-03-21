@@ -1,7 +1,6 @@
 package com.infosung.atomic.app.oauth.autoconfigure
 
 import com.infosung.atomic.app.oauth.adapter.`in`.web.AppOauthRedirectController
-import com.infosung.atomic.app.oauth.adapter.`in`.web.AppOauthRedirectHttpExceptionHandler
 import com.infosung.atomic.app.oauth.adapter.out.oauth.OauthServiceProviderAdapter
 import com.infosung.atomic.app.oauth.adapter.out.redirect.AllowedRedirectUriPortAdapter
 import com.infosung.atomic.app.oauth.adapter.out.relay.IssueOauthRelayCodeUseCasePortAdapter
@@ -116,7 +115,6 @@ class AtomicAppOauthRedirectAutoConfigurationContractTest {
             appleCallbackUseCase,
             properties,
         )
-    val handler = webAutoConfiguration.appOauthRedirectHttpExceptionHandler()
 
     assertIs<OauthProviderOperationsPort>(providerPort)
     assertIs<OauthServiceProviderAdapter>(providerPort)
@@ -139,7 +137,6 @@ class AtomicAppOauthRedirectAutoConfigurationContractTest {
     assertIs<BuildAppleCallbackRedirectUseCase>(appleCallbackUseCase)
     assertIs<BuildAppleCallbackRedirectService>(appleCallbackUseCase)
     assertIs<AppOauthRedirectController>(controller)
-    assertIs<AppOauthRedirectHttpExceptionHandler>(handler)
   }
 
   @Test
@@ -186,15 +183,6 @@ class AtomicAppOauthRedirectAutoConfigurationContractTest {
     assertEquals(
         AppOauthRedirectController::class.java,
         webBeanMethod("appOauthRedirectController").returnType,
-    )
-
-    assertTrue(
-        webBeanMethod("appOauthRedirectHttpExceptionHandler")
-            .isAnnotationPresent(ConditionalOnMissingBean::class.java),
-    )
-    assertEquals(
-        AppOauthRedirectHttpExceptionHandler::class.java,
-        webBeanMethod("appOauthRedirectHttpExceptionHandler").returnType,
     )
   }
 

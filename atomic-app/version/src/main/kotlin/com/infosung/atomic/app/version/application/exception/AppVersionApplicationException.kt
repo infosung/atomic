@@ -1,5 +1,6 @@
 package com.infosung.atomic.app.version.application.exception
 
-internal sealed class AppVersionApplicationException(
+sealed class AppVersionApplicationException(
+    val errorCode: AppVersionErrorCode,
     message: String,
 ) : RuntimeException(message)

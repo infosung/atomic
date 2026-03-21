@@ -2,9 +2,12 @@ package com.infosung.atomic.app.version
 
 import com.infosung.atomic.app.version.adapter.`in`.web.AppVersionCheckResponseDto
 import com.infosung.atomic.app.version.adapter.`in`.web.AppVersionController
-import com.infosung.atomic.app.version.adapter.`in`.web.AppVersionHttpExceptionHandler
 import com.infosung.atomic.app.version.adapter.out.persistence.ServiceVersionEntity
 import com.infosung.atomic.app.version.adapter.out.persistence.ServiceVersionRepository
+import com.infosung.atomic.app.version.application.exception.AppVersionApplicationException
+import com.infosung.atomic.app.version.application.exception.AppVersionErrorCode
+import com.infosung.atomic.app.version.application.exception.InvalidAppVersionException
+import com.infosung.atomic.app.version.application.exception.VersionPolicyNotFoundException
 import com.infosung.atomic.app.version.application.port.`in`.CheckAppVersionUseCase
 import com.infosung.atomic.app.version.autoconfigure.AtomicAppVersionProperties
 import com.infosung.atomic.contract.response.BaseResponse
@@ -116,14 +119,36 @@ class AppVersionPublicContractTest {
   }
 
   @Test
-  fun `version web entry types should remain exported from adapter in web`() {
+  fun `version web entry type should remain exported from adapter in web`() {
     assertEquals(
         "com.infosung.atomic.app.version.adapter.in.web.AppVersionController",
         AppVersionController::class.java.name,
     )
+  }
+
+  @Test
+  fun `version public error seams should remain exported from application exception`() {
     assertEquals(
-        "com.infosung.atomic.app.version.adapter.in.web.AppVersionHttpExceptionHandler",
-        AppVersionHttpExceptionHandler::class.java.name,
+        "com.infosung.atomic.app.version.application.exception.AppVersionApplicationException",
+        AppVersionApplicationException::class.java.name,
+    )
+    assertEquals(
+        "com.infosung.atomic.app.version.application.exception.InvalidAppVersionException",
+        InvalidAppVersionException::class.java.name,
+    )
+    assertEquals(
+        "com.infosung.atomic.app.version.application.exception.VersionPolicyNotFoundException",
+        VersionPolicyNotFoundException::class.java.name,
+    )
+    assertEquals(
+        listOf(
+            "VERSION_SERVICE_NAME_REQUIRED",
+            "VERSION_PLATFORM_REQUIRED",
+            "VERSION_APP_VERSION_REQUIRED",
+            "VERSION_INVALID_APP_VERSION",
+            "VERSION_POLICY_NOT_FOUND",
+        ),
+        AppVersionErrorCode.entries.map { it.name },
     )
   }
 

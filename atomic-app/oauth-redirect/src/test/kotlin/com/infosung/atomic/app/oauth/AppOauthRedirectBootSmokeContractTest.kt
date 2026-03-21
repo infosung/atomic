@@ -63,7 +63,7 @@ class AppOauthRedirectBootSmokeContractTest {
     mockMvc
         .perform(get("/oauth/callback/apple"))
         .andExpect(status().isBadRequest)
-        .andExpect(jsonPath("$.code").value("HttpStatusException"))
+        .andExpect(jsonPath("$.code").value("OAUTH_APPLE_CALLBACK_POST_ONLY"))
         .andExpect(jsonPath("$.message").value("Apple callback supports POST form_post only."))
   }
 

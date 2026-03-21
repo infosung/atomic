@@ -8,9 +8,16 @@ class HttpStatusExceptionTest {
   @Test
   fun `HttpStatusException should keep message and cause`() {
     val cause = IllegalArgumentException("bad input")
-    val exception = HttpStatusException(status = 418, message = "teapot", cause = cause)
+    val exception =
+        HttpStatusException(
+            status = 418,
+            code = "TEAPOT",
+            message = "teapot",
+            cause = cause,
+        )
 
     assertEquals(418, exception.status)
+    assertEquals("TEAPOT", exception.code)
     assertEquals("teapot", exception.message)
     assertEquals(cause, exception.cause)
   }

@@ -1,5 +1,7 @@
 package com.infosung.atomic.app.version.adapter.`in`.web
 
+import com.infosung.atomic.app.version.application.exception.AppVersionApplicationException
+import com.infosung.atomic.app.version.application.exception.AppVersionErrorCode
 import com.infosung.atomic.app.version.application.port.`in`.CheckAppVersionUseCase
 import com.infosung.atomic.contract.exception.HttpStatusException
 import com.infosung.atomic.contract.header.ApiHeaderNames
@@ -42,15 +44,27 @@ class AppVersionController(
 
     if (serviceName == null) {
       log.warn("Version check rejected: missing header {}", ApiHeaderNames.HEADER_X_SERVICE_NAME)
-      throw HttpStatusException(status = 400, message = "Service name is required.")
+      throw HttpStatusException(
+          status = 400,
+          code = AppVersionErrorCode.VERSION_SERVICE_NAME_REQUIRED.name,
+          message = "Service name is required.",
+      )
     }
     if (platform == null) {
       log.warn("Version check rejected: missing header {}", ApiHeaderNames.HEADER_X_PLATFORM)
-      throw HttpStatusException(status = 400, message = "Platform is required.")
+      throw HttpStatusException(
+          status = 400,
+          code = AppVersionErrorCode.VERSION_PLATFORM_REQUIRED.name,
+          message = "Platform is required.",
+      )
     }
     if (appVersion == null) {
       log.warn("Version check rejected: missing header {}", ApiHeaderNames.HEADER_X_APP_VERSION)
-      throw HttpStatusException(status = 400, message = "App version is required.")
+      throw HttpStatusException(
+          status = 400,
+          code = AppVersionErrorCode.VERSION_APP_VERSION_REQUIRED.name,
+          message = "App version is required.",
+      )
     }
     log.debug(
         "Version check request accepted at web adapter: service={}, platform={}, appVersion={}",
@@ -60,11 +74,33 @@ class AppVersionController(
     )
 
     val decision =
-        checkAppVersionUseCase.check(
-            service = serviceName,
-            platform = platform,
-            appVersion = appVersion,
-        )
+        try {
+          checkAppVersionUseCase.check(
+              service = serviceName,
+              platform = platform,
+              appVersion = appVersion,
+          )
+        } catch (e: AppVersionApplicationException) {
+          val status =
+              when (e.errorCode) {
+                AppVersionErrorCode.VERSION_INVALID_APP_VERSION -> 400
+                AppVersionErrorCode.VERSION_POLICY_NOT_FOUND -> 404
+                else -> 400
+              }
+          log.warn(
+              "Version check rejected at web adapter: service={}, platform={}, errorCode={}, message={}",
+              serviceName,
+              platform,
+              e.errorCode,
+              e.message,
+          )
+          throw HttpStatusException(
+              status = status,
+              code = e.errorCode.name,
+              message = e.message ?: e.errorCode.name,
+              cause = e,
+          )
+        }
     val response = BaseResponse.ok(AppVersionCheckResponseMapper.toResponse(decision))
     log.debug(
         "Version check completed at web adapter: service={}, platform={}, requiredUpdate={}",

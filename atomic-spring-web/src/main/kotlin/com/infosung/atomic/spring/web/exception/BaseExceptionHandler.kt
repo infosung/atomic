@@ -102,11 +102,15 @@ abstract class BaseExceptionHandler(
   ): BaseResponse<Any> {
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR.value()) {
       return BaseResponse(
-          code = e::class.java.simpleName,
+          code = resolveCode(e),
           message = HttpStatus.INTERNAL_SERVER_ERROR.reasonPhrase,
       )
     }
     return BaseResponse.error(e = e)
+  }
+
+  private fun resolveCode(e: Exception): String {
+    return (e as? HttpStatusException)?.code?.takeIf { it.isNotBlank() } ?: e::class.java.simpleName
   }
 
   private fun stackTraceWithRequestInfo(request: HttpServletRequest, e: Exception): String {

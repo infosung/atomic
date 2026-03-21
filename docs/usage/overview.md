@@ -149,9 +149,9 @@ OAuth redirect handoff summary:
 - `atomic.starter` activates only when corresponding module classes are on classpath.
 - `atomic.app` APIs are disabled by default and enabled by `atomic.app.version.enabled` / `atomic.app.image.enabled` / `atomic.app.oauth.redirect.enabled`.
 - Some features still require application-specific beans (for example `BaseExceptionHandler`, `ApiLogAspect`, `LogSaver`).
-- `atomic.app.version`, `atomic.app.image`, and `atomic.app.oauth.redirect` now ship controller-specific `HttpStatusException` mapping, so their documented `400/403/404` wire contract works without host-app exception advice.
-- Host apps can still override app-module error responses with a higher-precedence `@RestControllerAdvice` when a custom envelope is required.
-- Outside those app controllers, `HttpStatusException` still needs application-level mapping (for example `BaseExceptionHandler` subclass) to guarantee wire status and response shape.
+- `atomic.app.version`, `atomic.app.image`, and `atomic.app.oauth.redirect` now depend on shared `atomic.spring.web` exception mapping rather than module-local advice beans.
+- Host apps should keep one global exception policy and customize from public atomic exception types or stable `HttpStatusException.code`.
+- Avoid message-text or internal FQCN matching for atomic app-module errors.
 - OAuth provider beans from properties are registered when `OauthStateManager` is available and each provider `enabled=true` (auto path: `atomic.oauth2.state.enabled=true` + `atomic.oauth2.state.signing-secret`, or custom manager bean).
 - `atomic.oauth2.state.signing-secret` must be at least 32 bytes; shorter values fail startup.
 - OAuth one-time state consume requires store path (`in-memory-store.enabled=true` or custom/shared `OauthStateStore`).
