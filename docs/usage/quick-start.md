@@ -193,16 +193,24 @@ RelayCode consume examples:
 Minimal consume endpoint sketch:
 
 ```kotlin
-@PostMapping("/api/login/oauth/relay")
-fun loginWithRelayCode(
-    @RequestBody request: RelayLoginRequest,
-    consumeOauthRelayCodeUseCase: ConsumeOauthRelayCodeUseCase,
-): SessionResponse {
-  val payload = consumeOauthRelayCodeUseCase.consume(request.relayCode)
-  val principal = accountService.resolveOrCreateFromOauth(payload)
-  return sessionService.issueSession(principal)
+@RestController
+class RelayLoginController(
+    private val consumeOauthRelayCodeUseCase: ConsumeOauthRelayCodeUseCase,
+    private val accountService: AccountService,
+    private val sessionService: SessionService,
+) {
+  @PostMapping("/api/login/oauth/relay")
+  fun loginWithRelayCode(
+      @RequestBody request: RelayLoginRequest,
+  ): SessionResponse {
+    val payload = consumeOauthRelayCodeUseCase.consume(request.relayCode)
+    val principal = accountService.resolveOrCreateFromOauth(payload)
+    return sessionService.issueSession(principal)
+  }
 }
 ```
+
+`AccountService` and `SessionService` above are host-app examples, not Atomic-provided types.
 
 Preset shortcut:
 - `local-development`
