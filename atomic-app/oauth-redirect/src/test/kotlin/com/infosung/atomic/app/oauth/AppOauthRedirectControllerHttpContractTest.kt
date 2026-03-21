@@ -218,6 +218,21 @@ class AppOauthRedirectControllerHttpContractTest {
   }
 
   @Test
+  fun `callback should map missing request parameter to shared 400 envelope`() {
+    val properties = configuredProperties().apply { callbackBinding.enabled = false }
+    val provider = ContractOauthProvider(providerName = OauthProviderName.GOOGLE)
+    val controller = newController(properties = properties, providers = listOf(provider))
+    val mockMvc = newMockMvc(controller = controller, properties = properties)
+
+    mockMvc
+        .perform(get("/oauth/callback/google").param("state", "state-123"))
+        .andExpect(status().isBadRequest)
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+        .andExpect(jsonPath("$.code").value("MISSING_REQUEST_PARAMETER"))
+        .andExpect(jsonPath("$.message").value("Required request parameter 'code' is missing."))
+  }
+
+  @Test
   fun `callback should clear callback-binding cookie after successful provider callback`() {
     val properties = configuredProperties()
     val provider = ContractOauthProvider(providerName = OauthProviderName.GOOGLE)

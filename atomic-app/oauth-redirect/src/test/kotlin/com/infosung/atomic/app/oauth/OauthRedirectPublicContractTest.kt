@@ -178,6 +178,9 @@ class OauthRedirectPublicContractTest {
         ),
         OauthRedirectErrorCode.entries.map { it.name },
     )
+    assertTrue(
+        OauthRedirectApplicationException::class.memberProperties.any { it.name == "errorCode" },
+    )
   }
 
   @Test

@@ -346,7 +346,8 @@ Behavior:
 - internal implementation is organized in `application`, `domain`, and `adapter` layers. Supported host seams are the exported build/issue/consume use-case beans, `OauthRelayCodeStore`, and the exported web adapter beans.
 - state verification is also translated at the adapter boundary into an application-owned verified-state model before callback use-cases read `redirect_uri`, `nonce`, or callback-binding attributes.
 - internal composition/support beans may appear in the Spring context, but host apps should not customize those directly. The build redirect use cases are the one exception: they are exported override seams for hosts that intentionally replace the default redirect/callback orchestration.
-- the exported `AppOauthRedirectController` and `AppOauthRedirectHttpExceptionHandler` types now live directly on the web adapter boundary.
+- the exported `AppOauthRedirectController` type lives on the web adapter boundary.
+- default HTTP envelope rendering now flows through the shared `atomic.spring.web` handler instead of a module-local oauth advice bean.
 - browser initiation is the intended model for non-web clients too: mobile and desktop apps should normally start the provider flow in the system browser or a system-browser-based tab, let the server receive the provider callback, and then return to an allowlisted app URI with `relayCode`.
 - redirect endpoint input `redirectUri` must be an absolute URI and must not include user-info.
 - callback binding validates redirect/callback continuity using one-time state attribute + cookie token.

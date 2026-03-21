@@ -6,6 +6,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import org.springframework.mock.env.MockEnvironment
 import org.springframework.mock.web.MockHttpServletRequest
+import org.springframework.web.bind.MissingServletRequestParameterException
 
 class BaseExceptionHandlerTest {
   @Test
@@ -68,6 +69,19 @@ class BaseExceptionHandlerTest {
     assertEquals(500, response.statusCode.value())
     assertEquals("OAUTH_PROVIDER_REMOTE_FAILURE", response.body?.code)
     assertEquals("Internal Server Error", response.body?.message)
+  }
+
+  @Test
+  fun `missing request parameter should map to stable 400 client error`() {
+    val handler = TestExceptionHandler()
+    val request = MockHttpServletRequest("DELETE", "/api/v1/storage/image/svc/S3")
+    val exception = MissingServletRequestParameterException("imageId", "String")
+
+    val response = handler.missingServletRequestParameterException(exception, request)
+
+    assertEquals(400, response.statusCode.value())
+    assertEquals("MISSING_REQUEST_PARAMETER", response.body?.code)
+    assertEquals("Required request parameter 'imageId' is missing.", response.body?.message)
   }
 
   private class TestExceptionHandler :

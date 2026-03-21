@@ -8,7 +8,7 @@ package com.infosung.atomic.contract.exception
  */
 open class HttpStatusException(
     val status: Int,
-    val code: String? = null,
     override val message: String,
     override val cause: Throwable? = null,
+    val code: String? = null,
 ) : RuntimeException(message, cause)

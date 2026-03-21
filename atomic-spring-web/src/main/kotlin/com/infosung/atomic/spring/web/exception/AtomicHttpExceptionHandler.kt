@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice
  * dedicated `*HttpExceptionHandler` beans.
  */
 @Order(Ordered.LOWEST_PRECEDENCE)
-@RestControllerAdvice
+@RestControllerAdvice(basePackages = ["com.infosung.atomic.app"])
 class AtomicHttpExceptionHandler(
     environment: Environment,
 ) : BaseExceptionHandler(environment) {

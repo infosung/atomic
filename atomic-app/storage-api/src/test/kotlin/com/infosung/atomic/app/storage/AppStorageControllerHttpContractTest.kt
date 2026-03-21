@@ -197,6 +197,24 @@ class AppStorageControllerHttpContractTest {
         .andExpect(jsonPath("$.message").value("image not found: $imageId"))
   }
 
+  @Test
+  fun `delete endpoint should map missing imageId parameter to shared 400 envelope`() {
+    val controller =
+        AppStorageController(
+            RecordingUploadUseCase(sampleStoredImage()),
+            RecordingDeleteUseCase(),
+            AtomicAppImageProperties(),
+        )
+    val mockMvc = newMockMvc(controller, "/api/v1/storage/image")
+
+    mockMvc
+        .perform(delete("/api/v1/storage/image/svc/S3"))
+        .andExpect(status().isBadRequest)
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+        .andExpect(jsonPath("$.code").value("MISSING_REQUEST_PARAMETER"))
+        .andExpect(jsonPath("$.message").value("Required request parameter 'imageId' is missing."))
+  }
+
   private fun newMockMvc(
       controller: AppStorageController,
       endpointPath: String,

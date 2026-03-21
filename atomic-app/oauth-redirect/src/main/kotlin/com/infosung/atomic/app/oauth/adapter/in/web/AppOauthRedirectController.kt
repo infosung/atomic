@@ -435,6 +435,7 @@ class AppOauthRedirectController(
       throw HttpStatusException(
           status = 400,
           message = "OAuth callback binding cookie is ambiguous.",
+          code = OauthRedirectErrorCode.OAUTH_CALLBACK_INVALID_REQUEST.name,
       )
     }
     return matchedCookies.firstOrNull()?.value?.trim()?.takeIf { it.isNotBlank() }
