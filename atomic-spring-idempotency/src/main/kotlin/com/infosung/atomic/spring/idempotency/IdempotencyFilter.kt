@@ -62,7 +62,7 @@ class IdempotencyFilter(
             response = httpResponse,
             status = errorCode.defaultHttpStatus,
             code = errorCode.name,
-            message = errorCode.defaultMessage.replace("Idempotency-Key", headerName),
+            message = errorCode.renderMessage(headerName = headerName),
         )
         return
       }

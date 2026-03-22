@@ -7,4 +7,14 @@ enum class IdempotencyErrorCode(
   IDEMPOTENCY_KEY_REQUIRED(400, "Idempotency-Key header is required."),
   IDEMPOTENCY_REQUEST_PROCESSING(409, "Idempotent request is already processing."),
   IDEMPOTENCY_FINGERPRINT_MISMATCH(409, "Idempotency key has been used with a different request."),
+  ;
+
+  fun renderMessage(
+      headerName: String? = null,
+  ): String {
+    return when (this) {
+      IDEMPOTENCY_KEY_REQUIRED -> "${headerName ?: "Idempotency-Key"} header is required."
+      else -> defaultMessage
+    }
+  }
 }

@@ -329,6 +329,7 @@ class AppOauthRedirectController(
       action: String,
       cause: IllegalStateException,
   ): Nothing {
+    val errorCode = OauthRedirectErrorCode.OAUTH_REDIRECT_CONFIGURATION_INVALID
     log.error(
         "OAuth configuration failure at web adapter: action={}, provider={}, message={}",
         action,
@@ -337,11 +338,9 @@ class AppOauthRedirectController(
         cause,
     )
     throw HttpStatusException(
-        status = OauthRedirectErrorCode.OAUTH_REDIRECT_CONFIGURATION_INVALID.defaultHttpStatus,
-        code = OauthRedirectErrorCode.OAUTH_REDIRECT_CONFIGURATION_INVALID.name,
-        message =
-            cause.message
-                ?: OauthRedirectErrorCode.OAUTH_REDIRECT_CONFIGURATION_INVALID.defaultMessage,
+        status = errorCode.defaultHttpStatus,
+        code = errorCode.name,
+        message = cause.message ?: errorCode.defaultMessage,
         cause = cause,
     )
   }
