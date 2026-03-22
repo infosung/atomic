@@ -202,10 +202,17 @@ Version API exception semantics:
 | `VERSION_SERVICE_NAME_REQUIRED` | `400` | `Service name is required.` |
 | `VERSION_PLATFORM_REQUIRED` | `400` | `Platform is required.` |
 | `VERSION_APP_VERSION_REQUIRED` | `400` | `App version is required.` |
+| `VERSION_APP_VERSION_FORMAT_INVALID` | `400` | `App version semantic format is invalid.` |
+| `VERSION_APP_VERSION_SEGMENT_INVALID` | `400` | `App version segment is invalid.` |
+| `VERSION_APP_VERSION_NEGATIVE_INVALID` | `400` | `App version must not contain negative numbers.` |
 | `VERSION_INVALID_APP_VERSION` | `400` | `App version is invalid.` |
 | `VERSION_POLICY_NOT_FOUND` | `404` | `No version policy was found.` |
 
 - direct use-case integration still receives public version exceptions; the table above describes the default web rendering
+- invalid semantic version shape now surfaces through `VERSION_APP_VERSION_FORMAT_INVALID`
+- non-numeric semantic version segments now surface through `VERSION_APP_VERSION_SEGMENT_INVALID`
+- negative semantic version segments now surface through `VERSION_APP_VERSION_NEGATIVE_INVALID`
+- `VERSION_INVALID_APP_VERSION` remains the generic fallback for other invalid version failures
 
 Version API rollout-safe semantics:
 

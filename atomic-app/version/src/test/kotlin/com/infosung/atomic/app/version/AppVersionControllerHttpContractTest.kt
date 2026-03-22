@@ -109,6 +109,26 @@ class AppVersionControllerHttpContractTest {
   }
 
   @Test
+  fun `missing platform header should return documented 400 error envelope`() {
+    val useCase = mock(CheckAppVersionUseCase::class.java)
+    val controller = AppVersionController(useCase)
+    val mockMvc = newMockMvc(controller = controller, endpointPath = "/api/v1/version/check")
+
+    mockMvc
+        .perform(
+            get("/api/v1/version/check")
+                .header(ApiHeaderNames.HEADER_X_SERVICE_NAME, "MY_SERVICE")
+                .header(ApiHeaderNames.HEADER_X_APP_VERSION, "1.2.3"),
+        )
+        .andExpect(status().isBadRequest)
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+        .andExpect(jsonPath("$.code").value("VERSION_PLATFORM_REQUIRED"))
+        .andExpect(jsonPath("$.message").value("Platform is required."))
+
+    verifyNoInteractions(useCase)
+  }
+
+  @Test
   fun `blank app version header should return documented 400 error envelope`() {
     val useCase = mock(CheckAppVersionUseCase::class.java)
     val controller = AppVersionController(useCase)
@@ -135,7 +155,14 @@ class AppVersionControllerHttpContractTest {
     val controller = AppVersionController(useCase)
     val mockMvc = newMockMvc(controller = controller, endpointPath = "/api/v1/version/check")
 
-    doThrow(InvalidAppVersionException("Version must be semantic format: x.y.z"))
+    doThrow(
+            InvalidAppVersionException(
+                "Version must be semantic format: x.y.z",
+                errorCode =
+                    com.infosung.atomic.app.version.application.exception.AppVersionErrorCode
+                        .VERSION_APP_VERSION_FORMAT_INVALID,
+            ),
+        )
         .`when`(useCase)
         .check("MY_SERVICE", "ANDROID", "1.2")
 
@@ -148,8 +175,68 @@ class AppVersionControllerHttpContractTest {
         )
         .andExpect(status().isBadRequest)
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-        .andExpect(jsonPath("$.code").value("VERSION_INVALID_APP_VERSION"))
+        .andExpect(jsonPath("$.code").value("VERSION_APP_VERSION_FORMAT_INVALID"))
         .andExpect(jsonPath("$.message").value("Version must be semantic format: x.y.z"))
+  }
+
+  @Test
+  fun `non numeric version segment should return refined 400 error envelope`() {
+    val useCase = mock(CheckAppVersionUseCase::class.java)
+    val controller = AppVersionController(useCase)
+    val mockMvc = newMockMvc(controller = controller, endpointPath = "/api/v1/version/check")
+
+    doThrow(
+            InvalidAppVersionException(
+                "Version segment must be numeric: 1.a.3",
+                errorCode =
+                    com.infosung.atomic.app.version.application.exception.AppVersionErrorCode
+                        .VERSION_APP_VERSION_SEGMENT_INVALID,
+            ),
+        )
+        .`when`(useCase)
+        .check("MY_SERVICE", "ANDROID", "1.a.3")
+
+    mockMvc
+        .perform(
+            get("/api/v1/version/check")
+                .header(ApiHeaderNames.HEADER_X_SERVICE_NAME, "MY_SERVICE")
+                .header(ApiHeaderNames.HEADER_X_PLATFORM, "ANDROID")
+                .header(ApiHeaderNames.HEADER_X_APP_VERSION, "1.a.3"),
+        )
+        .andExpect(status().isBadRequest)
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+        .andExpect(jsonPath("$.code").value("VERSION_APP_VERSION_SEGMENT_INVALID"))
+        .andExpect(jsonPath("$.message").value("Version segment must be numeric: 1.a.3"))
+  }
+
+  @Test
+  fun `negative version segment should return refined 400 error envelope`() {
+    val useCase = mock(CheckAppVersionUseCase::class.java)
+    val controller = AppVersionController(useCase)
+    val mockMvc = newMockMvc(controller = controller, endpointPath = "/api/v1/version/check")
+
+    doThrow(
+            InvalidAppVersionException(
+                "Version must not contain negative numbers.",
+                errorCode =
+                    com.infosung.atomic.app.version.application.exception.AppVersionErrorCode
+                        .VERSION_APP_VERSION_NEGATIVE_INVALID,
+            ),
+        )
+        .`when`(useCase)
+        .check("MY_SERVICE", "ANDROID", "1.-2.3")
+
+    mockMvc
+        .perform(
+            get("/api/v1/version/check")
+                .header(ApiHeaderNames.HEADER_X_SERVICE_NAME, "MY_SERVICE")
+                .header(ApiHeaderNames.HEADER_X_PLATFORM, "ANDROID")
+                .header(ApiHeaderNames.HEADER_X_APP_VERSION, "1.-2.3"),
+        )
+        .andExpect(status().isBadRequest)
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+        .andExpect(jsonPath("$.code").value("VERSION_APP_VERSION_NEGATIVE_INVALID"))
+        .andExpect(jsonPath("$.message").value("Version must not contain negative numbers."))
   }
 
   @Test

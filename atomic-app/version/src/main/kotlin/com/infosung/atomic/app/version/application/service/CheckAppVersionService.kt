@@ -1,5 +1,6 @@
 package com.infosung.atomic.app.version.application.service
 
+import com.infosung.atomic.app.version.application.exception.AppVersionErrorCode
 import com.infosung.atomic.app.version.application.exception.InvalidAppVersionException
 import com.infosung.atomic.app.version.application.exception.VersionPolicyNotFoundException
 import com.infosung.atomic.app.version.application.port.`in`.CheckAppVersionUseCase
@@ -101,23 +102,32 @@ internal class CheckAppVersionService(
     val segments = version.trim().split('.')
     if (segments.size != 3) {
       log.warn("Invalid app version format in use-case (semantic required): appVersion={}", version)
-      throw InvalidAppVersionException("Version must be semantic format: x.y.z")
+      throw InvalidAppVersionException(
+          "Version must be semantic format: x.y.z",
+          errorCode = AppVersionErrorCode.VERSION_APP_VERSION_FORMAT_INVALID,
+      )
     }
     val numbers =
         segments.map {
           it.toIntOrNull()
-              ?: throw InvalidAppVersionException("Version segment must be numeric: $version")
-                  .also {
-                    log.warn(
-                        "Invalid app version segment in use-case (numeric required): appVersion={}",
-                        version,
-                    )
-                  }
+              ?: run {
+                log.warn(
+                    "Invalid app version segment in use-case (numeric required): appVersion={}",
+                    version,
+                )
+                throw InvalidAppVersionException(
+                    "Version segment must be numeric: $version",
+                    errorCode = AppVersionErrorCode.VERSION_APP_VERSION_SEGMENT_INVALID,
+                )
+              }
         }
     if (numbers.any { it < 0 }) {
       log.warn(
           "Invalid app version value in use-case (non-negative required): appVersion={}", version)
-      throw InvalidAppVersionException("Version must not contain negative numbers.")
+      throw InvalidAppVersionException(
+          "Version must not contain negative numbers.",
+          errorCode = AppVersionErrorCode.VERSION_APP_VERSION_NEGATIVE_INVALID,
+      )
     }
     return SemanticVersion(
         major = numbers[0],
