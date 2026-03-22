@@ -12,19 +12,19 @@ Use `atomic.starter` to reduce boilerplate bean registration.
 
 ## Dependency Pattern
 
-Published artifact examples (`v0.0.4`):
+Published artifact examples (`v0.0.5`):
 
 ```kotlin
 dependencies {
-  implementation("com.infosung:atomic.contract:0.0.4")
-  implementation("com.infosung:atomic.storage:0.0.4")
-  implementation("com.infosung:atomic.spring.web:0.0.4")
-  implementation("com.infosung:atomic.spring.security:0.0.4")
-  implementation("com.infosung:atomic.spring.idempotency:0.0.4")
-  implementation("com.infosung:atomic.spring.oauth2:0.0.4")
-  implementation("com.infosung:atomic.heartbeat:0.0.4")
-  implementation("com.infosung:atomic.starter:0.0.4")
-  implementation("com.infosung:atomic.app:0.0.4")
+  implementation("com.infosung:atomic.contract:0.0.5")
+  implementation("com.infosung:atomic.storage:0.0.5")
+  implementation("com.infosung:atomic.spring.web:0.0.5")
+  implementation("com.infosung:atomic.spring.security:0.0.5")
+  implementation("com.infosung:atomic.spring.idempotency:0.0.5")
+  implementation("com.infosung:atomic.spring.oauth2:0.0.5")
+  implementation("com.infosung:atomic.heartbeat:0.0.5")
+  implementation("com.infosung:atomic.starter:0.0.5")
+  implementation("com.infosung:atomic.app:0.0.5")
 }
 ```
 

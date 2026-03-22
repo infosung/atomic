@@ -13,11 +13,11 @@ This guide focuses only on getting a working flow quickly.
 
 Dependency notation:
 - Gradle snippets below assume a local multi-module setup (`project(":...")`).
-- Published artifact equivalents for `v0.0.4` are:
-  - version-only: `implementation("com.infosung:atomic.app.version:0.0.4")`
-  - image API: `implementation("com.infosung:atomic.starter:0.0.4")`, `implementation("com.infosung:atomic.app.storage.api:0.0.4")`, `implementation("com.infosung:atomic.storage:0.0.4")`
-  - oauth redirect relay API: `implementation("com.infosung:atomic.starter:0.0.4")`, `implementation("com.infosung:atomic.app.oauth.redirect:0.0.4")`, `implementation("com.infosung:atomic.spring.oauth2:0.0.4")`
-  - convenience bundle: `implementation("com.infosung:atomic.app:0.0.4")`
+- Published artifact equivalents for `v0.0.5` are:
+  - version-only: `implementation("com.infosung:atomic.app.version:0.0.5")`
+  - image API: `implementation("com.infosung:atomic.starter:0.0.5")`, `implementation("com.infosung:atomic.app.storage.api:0.0.5")`, `implementation("com.infosung:atomic.storage:0.0.5")`
+  - oauth redirect relay API: `implementation("com.infosung:atomic.starter:0.0.5")`, `implementation("com.infosung:atomic.app.oauth.redirect:0.0.5")`, `implementation("com.infosung:atomic.spring.oauth2:0.0.5")`
+  - convenience bundle: `implementation("com.infosung:atomic.app:0.0.5")`
 
 Quick decision:
 - If you are still pre-production, validate behavior first with this document.
@@ -45,32 +45,32 @@ Published artifact equivalents for the same three tracks:
 ```kotlin
 // A. version-only
 dependencies {
-  implementation("com.infosung:atomic.app.version:0.0.4")
+  implementation("com.infosung:atomic.app.version:0.0.5")
 }
 ```
 
 ```kotlin
 // B. image API
 dependencies {
-  implementation("com.infosung:atomic.starter:0.0.4")
-  implementation("com.infosung:atomic.app.storage.api:0.0.4")
-  implementation("com.infosung:atomic.storage:0.0.4")
+  implementation("com.infosung:atomic.starter:0.0.5")
+  implementation("com.infosung:atomic.app.storage.api:0.0.5")
+  implementation("com.infosung:atomic.storage:0.0.5")
 }
 ```
 
 ```kotlin
 // C. oauth redirect relay API
 dependencies {
-  implementation("com.infosung:atomic.starter:0.0.4")
-  implementation("com.infosung:atomic.app.oauth.redirect:0.0.4")
-  implementation("com.infosung:atomic.spring.oauth2:0.0.4")
+  implementation("com.infosung:atomic.starter:0.0.5")
+  implementation("com.infosung:atomic.app.oauth.redirect:0.0.5")
+  implementation("com.infosung:atomic.spring.oauth2:0.0.5")
 }
 ```
 
 ```kotlin
 // Convenience bundle
 dependencies {
-  implementation("com.infosung:atomic.app:0.0.4")
+  implementation("com.infosung:atomic.app:0.0.5")
 }
 ```
 
