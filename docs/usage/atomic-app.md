@@ -33,7 +33,7 @@ Internally, `atomic.app` is a bundle of:
 - `atomic.app.storage.api` requires storage beans, so starter-based setups usually add both.
 - `atomic.app.oauth.redirect` usually pairs with `atomic.starter` + `atomic.spring.oauth2`.
 
-Published artifact set (`v0.0.4`):
+Published artifact set (`v0.0.5`):
 
 - `atomic-contract`
 - `atomic-storage`
@@ -75,9 +75,9 @@ Published-artifact narrow-module selection:
 
 ```kotlin
 dependencies {
-  implementation("com.infosung:atomic.app.version:0.0.4")
-  implementation("com.infosung:atomic.app.storage.api:0.0.4")
-  implementation("com.infosung:atomic.app.oauth.redirect:0.0.4")
+  implementation("com.infosung:atomic.app.version:0.0.5")
+  implementation("com.infosung:atomic.app.storage.api:0.0.5")
+  implementation("com.infosung:atomic.app.oauth.redirect:0.0.5")
 }
 ```
 
