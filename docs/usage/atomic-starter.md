@@ -97,7 +97,8 @@ When `atomic.spring.web` exists and `atomic.web.enabled=true` (default `true`):
 
 Still required from app:
 
-- for logging/exception mapping features: `LogSaver`, `ApiLogAspect`, `BaseExceptionHandler`
+- for logging features: `LogSaver`, `ApiLogAspect`
+- for exception mapping: no mandatory app bean for `atomic.app.*`; the built-in scoped `AtomicHttpExceptionHandler` is enough unless you want a broader/custom policy via `BaseExceptionHandler`
 - for rate-limit only: no mandatory app bean
 - for explicit custom mode, set `atomic.web.rate-limit.store=custom` and register `RateLimitStore`
 

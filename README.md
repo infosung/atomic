@@ -119,7 +119,7 @@ dependencies {
 | Common version check API (`GET /api/v1/version/check`) | `atomic.app.version` (+ datasource/JPA) or convenience bundle `atomic.app` with the same datasource/JPA prerequisites | `atomic.app.version.enabled=true` | `service_version` table schema and version policy data (`store_available` defaults to `true`; set it to `false` for review/pre-rollout rows that must not become force-update targets yet) |
 | Common image upload/delete API (`POST/DELETE /api/v1/storage/image/{service}/{storageService}`) | `atomic.app.storage.api` + `atomic.starter` + `atomic.storage` + storage backend config, or convenience bundle `atomic.app` with the same storage prerequisites | `atomic.app.image.enabled=true`, `atomic.storage.enabled=true` (+ optional uploader tracking config) | `image` table schema |
 | Common OAuth redirect/callback relay API (`/oauth/redirect/{provider}`, `/oauth/callback/{provider}`, `POST /oauth/callback/apple`) | `atomic.app.oauth.redirect` + `atomic.starter` + `atomic.spring.oauth2`, or convenience bundle `atomic.app` with the same starter/oauth2/store prerequisites | `atomic.app.oauth.redirect.enabled=true`, non-empty `allowed-redirect-uri-prefixes`, oauth state/provider properties, and selected relay-store prerequisites | login API that consumes relayCode and establishes app session/token |
-| Web logging/json/rate-limit helpers | `atomic.starter` + `atomic.spring.web` | `atomic.web.enabled=true` (default), `atomic.web.logging.enabled=true` (default), `atomic.web.rate-limit.enabled=false` (default) | for logging/exception mapping: `LogSaver` + `ApiLogAspect` + `BaseExceptionHandler`; for rate-limit only: no mandatory app bean |
+| Web logging/json/rate-limit helpers | `atomic.starter` + `atomic.spring.web` | `atomic.web.enabled=true` (default), `atomic.web.logging.enabled=true` (default), `atomic.web.rate-limit.enabled=false` (default) | for logging: `LogSaver` + `ApiLogAspect`; for exception mapping the built-in scoped `AtomicHttpExceptionHandler` is enough unless you want a broader/custom policy via `BaseExceptionHandler`; for rate-limit only: no mandatory app bean |
 | HTTP idempotency filter | `atomic.starter` + `atomic.spring.idempotency` | `atomic.idempotency.enabled=true` | optional custom `IdempotencyStore`, optional custom `IdempotencyFingerprintResolver` |
 | Security JWT helpers | `atomic.starter` + `atomic.spring.security` | `atomic.security.enabled=true` (default), `atomic.security.jwt.enabled=true` (default), JWT keys | your `SecurityFilterChain` that applies `JwtSecurityConfigurerAdapter` |
 | OAuth provider beans/service | `atomic.starter` + `atomic.spring.oauth2` | `atomic.oauth2.enabled=true` (default), per-provider `enabled=true`, and available `OauthStateManager` (auto path: `state.enabled=true` + `state.signing-secret`; or custom bean) | callback/redirect controller endpoints |
@@ -369,7 +369,8 @@ At minimum by feature:
 Implement/register:
 
 - `LogSaver` and `ApiLogAspect` subclass when API logging is enabled
-- `BaseExceptionHandler` subclass when exception-response mapping is needed
+- built-in scoped `AtomicHttpExceptionHandler` is enough for `atomic.app.*` exception-response mapping by default
+- register your own `BaseExceptionHandler` subclass only when you need a broader/custom policy
 - for explicit custom mode, set `atomic.web.rate-limit.store=custom` and register `RateLimitStore`.
 - any user-defined `RateLimitStore` bean overrides starter default store via `@ConditionalOnMissingBean` (regardless of `store` mode).
 - rate-limit rule matching is first-match wins, and `X-RateLimit-Reset`/`Retry-After` are seconds until current fixed-window boundary.
