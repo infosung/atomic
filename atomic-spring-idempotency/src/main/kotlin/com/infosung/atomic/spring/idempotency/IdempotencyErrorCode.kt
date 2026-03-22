@@ -10,10 +10,10 @@ enum class IdempotencyErrorCode(
   ;
 
   fun renderMessage(
-      headerName: String? = null,
+      headerName: String,
   ): String {
     return when (this) {
-      IDEMPOTENCY_KEY_REQUIRED -> "${headerName ?: "Idempotency-Key"} header is required."
+      IDEMPOTENCY_KEY_REQUIRED -> "$headerName header is required."
       else -> defaultMessage
     }
   }
