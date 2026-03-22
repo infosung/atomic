@@ -1,6 +1,7 @@
 package com.infosung.atomic.app.version
 
 import com.infosung.atomic.app.version.adapter.`in`.web.AppVersionController
+import com.infosung.atomic.app.version.application.exception.AppVersionErrorCode
 import com.infosung.atomic.app.version.application.exception.InvalidAppVersionException
 import com.infosung.atomic.app.version.application.exception.VersionPolicyNotFoundException
 import com.infosung.atomic.app.version.application.port.`in`.CheckAppVersionUseCase
@@ -158,9 +159,7 @@ class AppVersionControllerHttpContractTest {
     doThrow(
             InvalidAppVersionException(
                 "Version must be semantic format: x.y.z",
-                errorCode =
-                    com.infosung.atomic.app.version.application.exception.AppVersionErrorCode
-                        .VERSION_APP_VERSION_FORMAT_INVALID,
+                errorCode = AppVersionErrorCode.VERSION_APP_VERSION_FORMAT_INVALID,
             ),
         )
         .`when`(useCase)
@@ -188,9 +187,7 @@ class AppVersionControllerHttpContractTest {
     doThrow(
             InvalidAppVersionException(
                 "Version segment must be numeric: 1.a.3",
-                errorCode =
-                    com.infosung.atomic.app.version.application.exception.AppVersionErrorCode
-                        .VERSION_APP_VERSION_SEGMENT_INVALID,
+                errorCode = AppVersionErrorCode.VERSION_APP_VERSION_SEGMENT_INVALID,
             ),
         )
         .`when`(useCase)
@@ -218,9 +215,7 @@ class AppVersionControllerHttpContractTest {
     doThrow(
             InvalidAppVersionException(
                 "Version must not contain negative numbers.",
-                errorCode =
-                    com.infosung.atomic.app.version.application.exception.AppVersionErrorCode
-                        .VERSION_APP_VERSION_NEGATIVE_INVALID,
+                errorCode = AppVersionErrorCode.VERSION_APP_VERSION_NEGATIVE_INVALID,
             ),
         )
         .`when`(useCase)
