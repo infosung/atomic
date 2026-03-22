@@ -5,6 +5,7 @@ import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
 import com.infosung.atomic.app.oauth.adapter.out.redirect.AllowedRedirectUriPolicySupport
+import com.infosung.atomic.app.oauth.application.exception.OauthRedirectErrorCode
 import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRequestException
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -57,6 +58,7 @@ class AllowedRedirectUriPolicyTest {
         }
 
     assertEquals("redirectUri is required.", error.message)
+    assertEquals(OauthRedirectErrorCode.OAUTH_REDIRECT_URI_INVALID, error.errorCode)
   }
 
   @Test
@@ -70,6 +72,7 @@ class AllowedRedirectUriPolicyTest {
         }
 
     assertEquals("redirectUri is not allowed.", error.message)
+    assertEquals(OauthRedirectErrorCode.OAUTH_REDIRECT_URI_INVALID, error.errorCode)
   }
 
   @Test

@@ -62,7 +62,7 @@ Optional:
 
 Recommended direction:
 
-- atomic app modules expose public typed exceptions for host/use-case integration
+- atomic app modules expose public exception types plus stable `errorCode` values for host/use-case integration
 - web adapters translate transport failures into `HttpStatusException`
 - your global web exception layer should branch on `HttpStatusException.code` or typed module exceptions, not message text
 

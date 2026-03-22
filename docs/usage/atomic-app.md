@@ -412,16 +412,25 @@ Concrete relayCode consume flows:
 Minimal backend consume example:
 
 ```kotlin
+@RestController
+class RelayLoginController(
+    private val consumeOauthRelayCodeUseCase: ConsumeOauthRelayCodeUseCase,
+    private val accountService: AccountService,
+    private val sessionService: SessionService,
+) {
+
 @PostMapping("/api/login/oauth/relay")
 fun loginWithRelayCode(
     @RequestBody request: RelayLoginRequest,
-    consumeOauthRelayCodeUseCase: ConsumeOauthRelayCodeUseCase,
 ): SessionResponse {
   val payload = consumeOauthRelayCodeUseCase.consume(request.relayCode)
   val principal = accountService.resolveOrCreateFromOauth(payload)
   return sessionService.issueSession(principal)
 }
+}
 ```
+
+`AccountService` and `SessionService` here are host app-owned services, not Atomic-provided types.
 
 Relay payload:
 
@@ -446,14 +455,24 @@ OAuth redirect exception semantics:
 |---|---:|---|
 | `OAUTH_REDIRECT_INVALID_REQUEST` | `400` | `OAuth redirect request is invalid.` |
 | `OAUTH_CALLBACK_INVALID_REQUEST` | `400` | `OAuth callback request is invalid.` |
+| `OAUTH_PROVIDER_UNSUPPORTED` | `400` | `OAuth provider is not supported.` |
+| `OAUTH_REDIRECT_URI_INVALID` | `400` | `OAuth redirect URI is invalid.` |
+| `OAUTH_CALLBACK_BINDING_INVALID` | `400` | `OAuth callback binding is invalid.` |
+| `OAUTH_STATE_INVALID` | `400` | `OAuth callback state is invalid.` |
 | `OAUTH_PROVIDER_REMOTE_FAILURE` | `500` | `Upstream OAuth provider request failed.` |
 | `OAUTH_APPLE_CALLBACK_POST_ONLY` | `400` | `Apple callback supports POST form_post only.` |
 | `OAUTH_REDIRECT_CONFIGURATION_INVALID` | `500` | `OAuth redirect configuration is invalid.` |
+| `OAUTH_RELAY_CODE_REQUIRED` | `400` | `OAuth relay code is required.` |
 | `OAUTH_RELAY_CODE_INVALID_REQUEST` | `400` | `OAuth relay code request is invalid.` |
 
-- unsupported provider / invalid or missing `redirectUri` typically surface through `OAUTH_REDIRECT_INVALID_REQUEST`
-- invalid callback request / state validation / ambiguous callback binding cookie typically surface through `OAUTH_CALLBACK_INVALID_REQUEST`
+- unsupported provider surfaces through `OAUTH_PROVIDER_UNSUPPORTED`
+- invalid or disallowed `redirectUri` surfaces through `OAUTH_REDIRECT_URI_INVALID`
+- callback binding missing/mismatch/ambiguous cookie surfaces through `OAUTH_CALLBACK_BINDING_INVALID`
+- invalid or expired callback state surfaces through `OAUTH_STATE_INVALID`
+- broader redirect/callback parsing failures still use `OAUTH_REDIRECT_INVALID_REQUEST` / `OAUTH_CALLBACK_INVALID_REQUEST`
+- relayCode missing surfaces through `OAUTH_RELAY_CODE_REQUIRED`
 - relayCode invalid / expired / already consumed surfaces through `OAUTH_RELAY_CODE_INVALID_REQUEST` when you call the consume use case or expose your own consume endpoint
+- `5xx` oauth codes still keep stable `code` and `status`, but the built-in shared handler masks the wire `message` to `Internal Server Error` by default.
 - callback/state validation errors are exposed as public oauth redirect exceptions and mapped to stable `HttpStatusException.code` values at the web boundary.
 - upstream provider I/O errors are exposed as public oauth redirect remote-failure exceptions and mapped to stable `HttpStatusException.code` values at the web boundary.
 - errors after `relayCode` consumption belong to your login/session API, not to the redirect/callback relay module.

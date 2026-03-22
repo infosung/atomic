@@ -1,8 +1,11 @@
 package com.infosung.atomic.app.oauth.adapter.out.state
 
+import com.infosung.atomic.app.oauth.application.exception.OauthRedirectErrorCode
+import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRequestException
 import com.infosung.atomic.app.oauth.application.model.OauthVerifiedState
 import com.infosung.atomic.app.oauth.application.port.out.VerifyOauthStatePort
 import com.infosung.atomic.oauth.api.OauthProviderName
+import com.infosung.atomic.oauth.state.InvalidOauthStateException
 import com.infosung.atomic.oauth.state.OauthStateManager
 import org.slf4j.LoggerFactory
 
@@ -16,10 +19,18 @@ internal class OauthStateManagerAdapter(
       expectedProvider: OauthProviderName,
   ): OauthVerifiedState {
     val stateClaims =
-        oauthStateManager.verifyStateClaims(
-            signedState = signedState,
-            expectedProvider = expectedProvider,
-        )
+        try {
+          oauthStateManager.verifyStateClaims(
+              signedState = signedState,
+              expectedProvider = expectedProvider,
+          )
+        } catch (e: InvalidOauthStateException) {
+          throw OauthRedirectRequestException(
+              message = e.message ?: OauthRedirectErrorCode.OAUTH_STATE_INVALID.defaultMessage,
+              cause = e,
+              errorCode = OauthRedirectErrorCode.OAUTH_STATE_INVALID,
+          )
+        }
     val verifiedState =
         OauthVerifiedState(
             provider = stateClaims.provider,

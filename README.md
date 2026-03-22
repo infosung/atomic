@@ -2,7 +2,7 @@
 
 Atomic is a Kotlin/Spring library suite for backend services.
 
-> Status: `v0.0.4` documentation for a pre-1.0 release line.
+> Status: current pre-1.0 documentation for the active mainline branch.
 
 ## Tested Baseline
 
@@ -10,14 +10,14 @@ Atomic is a Kotlin/Spring library suite for backend services.
 - Kotlin `2.3.10`
 - Spring Boot `4.0.3`
 - `atomic.spring.web` AOP dependency uses `org.springframework.boot:spring-boot-starter-aspectj` (BOM-managed).
-- `v0.0.4` release validation is written against this baseline. If you run a different runtime mix,
+- Current release-line validation is written against this baseline. If you run a different runtime mix,
   treat it as self-validated in your own CI before rollout.
 
 ## Start Here (Recommended Path)
 
 1. Minimal adoption: [Atomic Quick Start](docs/usage/quick-start.md)
 2. Production transition: [Advanced Operations Playbook](docs/usage/advanced-playbook.md)
-3. Upgrade from `v0.0.3`: [Release Migration Guide](docs/migration/v0.0.3-to-v0.0.4.md)
+3. Upgrade from `v0.0.4`: [Release Migration Guide](docs/migration/v0.0.4-to-v0.0.5.md)
 4. Module-level details: see `Detailed Guides` below
 
 ## Feature-First Onboarding

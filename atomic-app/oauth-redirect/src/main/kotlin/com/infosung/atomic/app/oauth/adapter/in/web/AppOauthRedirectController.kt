@@ -196,9 +196,9 @@ class AppOauthRedirectController(
       throwInvalidRequest(
           provider = provider,
           action = "oauth callback",
-          code = OauthRedirectErrorCode.OAUTH_CALLBACK_INVALID_REQUEST,
+          code = e.errorCode,
           cause = e,
-          fallbackMessage = "Invalid OAuth callback request for provider: $provider",
+          fallbackMessage = e.errorCode.defaultMessage,
       )
     } catch (e: HttpStatusException) {
       log.warn(
@@ -254,9 +254,9 @@ class AppOauthRedirectController(
       throwInvalidRequest(
           provider = provider,
           action = action,
-          code = OauthRedirectErrorCode.OAUTH_REDIRECT_INVALID_REQUEST,
+          code = e.errorCode,
           cause = e,
-          fallbackMessage = "Invalid request for provider: $provider",
+          fallbackMessage = e.errorCode.defaultMessage,
       )
     } catch (e: HttpStatusException) {
       log.warn("Rejected {} at web adapter: provider={}, message={}", action, provider, e.message)
@@ -434,9 +434,9 @@ class AppOauthRedirectController(
           cookieName,
       )
       throw HttpStatusException(
-          status = OauthRedirectErrorCode.OAUTH_CALLBACK_INVALID_REQUEST.defaultHttpStatus,
+          status = OauthRedirectErrorCode.OAUTH_CALLBACK_BINDING_INVALID.defaultHttpStatus,
           message = "OAuth callback binding cookie is ambiguous.",
-          code = OauthRedirectErrorCode.OAUTH_CALLBACK_INVALID_REQUEST.name,
+          code = OauthRedirectErrorCode.OAUTH_CALLBACK_BINDING_INVALID.name,
       )
     }
     return matchedCookies.firstOrNull()?.value?.trim()?.takeIf { it.isNotBlank() }

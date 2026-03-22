@@ -1,5 +1,6 @@
 package com.infosung.atomic.app.oauth.adapter.out.oauth
 
+import com.infosung.atomic.app.oauth.application.exception.OauthRedirectErrorCode
 import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRemoteFailureException
 import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRequestException
 import com.infosung.atomic.app.oauth.application.port.out.OauthProviderAuthorization
@@ -21,7 +22,10 @@ internal class OauthServiceProviderAdapter(
   override fun requireProviderName(provider: String): OauthProviderName {
     val oauthProvider =
         oauthServiceProvider.getService(provider)
-            ?: throw OauthRedirectRequestException("Unsupported provider: $provider")
+            ?: throw OauthRedirectRequestException(
+                message = "Unsupported provider: $provider",
+                errorCode = OauthRedirectErrorCode.OAUTH_PROVIDER_UNSUPPORTED,
+            )
     return oauthProvider.providerName
   }
 
@@ -31,7 +35,10 @@ internal class OauthServiceProviderAdapter(
   ): OauthProviderAuthorization {
     val oauthProvider =
         oauthServiceProvider.getService(provider)
-            ?: throw OauthRedirectRequestException("Unsupported provider: $provider")
+            ?: throw OauthRedirectRequestException(
+                message = "Unsupported provider: $provider",
+                errorCode = OauthRedirectErrorCode.OAUTH_PROVIDER_UNSUPPORTED,
+            )
     val authorizationUrl =
         try {
           oauthProvider.buildAuthorizationUrl(request)
@@ -68,7 +75,10 @@ internal class OauthServiceProviderAdapter(
   ): OauthProviderTokenExchange {
     val oauthProvider =
         oauthServiceProvider.getService(provider)
-            ?: throw OauthRedirectRequestException("Unsupported provider: $provider")
+            ?: throw OauthRedirectRequestException(
+                message = "Unsupported provider: $provider",
+                errorCode = OauthRedirectErrorCode.OAUTH_PROVIDER_UNSUPPORTED,
+            )
     val tokenResult =
         try {
           oauthProvider.exchangeCode(request)

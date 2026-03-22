@@ -328,7 +328,7 @@ class AppOauthRedirectControllerTest {
         }
 
     assertEquals(400, exception.status)
-    assertEquals("OAUTH_CALLBACK_INVALID_REQUEST", exception.code)
+    assertEquals("OAUTH_CALLBACK_BINDING_INVALID", exception.code)
     assertEquals("OAuth callback binding cookie is ambiguous.", exception.message)
     assertNull(response.getHeader("Set-Cookie"))
   }

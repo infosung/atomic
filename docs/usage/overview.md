@@ -1,11 +1,11 @@
 # Usage Overview
 
-> Status: `v0.0.4` usage guide for a pre-1.0 release line.
+> Status: current pre-1.0 usage guide for the active mainline branch.
 
 ## Before You Start
 
 - Release-validation baseline: Java `25`, Kotlin `2.3.10`, Spring Boot `4.0.3`
-- Other runtime combinations are possible, but they are not part of the `v0.0.4` release
+- Other runtime combinations are possible, but they are not part of the current release-line
   guarantee unless your team validates them in its own CI before rollout.
 - Use `atomic.starter` to enable conditional auto-configuration.
 - Add `atomic.contract` when your app directly uses `BaseResponse` / `HttpStatusException`.
@@ -14,7 +14,7 @@
 Recommended entry docs:
 - Start with minimal setup: [Atomic Quick Start](quick-start.md)
 - Move to production criteria: [Advanced Operations Playbook](advanced-playbook.md)
-- Release upgrade impact: [Release Migration Guide: v0.0.3 -> v0.0.4](../migration/v0.0.3-to-v0.0.4.md)
+- Release upgrade impact: [Release Migration Guide: v0.0.4 -> v0.0.5](../migration/v0.0.4-to-v0.0.5.md)
 
 ## What Atomic Solves
 

@@ -22,7 +22,7 @@ Dependency notation:
 Quick decision:
 - If you are still pre-production, validate behavior first with this document.
 - For production or multi-instance deployment, continue with [advanced-playbook](advanced-playbook.md).
-- If you are upgrading from `v0.0.3`, also review [Release Migration Guide: v0.0.3 -> v0.0.4](../migration/v0.0.3-to-v0.0.4.md).
+- If you are upgrading an existing host, also review the latest [Release Migration Guide: v0.0.4 -> v0.0.5](../migration/v0.0.4-to-v0.0.5.md).
 
 ---
 
@@ -193,16 +193,25 @@ RelayCode consume examples:
 Minimal consume endpoint sketch:
 
 ```kotlin
+@RestController
+class RelayLoginController(
+    private val consumeOauthRelayCodeUseCase: ConsumeOauthRelayCodeUseCase,
+    private val accountService: AccountService,
+    private val sessionService: SessionService,
+) {
+
 @PostMapping("/api/login/oauth/relay")
 fun loginWithRelayCode(
     @RequestBody request: RelayLoginRequest,
-    consumeOauthRelayCodeUseCase: ConsumeOauthRelayCodeUseCase,
 ): SessionResponse {
   val payload = consumeOauthRelayCodeUseCase.consume(request.relayCode)
   val principal = accountService.resolveOrCreateFromOauth(payload)
   return sessionService.issueSession(principal)
 }
+}
 ```
+
+`AccountService` and `SessionService` here are host app-owned services, not Atomic-provided types.
 
 Preset shortcut:
 - `local-development`

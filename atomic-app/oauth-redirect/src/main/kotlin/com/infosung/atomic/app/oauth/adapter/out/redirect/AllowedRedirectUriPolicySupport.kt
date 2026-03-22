@@ -1,5 +1,6 @@
 package com.infosung.atomic.app.oauth.adapter.out.redirect
 
+import com.infosung.atomic.app.oauth.application.exception.OauthRedirectErrorCode
 import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRequestException
 import java.net.URI
 import java.util.Locale
@@ -24,7 +25,10 @@ internal object AllowedRedirectUriPolicySupport {
     val normalizedRedirectUri = redirectUri.trim()
     if (normalizedRedirectUri.isBlank()) {
       log.warn("Rejected oauth redirect because redirectUri is blank.")
-      throw OauthRedirectRequestException("redirectUri is required.")
+      throw OauthRedirectRequestException(
+          message = "redirectUri is required.",
+          errorCode = OauthRedirectErrorCode.OAUTH_REDIRECT_URI_INVALID,
+      )
     }
 
     val candidateUri =
@@ -48,7 +52,11 @@ internal object AllowedRedirectUriPolicySupport {
               "Redirect validation failed because allowlist configuration is invalid: {}",
               e.message,
           )
-          throw OauthRedirectRequestException(e.message ?: "Invalid allowlist.", e)
+          throw OauthRedirectRequestException(
+              message = e.message ?: "Invalid allowlist.",
+              cause = e,
+              errorCode = OauthRedirectErrorCode.OAUTH_REDIRECT_URI_INVALID,
+          )
         }
 
     val matchedPattern = allowedPatterns.firstOrNull { it.matches(candidateUri) }
@@ -58,7 +66,10 @@ internal object AllowedRedirectUriPolicySupport {
           normalizedRedirectUri,
           allowedPatterns.size,
       )
-      throw OauthRedirectRequestException("redirectUri is not allowed.")
+      throw OauthRedirectRequestException(
+          message = "redirectUri is not allowed.",
+          errorCode = OauthRedirectErrorCode.OAUTH_REDIRECT_URI_INVALID,
+      )
     }
 
     log.debug(
@@ -81,12 +92,23 @@ internal object AllowedRedirectUriPolicySupport {
       value: String,
       message: String,
   ): URI {
-    val uri = runCatching { URI(value) }.getOrNull() ?: throw OauthRedirectRequestException(message)
+    val uri =
+        runCatching { URI(value) }.getOrNull()
+            ?: throw OauthRedirectRequestException(
+                message = message,
+                errorCode = OauthRedirectErrorCode.OAUTH_REDIRECT_URI_INVALID,
+            )
     if (!uri.isAbsolute || uri.scheme.isNullOrBlank()) {
-      throw OauthRedirectRequestException(message)
+      throw OauthRedirectRequestException(
+          message = message,
+          errorCode = OauthRedirectErrorCode.OAUTH_REDIRECT_URI_INVALID,
+      )
     }
     if (!uri.userInfo.isNullOrBlank()) {
-      throw OauthRedirectRequestException(message)
+      throw OauthRedirectRequestException(
+          message = message,
+          errorCode = OauthRedirectErrorCode.OAUTH_REDIRECT_URI_INVALID,
+      )
     }
     return uri
   }

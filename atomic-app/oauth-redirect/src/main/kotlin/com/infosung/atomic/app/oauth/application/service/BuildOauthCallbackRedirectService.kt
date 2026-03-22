@@ -1,6 +1,7 @@
 package com.infosung.atomic.app.oauth.application.service
 
 import com.infosung.atomic.app.oauth.adapter.out.redirect.OauthRedirectClientTargetClassifier
+import com.infosung.atomic.app.oauth.application.exception.OauthRedirectErrorCode
 import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRequestException
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildOauthCallbackRedirectUseCase
 import com.infosung.atomic.app.oauth.application.port.`in`.CallbackRedirectResult
@@ -35,7 +36,7 @@ internal class BuildOauthCallbackRedirectService(
     val providerName = parseProviderName(provider)
     if (providerName == OauthProviderName.APPLE) {
       throw OauthRedirectRequestException(
-          "Use POST ${resolveAppleCallbackPath()} for Apple callback.")
+          message = "Use POST ${resolveAppleCallbackPath()} for Apple callback.")
     }
     val verifiedState =
         verifyOauthStatePort.verifyState(
@@ -102,6 +103,11 @@ internal class BuildOauthCallbackRedirectService(
 
   private fun parseProviderName(provider: String): OauthProviderName {
     return runCatching { OauthProviderName.valueOf(provider.uppercase(Locale.ROOT)) }
-        .getOrElse { throw OauthRedirectRequestException("Unsupported provider: $provider") }
+        .getOrElse {
+          throw OauthRedirectRequestException(
+              message = "Unsupported provider: $provider",
+              errorCode = OauthRedirectErrorCode.OAUTH_PROVIDER_UNSUPPORTED,
+          )
+        }
   }
 }

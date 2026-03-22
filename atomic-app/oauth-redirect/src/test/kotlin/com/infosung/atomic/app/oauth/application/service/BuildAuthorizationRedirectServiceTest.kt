@@ -1,6 +1,7 @@
 package com.infosung.atomic.app.oauth.application.service
 
 import com.infosung.atomic.app.oauth.adapter.out.redirect.OauthRedirectClientTarget
+import com.infosung.atomic.app.oauth.application.exception.OauthRedirectErrorCode
 import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRequestException
 import com.infosung.atomic.app.oauth.application.port.out.OauthProviderAuthorization
 import com.infosung.atomic.app.oauth.application.port.out.OauthProviderOperationsPort
@@ -104,6 +105,7 @@ class BuildAuthorizationRedirectServiceTest {
         }
 
     assertEquals("OAuth callback binding token is required.", error.message)
+    assertEquals(OauthRedirectErrorCode.OAUTH_CALLBACK_BINDING_INVALID, error.errorCode)
   }
 
   private class FakeOauthProviderOperationsPort : OauthProviderOperationsPort {
