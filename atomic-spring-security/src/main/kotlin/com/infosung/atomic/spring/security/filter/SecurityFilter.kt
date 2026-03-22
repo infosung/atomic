@@ -1,9 +1,9 @@
 package com.infosung.atomic.spring.security.filter
 
+import com.infosung.atomic.contract.exception.HttpInvalidTokenException
 import com.infosung.atomic.contract.response.BaseResponse
 import com.infosung.atomic.contract.time.TimeProvider
 import com.infosung.atomic.spring.security.SecurityErrorCode
-import com.infosung.atomic.spring.security.auth.JwtAuthenticationFactory
 import com.infosung.atomic.spring.security.auth.JwtClaimsAuthenticationFactory
 import com.infosung.atomic.spring.security.auth.JwtTokenAuthenticationProcessor
 import com.infosung.atomic.spring.security.auth.TokenAuthenticationProcessor
@@ -34,22 +34,41 @@ import tools.jackson.databind.ObjectMapper
  * - Populate Spring Security context on success.
  * - Return 401 JSON response on authentication failure.
  */
-class SecurityFilter(
-    private val jwtProvider: JwtProvider,
+class SecurityFilter
+internal constructor(
     private val objectMapper: ObjectMapper,
     private val excludeUrls: List<String>,
-    private val clientChannelResolver: ClientChannelResolver = DefaultClientChannelResolver(),
-    private val cookiePolicy: SecurityCookiePolicy = SecurityUtil.DEFAULT_COOKIE_POLICY,
-    private val timeProvider: TimeProvider = TimeProvider(),
+    private val tokenResolver: RequestTokenResolver,
+    private val tokenAuthenticationProcessor: TokenAuthenticationProcessor,
 ) : OncePerRequestFilter() {
   private val log: Logger = LoggerFactory.getLogger(SecurityFilter::class.java)
-  private val refreshTokenCookieIssuer: RefreshTokenCookieIssuer =
-      RefreshTokenCookieIssuer(jwtProvider, cookiePolicy, timeProvider)
-  private val tokenResolver: RequestTokenResolver =
-      ChannelAwareTokenResolver(clientChannelResolver, refreshTokenCookieIssuer)
-  private val authenticationFactory: JwtAuthenticationFactory = JwtClaimsAuthenticationFactory()
-  private val tokenAuthenticationProcessor: TokenAuthenticationProcessor =
-      JwtTokenAuthenticationProcessor(jwtProvider, authenticationFactory)
+
+  constructor(
+      jwtProvider: JwtProvider,
+      objectMapper: ObjectMapper,
+      excludeUrls: List<String>,
+      clientChannelResolver: ClientChannelResolver = DefaultClientChannelResolver(),
+      cookiePolicy: SecurityCookiePolicy = SecurityUtil.DEFAULT_COOKIE_POLICY,
+      timeProvider: TimeProvider = TimeProvider(),
+  ) : this(
+      objectMapper = objectMapper,
+      excludeUrls = excludeUrls,
+      tokenResolver =
+          ChannelAwareTokenResolver(
+              clientChannelResolver = clientChannelResolver,
+              refreshTokenCookieIssuer =
+                  RefreshTokenCookieIssuer(
+                      jwtProvider = jwtProvider,
+                      cookiePolicy = cookiePolicy,
+                      timeProvider = timeProvider,
+                  ),
+          ),
+      tokenAuthenticationProcessor =
+          JwtTokenAuthenticationProcessor(
+              jwtProvider = jwtProvider,
+              authenticationFactory = JwtClaimsAuthenticationFactory(),
+          ),
+  )
 
   /** Performs token resolution/authentication for each request once. */
   override fun doFilterInternal(
@@ -69,10 +88,13 @@ class SecurityFilter(
     val token =
         try {
           tokenResolver.resolve(request, response)
-        } catch (e: Exception) {
+        } catch (e: HttpInvalidTokenException) {
           log.warn("Token resolution failed for request: {}", uri, e)
           writeUnauthorized(response)
           return
+        } catch (e: Exception) {
+          log.error("Unexpected token resolution failure for request: {}", uri, e)
+          throw e
         }
 
     if (token.isNullOrBlank()) {
@@ -85,9 +107,12 @@ class SecurityFilter(
       tokenAuthenticationProcessor.authenticate(token)
       log.debug("Authentication context has been set: {}", uri)
       filterChain.doFilter(request, response)
-    } catch (e: Exception) {
+    } catch (e: HttpInvalidTokenException) {
       log.warn("Authentication failed for request: {}", uri, e)
       writeUnauthorized(response)
+    } catch (e: Exception) {
+      log.error("Unexpected authentication failure for request: {}", uri, e)
+      throw e
     }
   }
 

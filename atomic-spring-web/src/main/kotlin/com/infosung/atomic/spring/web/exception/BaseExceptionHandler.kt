@@ -195,14 +195,10 @@ abstract class BaseExceptionHandler(
     alertMessage(e, request)
   }
 
-  /** Sends alert message in non-prod profiles. */
+  /** Sends alert message through the concrete handler implementation. */
   fun alertMessage(e: Exception, request: HttpServletRequest) {
-    if (env.contains("prod")) {
-      log.debug("Skipping alert in prod profile")
-      return
-    }
     val message = stackTraceWithRequestInfo(request, e)
-    log.debug("Sending alert message for exception handling")
+    log.debug("Delegating alert message for exception handling: profiles={}", env.joinToString(","))
     alert(e, message)
   }
 

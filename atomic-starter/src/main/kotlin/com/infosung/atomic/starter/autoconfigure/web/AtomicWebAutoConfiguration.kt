@@ -30,6 +30,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.context.annotation.Bean
 import org.springframework.util.ClassUtils
+import tools.jackson.databind.ObjectMapper
 
 /** Auto-configuration for atomic spring-web helper beans. */
 @AutoConfiguration
@@ -252,6 +253,7 @@ class AtomicWebAutoConfiguration {
       store: RateLimitStore,
       policyResolver: RateLimitPolicyResolver,
       keyResolver: RateLimitKeyResolver,
+      objectMapperProvider: ObjectProvider<ObjectMapper>,
       timeProviderProvider: ObjectProvider<TimeProvider>,
   ): RateLimitFilter {
     val rateLimit = properties.rateLimit
@@ -273,6 +275,7 @@ class AtomicWebAutoConfiguration {
               AtomicWebProperties.MissingKeyPolicy.SKIP -> RateLimitMissingKeyPolicy.SKIP
             },
         responseBody = rateLimit.responseBody,
+        objectMapper = objectMapperProvider.getIfAvailable { ObjectMapper() },
         includeMethods = includeMethods,
     )
   }

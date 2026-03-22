@@ -7,9 +7,13 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+import tools.jackson.databind.ObjectMapper
 
 class AtomicIdempotencyAutoConfigurationTest {
   private val contextRunner =
@@ -97,5 +101,30 @@ class AtomicIdempotencyAutoConfigurationTest {
           assertNotNull(failure)
           assertTrue(failure.message?.contains("filter.url-patterns") == true)
         }
+  }
+
+  @Test
+  fun `idempotency filter should use host object mapper for rejection body serialization`() {
+    contextRunner
+        .withUserConfiguration(IndentedObjectMapperConfiguration::class.java)
+        .withPropertyValues(
+            "atomic.idempotency.enabled=true",
+        )
+        .run { context ->
+          val filter = context.getBean(IdempotencyFilter::class.java)
+          val objectMapperField = IdempotencyFilter::class.java.getDeclaredField("objectMapper")
+          objectMapperField.isAccessible = true
+
+          assertSame(hostObjectMapper, objectMapperField.get(filter))
+        }
+  }
+
+  @Configuration
+  class IndentedObjectMapperConfiguration {
+    @Bean fun objectMapper(): ObjectMapper = hostObjectMapper
+  }
+
+  companion object {
+    private val hostObjectMapper = ObjectMapper()
   }
 }

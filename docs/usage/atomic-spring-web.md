@@ -44,13 +44,16 @@ Required:
 - either the shared Atomic web exception handler
   - the built-in `AtomicHttpExceptionHandler` is scoped to `com.infosung.atomic.app` controllers only
   - the built-in handler does not send alerts; register your own `BaseExceptionHandler` subclass if you need Slack/webhook/email integration
-  - if you want one app-wide exception policy for your own controllers too, register your own `BaseExceptionHandler` subclass
-  - when your own `BaseExceptionHandler` subclass bean exists, the built-in `AtomicHttpExceptionHandler` does not register
+  - if you want one app-wide exception policy for your own controllers too, register your own `@RestControllerAdvice` subclass of `BaseExceptionHandler`
+  - your own `BaseExceptionHandler` advice does not suppress the built-in Atomic advice by itself; the built-in handler remains active for `atomic.app.*` unless you explicitly replace it
+  - if you intentionally want to replace the built-in scoped handler, implement `AtomicHttpExceptionHandlerReplacement` on your `BaseExceptionHandler` advice
 - or your subclass of `BaseExceptionHandler`
 
 Optional:
 
 - custom `alert(...)` integration (Slack/webhook)
+  - the built-in `AtomicHttpExceptionHandler` still sends no alerts because its `alert(...)` implementation is a no-op
+  - your own `BaseExceptionHandler` subclass owns its alert policy, including production behavior
 
 Recommended direction:
 
@@ -197,6 +200,7 @@ If one of `ApiLogAspect` or `ApiLogFilter` is missing, paired request/response l
 ## Quick Config: Exception Handling Only
 
 ```kotlin
+import com.infosung.atomic.spring.web.exception.AtomicHttpExceptionHandlerReplacement
 import com.infosung.atomic.spring.web.exception.BaseExceptionHandler
 import org.springframework.core.env.Environment
 import org.springframework.web.bind.annotation.RestControllerAdvice
@@ -205,6 +209,20 @@ import org.springframework.web.bind.annotation.RestControllerAdvice
 class AppExceptionHandler(
     environment: Environment,
 ) : BaseExceptionHandler(environment = environment) {
+  override fun alert(e: Exception, message: String) {
+    // optional alert integration
+  }
+}
+```
+
+If you want that advice to replace the built-in scoped `AtomicHttpExceptionHandler`, implement
+`AtomicHttpExceptionHandlerReplacement` too:
+
+```kotlin
+@RestControllerAdvice
+class GlobalAppExceptionHandler(
+    environment: Environment,
+) : BaseExceptionHandler(environment = environment), AtomicHttpExceptionHandlerReplacement {
   override fun alert(e: Exception, message: String) {
     // optional alert integration
   }

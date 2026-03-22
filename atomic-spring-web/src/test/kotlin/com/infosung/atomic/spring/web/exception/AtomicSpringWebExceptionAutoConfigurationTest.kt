@@ -6,6 +6,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.core.env.Environment
@@ -33,17 +34,34 @@ class AtomicSpringWebExceptionAutoConfigurationTest {
   }
 
   @Test
-  fun `custom base exception handler should suppress default atomic http exception handler`() {
+  fun `custom base exception handler alone should not suppress default atomic http exception handler`() {
     contextRunner
         .withBean(
             BaseExceptionHandler::class.java,
             { CustomExceptionHandler(MockEnvironment()) },
         )
         .run { context ->
-          val handler = context.getBean(BaseExceptionHandler::class.java)
+          assertTrue(context.containsBean("atomicHttpExceptionHandler"))
+          assertEquals(2, context.getBeanNamesForType(BaseExceptionHandler::class.java).size)
+        }
+  }
+
+  @Test
+  fun `custom replacement handler should suppress default atomic http exception handler`() {
+    contextRunner
+        .withBean(
+            ReplacingExceptionHandler::class.java,
+            { ReplacingExceptionHandler(MockEnvironment()) },
+        )
+        .run { context ->
           assertFalse(context.containsBean("atomicHttpExceptionHandler"))
           assertEquals(1, context.getBeanNamesForType(BaseExceptionHandler::class.java).size)
-          assertEquals(CustomExceptionHandler::class.java.name, handler.javaClass.name)
+          assertEquals(
+              1,
+              context.getBeanNamesForType(AtomicHttpExceptionHandlerReplacement::class.java).size,
+          )
+          val handler = context.getBean(BaseExceptionHandler::class.java)
+          assertEquals(ReplacingExceptionHandler::class.java.name, handler.javaClass.name)
         }
   }
 }
@@ -80,6 +98,16 @@ private class ThrowingController {
 private class CustomExceptionHandler(
     environment: Environment,
 ) : BaseExceptionHandler(environment = environment) {
+  override fun alert(
+      e: Exception,
+      message: String,
+  ) = Unit
+}
+
+@RestControllerAdvice
+private class ReplacingExceptionHandler(
+    environment: Environment,
+) : BaseExceptionHandler(environment = environment), AtomicHttpExceptionHandlerReplacement {
   override fun alert(
       e: Exception,
       message: String,

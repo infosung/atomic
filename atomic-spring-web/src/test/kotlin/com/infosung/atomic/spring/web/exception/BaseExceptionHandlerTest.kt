@@ -4,6 +4,7 @@ import com.infosung.atomic.contract.exception.HttpStatusException
 import com.infosung.atomic.contract.exception.HttpUnauthorizedException
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import org.springframework.mock.env.MockEnvironment
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.web.bind.MissingServletRequestParameterException
@@ -84,6 +85,19 @@ class BaseExceptionHandlerTest {
     assertEquals("Required request parameter 'imageId' is missing.", response.body?.message)
   }
 
+  @Test
+  fun `alertMessage should delegate alerts even in prod profile`() {
+    val handler =
+        RecordingExceptionHandler(
+            environment = MockEnvironment().withProperty("spring.profiles.active", "prod"))
+    val request = MockHttpServletRequest("GET", "/v1/test")
+
+    handler.alertMessage(IllegalStateException("boom"), request)
+
+    assertEquals(1, handler.alertCalls)
+    assertTrue(handler.lastAlertMessage?.contains("GET /v1/test") == true)
+  }
+
   private class TestExceptionHandler :
       BaseExceptionHandler(
           environment = MockEnvironment(),
@@ -92,5 +106,20 @@ class BaseExceptionHandlerTest {
         e: Exception,
         message: String,
     ) {}
+  }
+
+  private class RecordingExceptionHandler(
+      environment: MockEnvironment,
+  ) : BaseExceptionHandler(environment = environment) {
+    var alertCalls: Int = 0
+    var lastAlertMessage: String? = null
+
+    override fun alert(
+        e: Exception,
+        message: String,
+    ) {
+      alertCalls += 1
+      lastAlertMessage = message
+    }
   }
 }
