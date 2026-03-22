@@ -12,7 +12,20 @@ import java.util.Locale
 import org.slf4j.LoggerFactory
 import tools.jackson.databind.ObjectMapper
 
-/** Servlet filter for request rate limiting. */
+/**
+ * Servlet filter for request rate limiting.
+ *
+ * Stable JSON error responses are emitted only for expected rejection branches:
+ * - missing actor key when `missingKeyPolicy=REJECT`
+ * - rate-limit threshold exceeded
+ *
+ * Unexpected faults remain implementor-owned. Hosts should handle or observe failures from
+ * `RateLimitPolicyResolver`, `RateLimitKeyResolver`, `RateLimitStore`, or response serialization
+ * according to their own operational policy.
+ *
+ * When `failOpen=true`, store consumption failures are logged and the request is allowed through.
+ * Resolver failures and unexpected servlet/serialization failures are not flattened by this filter.
+ */
 class RateLimitFilter(
     private val store: RateLimitStore,
     private val policyResolver: RateLimitPolicyResolver,
@@ -56,6 +69,7 @@ class RateLimitFilter(
       when (missingKeyPolicy) {
         RateLimitMissingKeyPolicy.SKIP -> chain.doFilter(request, response)
         RateLimitMissingKeyPolicy.REJECT -> {
+          val errorCode = RateLimitErrorCode.RATE_LIMIT_KEY_REQUIRED
           log.debug(
               "RateLimit key is missing. Rejecting request due to missingKeyPolicy=REJECT: method={}, uri={}",
               httpRequest.method,
@@ -63,9 +77,9 @@ class RateLimitFilter(
           )
           writeError(
               response = httpResponse,
-              status = HttpServletResponse.SC_BAD_REQUEST,
-              code = RateLimitErrorCode.RATE_LIMIT_KEY_REQUIRED.name,
-              message = "Rate-limit key is missing.",
+              status = errorCode.defaultHttpStatus,
+              code = errorCode.name,
+              message = errorCode.defaultMessage,
           )
         }
       }
@@ -112,10 +126,11 @@ class RateLimitFilter(
         decision.remaining,
         decision.retryAfterSeconds,
     )
+    val errorCode = RateLimitErrorCode.RATE_LIMIT_EXCEEDED
     writeError(
         response = httpResponse,
-        status = 429,
-        code = RateLimitErrorCode.RATE_LIMIT_EXCEEDED.name,
+        status = errorCode.defaultHttpStatus,
+        code = errorCode.name,
         message = responseBody,
     )
   }

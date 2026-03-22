@@ -77,17 +77,26 @@ atomic:
 
 Stable non-MVC error codes:
 
-- `IDEMPOTENCY_KEY_REQUIRED`
-  - emitted when `require-header=true` and `Idempotency-Key` is missing
-  - HTTP status `400`
-- `IDEMPOTENCY_REQUEST_PROCESSING`
-  - emitted when another in-flight request already owns the key
-  - HTTP status `409`
-- `IDEMPOTENCY_FINGERPRINT_MISMATCH`
-  - emitted when the same key is reused with a different fingerprint
-  - HTTP status `409`
+| Code | Status | Default message | Emitted when |
+|---|---:|---|---|
+| `IDEMPOTENCY_KEY_REQUIRED` | `400` | `Idempotency-Key header is required.` | `require-header=true` and `Idempotency-Key` is missing |
+| `IDEMPOTENCY_REQUEST_PROCESSING` | `409` | `Idempotent request is already processing.` | another in-flight request already owns the key |
+| `IDEMPOTENCY_FINGERPRINT_MISMATCH` | `409` | `Idempotency key has been used with a different request.` | the same key is reused with a different fingerprint |
 
 These rejection branches return JSON `BaseResponse` payloads instead of plain text bodies.
+
+Unexpected idempotency faults are still implementor-owned. In practice, review and handle failures
+from:
+
+- `IdempotencyFingerprintResolver.resolve(...)`
+- `IdempotencyStore.claim(...)` when `failOpen=false`
+- `IdempotencyStore.complete(...)` when `failOpen=false`
+- `IdempotencyStore.remove(...)` when `failOpen=false` and no original exception is already propagating
+- response serialization / servlet writer failures
+- downstream `FilterChain` server faults
+
+`failOpen=true` only covers store interaction failures. It does not flatten downstream server faults
+or other unexpected runtime exceptions into a stable Atomic `500` response.
 
 ## Important Notes
 

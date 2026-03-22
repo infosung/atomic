@@ -180,7 +180,7 @@ class AppOauthRedirectControllerHttpContractTest {
         )
         .andExpect(status().isBadRequest)
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-        .andExpect(jsonPath("$.code").value("OAUTH_CALLBACK_INVALID_REQUEST"))
+        .andExpect(jsonPath("$.code").value("OAUTH_STATE_INVALID"))
         .andExpect(jsonPath("$.message").value("State token is already used, expired, or unknown."))
   }
 
@@ -541,8 +541,26 @@ class AppOauthRedirectControllerHttpContractTest {
         )
         .andExpect(status().isBadRequest)
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-        .andExpect(jsonPath("$.code").value("OAUTH_REDIRECT_INVALID_REQUEST"))
+        .andExpect(jsonPath("$.code").value("OAUTH_REDIRECT_URI_INVALID"))
         .andExpect(jsonPath("$.message").value("redirectUri is not allowed."))
+  }
+
+  @Test
+  fun `redirect should return documented 400 envelope for unsupported provider`() {
+    val properties = configuredProperties()
+    val provider = ContractOauthProvider(providerName = OauthProviderName.GOOGLE)
+    val controller = newController(properties = properties, providers = listOf(provider))
+    val mockMvc = newMockMvc(controller = controller, properties = properties)
+
+    mockMvc
+        .perform(
+            get("/oauth/redirect/unknown")
+                .param("redirectUri", "https://app.example.com/oauth/callback"),
+        )
+        .andExpect(status().isBadRequest)
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+        .andExpect(jsonPath("$.code").value("OAUTH_PROVIDER_UNSUPPORTED"))
+        .andExpect(jsonPath("$.message").value("Unsupported provider: unknown"))
   }
 
   @Test

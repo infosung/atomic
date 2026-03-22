@@ -195,8 +195,17 @@ Expected version policy table:
 
 Version API exception semantics:
 
-- `400` when required input is missing or `appVersion` format is invalid (`x.y.z`)
-- `404` when no policy rows exist for `(service, platform)`
+- stable wire catalog:
+
+| Code | Status | Default message |
+|---|---:|---|
+| `VERSION_SERVICE_NAME_REQUIRED` | `400` | `Service name is required.` |
+| `VERSION_PLATFORM_REQUIRED` | `400` | `Platform is required.` |
+| `VERSION_APP_VERSION_REQUIRED` | `400` | `App version is required.` |
+| `VERSION_INVALID_APP_VERSION` | `400` | `App version is invalid.` |
+| `VERSION_POLICY_NOT_FOUND` | `404` | `No version policy was found.` |
+
+- direct use-case integration still receives public version exceptions; the table above describes the default web rendering
 
 Version API rollout-safe semantics:
 
@@ -318,11 +327,19 @@ Storage client resolution:
 
 Image API exception semantics:
 
-- `400` invalid quality / unknown storage key / invalid UUID / path mismatch / unavailable persisted delete storage mapping
-- `400` uploader parameter missing when uploader tracking is enabled
-- `400` original image object key / public URL budget violation before storage write
-- `404` image row not found
-- `403` uploader mismatch when uploader tracking is enabled
+- stable wire catalog:
+
+| Code | Status | Default message |
+|---|---:|---|
+| `STORAGE_INVALID_IMAGE_REQUEST` | `400` | `Storage image request is invalid.` |
+| `STORAGE_IMAGE_NOT_FOUND` | `404` | `Storage image was not found.` |
+| `STORAGE_IMAGE_OWNERSHIP_MISMATCH` | `403` | `Storage image ownership does not match.` |
+| `STORAGE_UPLOADER_PARAMETER_REQUIRED` | `400` | `Uploader parameter is required.` |
+| `STORAGE_CONFIGURATION_INVALID` | `500` | `Storage configuration is invalid.` |
+
+- invalid quality / unknown storage key / invalid UUID / path mismatch / unavailable persisted delete storage mapping typically surface through `STORAGE_INVALID_IMAGE_REQUEST`
+- uploader parameter missing when uploader tracking is enabled surfaces through `STORAGE_UPLOADER_PARAMETER_REQUIRED`
+- original image object key / public URL budget violation before storage write also surfaces through `STORAGE_INVALID_IMAGE_REQUEST`
 - other upload/delete exceptions can propagate from underlying storage client or image processing layer
 - thumbnail key / thumbnail URL budget violations remain non-fatal original uploads and surface through nullable thumbnail fields plus `thumbnailUploadFailed=true`
 
@@ -431,10 +448,30 @@ Provider callback differences:
 
 OAuth redirect exception semantics:
 
-- `400` unsupported provider
-- `400` invalid/missing redirectUri
-- `400` invalid callback request/state validation
-- `400` relayCode is invalid/expired/already consumed (on consume API call)
+- stable wire catalog:
+
+| Code | Status | Default message |
+|---|---:|---|
+| `OAUTH_REDIRECT_INVALID_REQUEST` | `400` | `OAuth redirect request is invalid.` |
+| `OAUTH_CALLBACK_INVALID_REQUEST` | `400` | `OAuth callback request is invalid.` |
+| `OAUTH_PROVIDER_UNSUPPORTED` | `400` | `OAuth provider is not supported.` |
+| `OAUTH_REDIRECT_URI_INVALID` | `400` | `OAuth redirect URI is invalid.` |
+| `OAUTH_CALLBACK_BINDING_INVALID` | `400` | `OAuth callback binding is invalid.` |
+| `OAUTH_STATE_INVALID` | `400` | `OAuth callback state is invalid.` |
+| `OAUTH_PROVIDER_REMOTE_FAILURE` | `500` | `Upstream OAuth provider request failed.` |
+| `OAUTH_APPLE_CALLBACK_POST_ONLY` | `400` | `Apple callback supports POST form_post only.` |
+| `OAUTH_REDIRECT_CONFIGURATION_INVALID` | `500` | `OAuth redirect configuration is invalid.` |
+| `OAUTH_RELAY_CODE_REQUIRED` | `400` | `OAuth relay code is required.` |
+| `OAUTH_RELAY_CODE_INVALID_REQUEST` | `400` | `OAuth relay code request is invalid.` |
+
+- unsupported provider surfaces through `OAUTH_PROVIDER_UNSUPPORTED`
+- invalid or disallowed `redirectUri` surfaces through `OAUTH_REDIRECT_URI_INVALID`
+- callback binding missing/mismatch/ambiguous cookie surfaces through `OAUTH_CALLBACK_BINDING_INVALID`
+- invalid or expired callback state surfaces through `OAUTH_STATE_INVALID`
+- broader redirect/callback parsing failures still use `OAUTH_REDIRECT_INVALID_REQUEST` / `OAUTH_CALLBACK_INVALID_REQUEST`
+- relayCode missing surfaces through `OAUTH_RELAY_CODE_REQUIRED`
+- relayCode invalid / expired / already consumed surfaces through `OAUTH_RELAY_CODE_INVALID_REQUEST` when you call the consume use case or expose your own consume endpoint
+- `5xx` oauth codes still keep stable `code` and `status`, but the built-in shared handler masks the wire `message` to `Internal Server Error` by default.
 - callback/state validation errors are exposed as public oauth redirect exceptions and mapped to stable `HttpStatusException.code` values at the web boundary.
 - upstream provider I/O errors are exposed as public oauth redirect remote-failure exceptions and mapped to stable `HttpStatusException.code` values at the web boundary.
 - errors after `relayCode` consumption belong to your login/session API, not to the redirect/callback relay module.

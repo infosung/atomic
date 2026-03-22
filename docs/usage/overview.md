@@ -1,11 +1,11 @@
 # Usage Overview
 
-> Status: `v0.0.4` usage guide for a pre-1.0 release line.
+> Status: current pre-1.0 usage guide for the active mainline branch.
 
 ## Before You Start
 
 - Release-validation baseline: Java `25`, Kotlin `2.3.10`, Spring Boot `4.0.3`
-- Other runtime combinations are possible, but they are not part of the `v0.0.4` release
+- Other runtime combinations are possible, but they are not part of the current release-line
   guarantee unless your team validates them in its own CI before rollout.
 - Use `atomic.starter` to enable conditional auto-configuration.
 - Add `atomic.contract` when your app directly uses `BaseResponse` / `HttpStatusException`.
@@ -14,7 +14,7 @@
 Recommended entry docs:
 - Start with minimal setup: [Atomic Quick Start](quick-start.md)
 - Move to production criteria: [Advanced Operations Playbook](advanced-playbook.md)
-- Release upgrade impact: [Release Migration Guide: v0.0.3 -> v0.0.4](../migration/v0.0.3-to-v0.0.4.md)
+- Release upgrade impact: [Release Migration Guide: v0.0.4 -> v0.0.5](../migration/v0.0.4-to-v0.0.5.md)
 
 ## What Atomic Solves
 
@@ -117,7 +117,7 @@ dependencies {
 | App-ready OAuth redirect/callback relay | `app.oauth.redirect` + `starter` + `spring.oauth2` | enable `atomic.app.oauth.redirect.enabled`, consume `relayCode` in login API, configure store prerequisites (default `store.type=entity`), set non-empty `allowed-redirect-uri-prefixes`, and let your app issue its own session/token after relay consumption |
 | Convenience bundle for multiple app APIs | `app` + any prerequisites still required by enabled features | enable only the specific `atomic.app.*.enabled` tracks you need |
 | Object storage and media processing | `starter` + `storage` | set `atomic.storage.backends.*` and use `ImageService` |
-| Exception response standardization | `starter` + `spring.web` (+ `contract` when app directly uses `BaseResponse` / `HttpStatusException`) | `BaseExceptionHandler` subclass |
+| Exception response standardization | `starter` + `spring.web` (+ `contract` when app directly uses `BaseResponse` / `HttpStatusException`) | built-in scoped `AtomicHttpExceptionHandler` for `atomic.app.*`, or your `BaseExceptionHandler` subclass for broader/custom policy |
 | API request/response audit logs | `starter` + `spring.web` | add `LogSaver` + `ApiLogAspect` implementation |
 | API rate-limit filter | `starter` + `spring.web` | enable `atomic.web.rate-limit.enabled`, choose store (`auto/in-memory/redis/custom`), and review key policies (`path-key-strategy`, `missing-key-policy`, `ip.trust-forwarded-headers`) |
 | HTTP idempotency (POST replay-safe) | `starter` + `spring.idempotency` | enable `atomic.idempotency.enabled`, configure key/ttl, and choose replay headers/body-cache limit |
@@ -148,7 +148,7 @@ OAuth redirect handoff summary:
 
 - `atomic.starter` activates only when corresponding module classes are on classpath.
 - `atomic.app` APIs are disabled by default and enabled by `atomic.app.version.enabled` / `atomic.app.image.enabled` / `atomic.app.oauth.redirect.enabled`.
-- Some features still require application-specific beans (for example `BaseExceptionHandler`, `ApiLogAspect`, `LogSaver`).
+- Some features still require application-specific beans (for example `ApiLogAspect`, `LogSaver`, or a custom `BaseExceptionHandler` when you want broader/custom exception policy than the built-in scoped Atomic handler).
 - `atomic.app.version`, `atomic.app.image`, and `atomic.app.oauth.redirect` now depend on shared `atomic.spring.web` exception mapping rather than module-local advice beans.
 - Host apps should keep one global exception policy and customize from public atomic exception types or stable `HttpStatusException.code`.
 - Avoid message-text or internal FQCN matching for atomic app-module errors.

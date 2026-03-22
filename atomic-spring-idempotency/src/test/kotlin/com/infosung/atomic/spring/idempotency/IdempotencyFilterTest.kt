@@ -77,6 +77,28 @@ class IdempotencyFilterTest {
   }
 
   @Test
+  fun `filter should render missing-header message from configured header name without brittle replace`() {
+    val filter =
+        IdempotencyFilter(
+            store = InMemoryIdempotencyStore(),
+            fingerprintResolver = DefaultIdempotencyFingerprintResolver(),
+            headerName = "X-Idempotency-Key",
+            requireHeader = true,
+            includeMethods = setOf("POST"),
+        )
+    val response = MockHttpServletResponse()
+    val request = MockHttpServletRequest("POST", "/api/v1/orders")
+    val chain = FilterChain { _, _ -> throw IllegalStateException("chain should not execute") }
+
+    filter.doFilter(request, response, chain)
+
+    assertEquals(400, response.status)
+    val body = objectMapper.readTree(response.contentAsString)
+    assertEquals("IDEMPOTENCY_KEY_REQUIRED", body["code"]?.stringValue())
+    assertEquals("X-Idempotency-Key header is required.", body["message"]?.stringValue())
+  }
+
+  @Test
   fun `filter should return 409 when key is reused with different fingerprint`() {
     val store = InMemoryIdempotencyStore()
     val resolver = IdempotencyFingerprintResolver { request ->

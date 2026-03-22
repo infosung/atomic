@@ -1,5 +1,6 @@
 package com.infosung.atomic.app.oauth.application.service
 
+import com.infosung.atomic.app.oauth.application.exception.OauthRedirectErrorCode
 import com.infosung.atomic.app.oauth.application.exception.OauthRelayCodeRequestException
 import com.infosung.atomic.app.oauth.application.port.`in`.ConsumeOauthRelayCodeUseCase
 import com.infosung.atomic.app.oauth.application.port.out.StoreOauthRelayCodePort
@@ -16,7 +17,10 @@ internal class ConsumeOauthRelayCodeService(
   override fun consume(relayCode: String): OauthRelayPayload {
     val normalizedRelayCode = relayCode.trim()
     if (normalizedRelayCode.isBlank()) {
-      throw OauthRelayCodeRequestException("relayCode is required.")
+      throw OauthRelayCodeRequestException(
+          message = "relayCode is required.",
+          errorCode = OauthRedirectErrorCode.OAUTH_RELAY_CODE_REQUIRED,
+      )
     }
     return storeOauthRelayCodePort.pop(
         relayCode = normalizedRelayCode,

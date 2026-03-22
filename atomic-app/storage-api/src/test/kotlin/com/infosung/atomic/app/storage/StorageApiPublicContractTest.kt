@@ -208,13 +208,17 @@ class StorageApiPublicContractTest {
   fun `storage public error seams should remain stable`() {
     assertEquals(
         listOf(
-            "STORAGE_INVALID_IMAGE_REQUEST",
-            "STORAGE_IMAGE_NOT_FOUND",
-            "STORAGE_IMAGE_OWNERSHIP_MISMATCH",
-            "STORAGE_UPLOADER_PARAMETER_REQUIRED",
-            "STORAGE_CONFIGURATION_INVALID",
+            Triple("STORAGE_INVALID_IMAGE_REQUEST", 400, "Storage image request is invalid."),
+            Triple("STORAGE_IMAGE_NOT_FOUND", 404, "Storage image was not found."),
+            Triple(
+                "STORAGE_IMAGE_OWNERSHIP_MISMATCH",
+                403,
+                "Storage image ownership does not match.",
+            ),
+            Triple("STORAGE_UPLOADER_PARAMETER_REQUIRED", 400, "Uploader parameter is required."),
+            Triple("STORAGE_CONFIGURATION_INVALID", 500, "Storage configuration is invalid."),
         ),
-        StorageErrorCode.entries.map { it.name },
+        StorageErrorCode.entries.map { Triple(it.name, it.defaultHttpStatus, it.defaultMessage) },
     )
     assertTrue(StorageApplicationException::class.memberProperties.any { it.name == "errorCode" })
   }

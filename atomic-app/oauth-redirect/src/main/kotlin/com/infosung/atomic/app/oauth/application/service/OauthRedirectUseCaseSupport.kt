@@ -1,5 +1,6 @@
 package com.infosung.atomic.app.oauth.application.service
 
+import com.infosung.atomic.app.oauth.application.exception.OauthRedirectErrorCode
 import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRequestException
 import com.infosung.atomic.app.oauth.application.model.OauthVerifiedState
 import com.infosung.atomic.app.oauth.domain.OauthRelayPayload
@@ -19,7 +20,10 @@ internal object OauthRedirectUseCaseSupport {
     }
     val bindingToken =
         callbackBindingToken?.trim()?.takeIf { it.isNotBlank() }
-            ?: throw OauthRedirectRequestException("OAuth callback binding token is required.")
+            ?: throw OauthRedirectRequestException(
+                message = "OAuth callback binding token is required.",
+                errorCode = OauthRedirectErrorCode.OAUTH_CALLBACK_BINDING_INVALID,
+            )
     return mapOf(callbackBindingStateAttributeKey to bindingToken)
   }
 
@@ -35,18 +39,31 @@ internal object OauthRedirectUseCaseSupport {
     val expectedToken =
         verifiedState.attributes[callbackBindingStateAttributeKey]?.trim()?.takeIf {
           it.isNotBlank()
-        } ?: throw OauthRedirectRequestException("OAuth callback binding state is missing.")
+        }
+            ?: throw OauthRedirectRequestException(
+                message = "OAuth callback binding state is missing.",
+                errorCode = OauthRedirectErrorCode.OAUTH_CALLBACK_BINDING_INVALID,
+            )
     val actualToken =
         callbackBindingToken?.trim()?.takeIf { it.isNotBlank() }
-            ?: throw OauthRedirectRequestException("OAuth callback binding cookie is missing.")
+            ?: throw OauthRedirectRequestException(
+                message = "OAuth callback binding cookie is missing.",
+                errorCode = OauthRedirectErrorCode.OAUTH_CALLBACK_BINDING_INVALID,
+            )
     if (actualToken != expectedToken) {
-      throw OauthRedirectRequestException("OAuth callback binding token mismatch.")
+      throw OauthRedirectRequestException(
+          message = "OAuth callback binding token mismatch.",
+          errorCode = OauthRedirectErrorCode.OAUTH_CALLBACK_BINDING_INVALID,
+      )
     }
   }
 
   fun readRedirectUri(verifiedState: OauthVerifiedState): String {
     return verifiedState.redirectUri
-        ?: throw OauthRedirectRequestException("State does not include redirect_uri.")
+        ?: throw OauthRedirectRequestException(
+            message = "State does not include redirect_uri.",
+            errorCode = OauthRedirectErrorCode.OAUTH_STATE_INVALID,
+        )
   }
 
   fun resolveRelayCodeQueryParameterName(relayCodeQueryParameterName: String): String {

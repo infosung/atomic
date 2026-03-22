@@ -1,5 +1,6 @@
 package com.infosung.atomic.app.oauth.application.service
 
+import com.infosung.atomic.app.oauth.application.exception.OauthRedirectErrorCode
 import com.infosung.atomic.app.oauth.application.exception.OauthRelayCodeRequestException
 import com.infosung.atomic.app.oauth.application.port.out.StoreOauthRelayCodePort
 import com.infosung.atomic.app.oauth.domain.OauthRelayPayload
@@ -42,6 +43,7 @@ class ConsumeOauthRelayCodeServiceTest {
     val exception = assertFailsWith<OauthRelayCodeRequestException> { service.consume("   ") }
 
     assertEquals("relayCode is required.", exception.message)
+    assertEquals(OauthRedirectErrorCode.OAUTH_RELAY_CODE_REQUIRED, exception.errorCode)
   }
 
   @Test
@@ -55,6 +57,7 @@ class ConsumeOauthRelayCodeServiceTest {
         assertFailsWith<OauthRelayCodeRequestException> { service.consume("relay-code-2") }
 
     assertEquals("relayCode is invalid, expired, or already used.", exception.message)
+    assertEquals(OauthRedirectErrorCode.OAUTH_RELAY_CODE_INVALID_REQUEST, exception.errorCode)
   }
 
   private class CapturingStoreOauthRelayCodePort(

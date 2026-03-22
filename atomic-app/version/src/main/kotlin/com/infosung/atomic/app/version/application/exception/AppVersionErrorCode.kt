@@ -1,9 +1,12 @@
 package com.infosung.atomic.app.version.application.exception
 
-enum class AppVersionErrorCode {
-  VERSION_SERVICE_NAME_REQUIRED,
-  VERSION_PLATFORM_REQUIRED,
-  VERSION_APP_VERSION_REQUIRED,
-  VERSION_INVALID_APP_VERSION,
-  VERSION_POLICY_NOT_FOUND,
+enum class AppVersionErrorCode(
+    val defaultHttpStatus: Int,
+    val defaultMessage: String,
+) {
+  VERSION_SERVICE_NAME_REQUIRED(400, "Service name is required."),
+  VERSION_PLATFORM_REQUIRED(400, "Platform is required."),
+  VERSION_APP_VERSION_REQUIRED(400, "App version is required."),
+  VERSION_INVALID_APP_VERSION(400, "App version is invalid."),
+  VERSION_POLICY_NOT_FOUND(404, "No version policy was found."),
 }
