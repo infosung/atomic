@@ -7,14 +7,10 @@ object DocumentationContractFixtures {
   fun read(path: String): String = Files.readString(findRepoRoot().resolve(path))
 
   private fun findRepoRoot(): Path {
-    var current = Path.of("").toAbsolutePath()
-    while (true) {
-      if (Files.exists(current.resolve("docs/usage")) &&
-          Files.exists(current.resolve("settings.gradle.kts"))) {
-        return current
-      }
-      current.parent?.let { current = it }
-          ?: error("Failed to locate repository root from ${Path.of("").toAbsolutePath()}")
-    }
+    val startPath = Path.of("").toAbsolutePath()
+    return generateSequence(startPath) { it.parent }
+        .find {
+          Files.exists(it.resolve("docs/usage")) && Files.exists(it.resolve("settings.gradle.kts"))
+        } ?: error("Failed to locate repository root from $startPath")
   }
 }

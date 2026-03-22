@@ -113,8 +113,7 @@ class ErrorCatalogDocumentationContractTest {
     }
   }
 
-  private fun columnCount(row: String): Int =
-      row.trim().trim('|').split('|').map { it.trim() }.count { it.isNotEmpty() }
+  private fun columnCount(row: String): Int = row.trim().trim('|').split('|').count()
 
   private fun ErrorCatalogRow.standardPrefix(): String = "| `$code` | `$status` | `$message` |"
 
