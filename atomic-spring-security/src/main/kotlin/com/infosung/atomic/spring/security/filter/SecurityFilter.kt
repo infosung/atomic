@@ -2,6 +2,7 @@ package com.infosung.atomic.spring.security.filter
 
 import com.infosung.atomic.contract.response.BaseResponse
 import com.infosung.atomic.contract.time.TimeProvider
+import com.infosung.atomic.spring.security.SecurityErrorCode
 import com.infosung.atomic.spring.security.auth.JwtAuthenticationFactory
 import com.infosung.atomic.spring.security.auth.JwtClaimsAuthenticationFactory
 import com.infosung.atomic.spring.security.auth.JwtTokenAuthenticationProcessor
@@ -65,7 +66,14 @@ class SecurityFilter(
       return
     }
 
-    val token = tokenResolver.resolve(request, response)
+    val token =
+        try {
+          tokenResolver.resolve(request, response)
+        } catch (e: Exception) {
+          log.warn("Token resolution failed for request: {}", uri, e)
+          writeUnauthorized(response)
+          return
+        }
 
     if (token.isNullOrBlank()) {
       log.trace("No token resolved for request: {}", uri)
@@ -79,16 +87,22 @@ class SecurityFilter(
       filterChain.doFilter(request, response)
     } catch (e: Exception) {
       log.warn("Authentication failed for request: {}", uri, e)
-      response.status = HttpServletResponse.SC_UNAUTHORIZED
-      response.writer.print(
-          objectMapper.writeValueAsString(
-              BaseResponse<Any>(
-                  code = HttpStatus.UNAUTHORIZED.name,
-                  message = HttpStatus.UNAUTHORIZED.name,
-              ),
-          ),
-      )
-      response.contentType = MediaType.APPLICATION_JSON.toString()
+      writeUnauthorized(response)
     }
+  }
+
+  private fun writeUnauthorized(
+      response: HttpServletResponse,
+  ) {
+    response.status = HttpServletResponse.SC_UNAUTHORIZED
+    response.writer.print(
+        objectMapper.writeValueAsString(
+            BaseResponse<Any>(
+                code = SecurityErrorCode.SECURITY_UNAUTHORIZED.name,
+                message = HttpStatus.UNAUTHORIZED.reasonPhrase,
+            ),
+        ),
+    )
+    response.contentType = MediaType.APPLICATION_JSON.toString()
   }
 }

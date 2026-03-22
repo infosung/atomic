@@ -1,5 +1,6 @@
 package com.infosung.atomic.spring.idempotency
 
+import com.infosung.atomic.contract.response.BaseResponse
 import com.infosung.atomic.contract.time.TimeProvider
 import jakarta.servlet.Filter
 import jakarta.servlet.FilterChain
@@ -9,6 +10,7 @@ import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import java.util.Locale
 import org.slf4j.LoggerFactory
+import tools.jackson.databind.ObjectMapper
 
 /** Servlet filter that enforces one-time processing by idempotency key. */
 class IdempotencyFilter(
@@ -24,6 +26,7 @@ class IdempotencyFilter(
     private val replayHeaderName: String = "X-Idempotent-Replay",
     private val replayBodyOmittedHeaderName: String = "X-Idempotent-Replay-Body-Omitted",
     private val maxCachedBodyBytes: Int = 262_144,
+    private val objectMapper: ObjectMapper = ObjectMapper(),
 ) : Filter {
   private val log = LoggerFactory.getLogger(this::class.java)
   private val normalizedMethods = includeMethods.map { it.uppercase(Locale.ROOT) }.toSet()
@@ -49,9 +52,15 @@ class IdempotencyFilter(
     val keyValue = httpRequest.getHeader(headerName)?.trim()
     if (keyValue.isNullOrBlank()) {
       if (requireHeader) {
+        log.debug(
+            "Idempotency key is missing. Rejecting request: method={}, uri={}",
+            httpRequest.method,
+            httpRequest.requestURI,
+        )
         writeError(
             response = httpResponse,
             status = HttpServletResponse.SC_BAD_REQUEST,
+            code = IdempotencyErrorCode.IDEMPOTENCY_KEY_REQUIRED.name,
             message = "$headerName header is required.",
         )
         return
@@ -100,17 +109,29 @@ class IdempotencyFilter(
       }
 
       IdempotencyClaimResult.Processing -> {
+        log.debug(
+            "Idempotent request is already processing. Rejecting request: method={}, uri={}",
+            httpRequest.method,
+            httpRequest.requestURI,
+        )
         writeError(
             response = httpResponse,
             status = HttpServletResponse.SC_CONFLICT,
+            code = IdempotencyErrorCode.IDEMPOTENCY_REQUEST_PROCESSING.name,
             message = "Idempotent request is already processing.",
         )
       }
 
       IdempotencyClaimResult.FingerprintMismatch -> {
+        log.debug(
+            "Idempotency key fingerprint mismatch. Rejecting request: method={}, uri={}",
+            httpRequest.method,
+            httpRequest.requestURI,
+        )
         writeError(
             response = httpResponse,
             status = HttpServletResponse.SC_CONFLICT,
+            code = IdempotencyErrorCode.IDEMPOTENCY_FINGERPRINT_MISMATCH.name,
             message = "Idempotency key has been used with a different request.",
         )
       }
@@ -277,12 +298,20 @@ class IdempotencyFilter(
   private fun writeError(
       response: HttpServletResponse,
       status: Int,
+      code: String,
       message: String,
   ) {
     response.status = status
-    response.contentType = "text/plain;charset=UTF-8"
+    response.contentType = "application/json"
     if (!response.isCommitted) {
-      response.writer.write(message)
+      response.writer.write(
+          objectMapper.writeValueAsString(
+              BaseResponse<Any>(
+                  code = code,
+                  message = message,
+              ),
+          ),
+      )
     }
   }
 

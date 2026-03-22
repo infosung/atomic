@@ -12,7 +12,6 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -251,8 +250,8 @@ class SecurityFilterTest {
     assertTrue(!chainCalled)
     assertEquals(401, response.status)
     assertEquals("application/json", response.contentType)
-    assertEquals("UNAUTHORIZED", body["code"]?.toString()?.removeSurrounding("\""))
-    assertEquals("UNAUTHORIZED", body["message"]?.toString()?.removeSurrounding("\""))
+    assertEquals("SECURITY_UNAUTHORIZED", body["code"]?.toString()?.removeSurrounding("\""))
+    assertEquals("Unauthorized", body["message"]?.toString()?.removeSurrounding("\""))
     assertNull(SecurityContextHolder.getContext().authentication)
   }
 
@@ -283,13 +282,13 @@ class SecurityFilterTest {
     assertTrue(!chainCalled)
     assertEquals(401, response.status)
     assertEquals("application/json", response.contentType)
-    assertEquals("UNAUTHORIZED", body["code"]?.toString()?.removeSurrounding("\""))
-    assertEquals("UNAUTHORIZED", body["message"]?.toString()?.removeSurrounding("\""))
+    assertEquals("SECURITY_UNAUTHORIZED", body["code"]?.toString()?.removeSurrounding("\""))
+    assertEquals("Unauthorized", body["message"]?.toString()?.removeSurrounding("\""))
     assertNull(SecurityContextHolder.getContext().authentication)
   }
 
   @Test
-  fun `invalid refresh token cookie should propagate exception`() {
+  fun `invalid refresh token cookie should return unauthorized json response`() {
     val filter =
         SecurityFilter(
             jwtProvider = jwtProvider(),
@@ -306,8 +305,14 @@ class SecurityFilterTest {
     var chainCalled = false
     val chain = FilterChain { _, _ -> chainCalled = true }
 
-    assertThrows(Exception::class.java) { filter.doFilter(request, response, chain) }
+    filter.doFilter(request, response, chain)
+
     assertTrue(!chainCalled)
+    val body = ObjectMapper().readTree(response.contentAsString)
+    assertEquals(401, response.status)
+    assertEquals("application/json", response.contentType)
+    assertEquals("SECURITY_UNAUTHORIZED", body["code"]?.toString()?.removeSurrounding("\""))
+    assertEquals("Unauthorized", body["message"]?.toString()?.removeSurrounding("\""))
     assertNull(SecurityContextHolder.getContext().authentication)
   }
 

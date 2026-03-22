@@ -75,6 +75,20 @@ atomic:
 8. 5xx/exception path removes active key to allow retry.
 9. With `fail-open=true`, store failures on `claim/complete/remove` are logged and request/response flow continues. On `complete` failure, filter also does best-effort `remove` to avoid long `Processing` lock.
 
+Stable non-MVC error codes:
+
+- `IDEMPOTENCY_KEY_REQUIRED`
+  - emitted when `require-header=true` and `Idempotency-Key` is missing
+  - HTTP status `400`
+- `IDEMPOTENCY_REQUEST_PROCESSING`
+  - emitted when another in-flight request already owns the key
+  - HTTP status `409`
+- `IDEMPOTENCY_FINGERPRINT_MISMATCH`
+  - emitted when the same key is reused with a different fingerprint
+  - HTTP status `409`
+
+These rejection branches return JSON `BaseResponse` payloads instead of plain text bodies.
+
 ## Important Notes
 
 - Default in-memory store is process-local.
@@ -109,3 +123,4 @@ class IdempotencyStoreConfig {
 - Set TTL according to retry window policy.
 - Use shared store for multi-instance deployments.
 - Monitor `409` ratio to detect duplicate retry spikes or misuse.
+- Branch on stable idempotency codes instead of matching response text.

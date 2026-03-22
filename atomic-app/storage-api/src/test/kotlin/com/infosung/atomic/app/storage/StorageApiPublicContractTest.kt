@@ -1,5 +1,7 @@
 package com.infosung.atomic.app.storage
 
+import com.infosung.atomic.app.storage.application.exception.StorageApplicationException
+import com.infosung.atomic.app.storage.application.exception.StorageErrorCode
 import com.infosung.atomic.app.storage.autoconfigure.AtomicAppImageProperties
 import com.infosung.atomic.contract.response.BaseResponse
 import java.lang.reflect.Modifier
@@ -200,6 +202,21 @@ class StorageApiPublicContractTest {
             loadClass(
                 "com.infosung.atomic.app.storage.application.port.in.RecoverDeletePendingImagesUseCase")),
     )
+  }
+
+  @Test
+  fun `storage public error seams should remain stable`() {
+    assertEquals(
+        listOf(
+            "STORAGE_INVALID_IMAGE_REQUEST",
+            "STORAGE_IMAGE_NOT_FOUND",
+            "STORAGE_IMAGE_OWNERSHIP_MISMATCH",
+            "STORAGE_UPLOADER_PARAMETER_REQUIRED",
+            "STORAGE_CONFIGURATION_INVALID",
+        ),
+        StorageErrorCode.entries.map { it.name },
+    )
+    assertTrue(StorageApplicationException::class.memberProperties.any { it.name == "errorCode" })
   }
 
   @Test

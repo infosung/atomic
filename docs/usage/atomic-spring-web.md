@@ -45,6 +45,7 @@ Required:
   - the built-in `AtomicHttpExceptionHandler` is scoped to `com.infosung.atomic.app` controllers only
   - the built-in handler does not send alerts; register your own `BaseExceptionHandler` subclass if you need Slack/webhook/email integration
   - if you want one app-wide exception policy for your own controllers too, register your own `BaseExceptionHandler` subclass
+  - when your own `BaseExceptionHandler` subclass bean exists, the built-in `AtomicHttpExceptionHandler` does not register
 - or your subclass of `BaseExceptionHandler`
 
 Optional:
@@ -151,6 +152,19 @@ Recommended with starter:
 
 - enable `atomic.web.rate-limit.enabled=true` and use starter auto-config
 - default `store=auto` selects Redis when `StringRedisTemplate` exists, else in-memory
+
+Stable non-MVC error codes:
+
+- `RATE_LIMIT_KEY_REQUIRED`
+  - emitted when the key resolver returns no usable actor and `missingKeyPolicy=REJECT`
+  - HTTP status `400`
+- `RATE_LIMIT_EXCEEDED`
+  - emitted when a request is over the configured threshold
+  - HTTP status `429`
+
+Rate-limit rejection paths now return JSON `BaseResponse` payloads with those stable codes.
+`atomic.web.rate-limit.response-body` still controls the user-facing throttle message, but it now
+fills the JSON `message` field rather than a plain text body.
 
 ## Feature-to-Bean Matrix
 
@@ -415,3 +429,4 @@ val resolved =
 - Unexpected `429`: verify `atomic.web.rate-limit.include-methods`, key strategy, and rule/path matching.
 - Unexpected global throttling across endpoints: either define explicit `rules` per prefix or switch `path-key-strategy=request-uri`.
 - Unexpected `400` with header key strategy: verify configured key header is always present or set `missing-key-policy=skip`.
+- Need machine-readable rate-limit branching: map on `RATE_LIMIT_KEY_REQUIRED` / `RATE_LIMIT_EXCEEDED`.
