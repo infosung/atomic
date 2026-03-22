@@ -418,19 +418,18 @@ class RelayLoginController(
     private val accountService: AccountService,
     private val sessionService: SessionService,
 ) {
-
-@PostMapping("/api/login/oauth/relay")
-fun loginWithRelayCode(
-    @RequestBody request: RelayLoginRequest,
-): SessionResponse {
-  val payload = consumeOauthRelayCodeUseCase.consume(request.relayCode)
-  val principal = accountService.resolveOrCreateFromOauth(payload)
-  return sessionService.issueSession(principal)
-}
+  @PostMapping("/api/login/oauth/relay")
+  fun loginWithRelayCode(
+      @RequestBody request: RelayLoginRequest,
+  ): SessionResponse {
+    val payload = consumeOauthRelayCodeUseCase.consume(request.relayCode)
+    val principal = accountService.resolveOrCreateFromOauth(payload)
+    return sessionService.issueSession(principal)
+  }
 }
 ```
 
-`AccountService` and `SessionService` here are host app-owned services, not Atomic-provided types.
+`AccountService` and `SessionService` above are host-app examples, not Atomic-provided types.
 
 Relay payload:
 

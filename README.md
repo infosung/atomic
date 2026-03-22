@@ -550,7 +550,9 @@ Typical override points:
   - `googleOauthProvider`, `kakaoOauthProvider`, `appleOauthProvider` (bean names)
 - App
   - `checkAppVersionUseCase`, `appVersionController`
-  - `issueOauthRelayCodeUseCase`, `consumeOauthRelayCodeUseCase`, `oauthRelayCodeStore`, `appOauthRedirectController`
+  - `buildAuthorizationRedirectUseCase`, `buildOauthCallbackRedirectUseCase`, `buildAppleCallbackRedirectUseCase`
+  - `issueOauthRelayCodeUseCase`, `consumeOauthRelayCodeUseCase`, `oauthRelayCodeStore`
+  - `appOauthRedirectController`, `appOauthRedirectHttpExceptionHandler`
   - `uploadAppImageUseCase`, `deleteAppImageUseCase`, `inspectDeletePendingImagesUseCase`, `recoverDeletePendingImagesUseCase`, `appStorageController`
 
 For oauth redirect specifically, treat the exported build/issue/consume use-case beans,
