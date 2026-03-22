@@ -1,6 +1,7 @@
 package com.infosung.atomic.spring.security.handler
 
 import com.infosung.atomic.contract.response.BaseResponse
+import com.infosung.atomic.spring.security.SecurityErrorCode
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.slf4j.Logger
@@ -33,8 +34,8 @@ class JwtAuthenticationEntryPoint(
     response.writer.print(
         objectMapper.writeValueAsString(
             BaseResponse<Any>(
-                code = HttpStatus.UNAUTHORIZED.name,
-                message = HttpStatus.UNAUTHORIZED.name,
+                code = SecurityErrorCode.SECURITY_UNAUTHORIZED.name,
+                message = HttpStatus.UNAUTHORIZED.reasonPhrase,
             ),
         ),
     )

@@ -44,12 +44,16 @@ Required:
 - either the shared Atomic web exception handler
   - the built-in `AtomicHttpExceptionHandler` is scoped to `com.infosung.atomic.app` controllers only
   - the built-in handler does not send alerts; register your own `BaseExceptionHandler` subclass if you need Slack/webhook/email integration
-  - if you want one app-wide exception policy for your own controllers too, register your own `BaseExceptionHandler` subclass
+  - if you want one app-wide exception policy for your own controllers too, register your own `@RestControllerAdvice` subclass of `BaseExceptionHandler`
+  - your own `BaseExceptionHandler` advice does not suppress the built-in Atomic advice by itself; the built-in handler remains active for `atomic.app.*` unless you explicitly replace it
+  - if you intentionally want to replace the built-in scoped handler, implement `AtomicHttpExceptionHandlerReplacement` on your `BaseExceptionHandler` advice
 - or your subclass of `BaseExceptionHandler`
 
 Optional:
 
 - custom `alert(...)` integration (Slack/webhook)
+  - the built-in `AtomicHttpExceptionHandler` still sends no alerts because its `alert(...)` implementation is a no-op
+  - your own `BaseExceptionHandler` subclass owns its alert policy, including production behavior
 
 Recommended direction:
 
@@ -152,6 +156,19 @@ Recommended with starter:
 - enable `atomic.web.rate-limit.enabled=true` and use starter auto-config
 - default `store=auto` selects Redis when `StringRedisTemplate` exists, else in-memory
 
+Stable non-MVC error codes:
+
+- `RATE_LIMIT_KEY_REQUIRED`
+  - emitted when the key resolver returns no usable actor and `missingKeyPolicy=REJECT`
+  - HTTP status `400`
+- `RATE_LIMIT_EXCEEDED`
+  - emitted when a request is over the configured threshold
+  - HTTP status `429`
+
+Rate-limit rejection paths now return JSON `BaseResponse` payloads with those stable codes.
+`atomic.web.rate-limit.response-body` still controls the user-facing throttle message, but it now
+fills the JSON `message` field rather than a plain text body.
+
 ## Feature-to-Bean Matrix
 
 | Feature | Required Beans/Classes | Optional |
@@ -183,6 +200,7 @@ If one of `ApiLogAspect` or `ApiLogFilter` is missing, paired request/response l
 ## Quick Config: Exception Handling Only
 
 ```kotlin
+import com.infosung.atomic.spring.web.exception.AtomicHttpExceptionHandlerReplacement
 import com.infosung.atomic.spring.web.exception.BaseExceptionHandler
 import org.springframework.core.env.Environment
 import org.springframework.web.bind.annotation.RestControllerAdvice
@@ -191,6 +209,20 @@ import org.springframework.web.bind.annotation.RestControllerAdvice
 class AppExceptionHandler(
     environment: Environment,
 ) : BaseExceptionHandler(environment = environment) {
+  override fun alert(e: Exception, message: String) {
+    // optional alert integration
+  }
+}
+```
+
+If you want that advice to replace the built-in scoped `AtomicHttpExceptionHandler`, implement
+`AtomicHttpExceptionHandlerReplacement` too:
+
+```kotlin
+@RestControllerAdvice
+class GlobalAppExceptionHandler(
+    environment: Environment,
+) : BaseExceptionHandler(environment = environment), AtomicHttpExceptionHandlerReplacement {
   override fun alert(e: Exception, message: String) {
     // optional alert integration
   }
@@ -415,3 +447,4 @@ val resolved =
 - Unexpected `429`: verify `atomic.web.rate-limit.include-methods`, key strategy, and rule/path matching.
 - Unexpected global throttling across endpoints: either define explicit `rules` per prefix or switch `path-key-strategy=request-uri`.
 - Unexpected `400` with header key strategy: verify configured key header is always present or set `missing-key-policy=skip`.
+- Need machine-readable rate-limit branching: map on `RATE_LIMIT_KEY_REQUIRED` / `RATE_LIMIT_EXCEEDED`.

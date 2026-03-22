@@ -404,12 +404,19 @@ provider.refreshToken(
 - `atomic.web.rate-limit.key-strategy=ip` uses `remoteAddr` by default. set `atomic.web.rate-limit.ip.trust-forwarded-headers=true` only behind trusted proxy/ingress that rewrites forwarding headers.
 - `atomic.web.rate-limit.redis.key-prefix` must be non-blank when store is `redis` or `auto`.
 - `X-RateLimit-Reset` and `Retry-After` are seconds until current fixed-window boundary.
+- Rate-limit rejection paths now expose stable JSON codes:
+  - `RATE_LIMIT_KEY_REQUIRED`
+  - `RATE_LIMIT_EXCEEDED`
 - Any user-defined `RateLimitStore` bean overrides starter-provided store (`@ConditionalOnMissingBean`), even when `store` is not `custom`.
 - `atomic.spring.idempotency` default store is process-local in-memory; for multi-instance services register shared `IdempotencyStore`.
 - Replayed idempotent responses set `X-Idempotent-Replay=true`; when cached body is omitted by size limit, `X-Idempotent-Replay-Body-Omitted=true` is added.
 - `atomic.idempotency.max-cached-body-bytes` is a hard replay-body capture limit; replay omits non-replayable headers (`Set-Cookie`, hop-by-hop, dynamic server headers).
 - `atomic.idempotency.processing-ttl-seconds` controls in-flight lock TTL; `atomic.idempotency.ttl-seconds` controls completed replay entry TTL.
 - `Idempotency-Key` should be namespaced per actor/tenant to avoid cross-client collisions on shared endpoints.
+- Idempotency rejection paths now expose stable JSON codes:
+  - `IDEMPOTENCY_KEY_REQUIRED`
+  - `IDEMPOTENCY_REQUEST_PROCESSING`
+  - `IDEMPOTENCY_FINGERPRINT_MISMATCH`
 - non-5xx idempotent responses (including 4xx) are cached and replayed for the same key; 5xx/exception path removes active key.
 - Recommended default chain order is rate-limit first (`-100`) then idempotency (`-50`).
 - OAuth provider auto-configuration requires available `OauthStateManager`.

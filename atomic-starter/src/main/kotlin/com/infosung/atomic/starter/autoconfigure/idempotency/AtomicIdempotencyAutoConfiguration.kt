@@ -15,6 +15,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.context.annotation.Bean
+import tools.jackson.databind.ObjectMapper
 
 /** Auto-configuration for HTTP idempotency filter and default in-memory store. */
 @AutoConfiguration
@@ -70,6 +71,7 @@ class AtomicIdempotencyAutoConfiguration {
       properties: AtomicIdempotencyProperties,
       store: IdempotencyStore,
       fingerprintResolver: IdempotencyFingerprintResolver,
+      objectMapperProvider: ObjectProvider<ObjectMapper>,
       timeProviderProvider: ObjectProvider<TimeProvider>,
   ): IdempotencyFilter {
     properties.validate()
@@ -91,6 +93,7 @@ class AtomicIdempotencyAutoConfiguration {
         replayHeaderName = properties.replayHeaderName,
         replayBodyOmittedHeaderName = properties.replayBodyOmittedHeaderName,
         maxCachedBodyBytes = properties.maxCachedBodyBytes,
+        objectMapper = objectMapperProvider.getIfAvailable { ObjectMapper() },
     )
   }
 

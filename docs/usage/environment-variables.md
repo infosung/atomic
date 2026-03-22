@@ -57,7 +57,7 @@ Validation notes:
 | `atomic.web.rate-limit.missing-key-policy` | `REJECT` | key-strategy is `HEADER` | Behavior when key is missing: `REJECT` or `SKIP`. |
 | `atomic.web.rate-limit.path-key-strategy` | `RULE_PREFIX` | optional | Path key composition strategy: `RULE_PREFIX` or `REQUEST_URI`. |
 | `atomic.web.rate-limit.fail-open` | `true` | optional | If true, lets request pass when store fails. |
-| `atomic.web.rate-limit.response-body` | `Too many requests.` | optional | Plain text body for `429` responses. |
+| `atomic.web.rate-limit.response-body` | `Too many requests.` | optional | Message used in the JSON `BaseResponse` body for `429` responses. |
 | `atomic.web.rate-limit.rules[].path-prefix` | empty | optional | Path prefix matcher for per-rule overrides. |
 | `atomic.web.rate-limit.rules[].methods` | empty | optional | Method matcher for per-rule overrides. |
 | `atomic.web.rate-limit.rules[].limit` | empty | when set | Per-rule limit override (`> 0`). |

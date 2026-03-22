@@ -13,8 +13,11 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.mock.web.MockHttpServletResponse
+import tools.jackson.databind.ObjectMapper
 
 class RateLimitFilterTest {
+  private val objectMapper = ObjectMapper()
+
   @Test
   fun `filter should pass first request and block over limit request`() {
     val store = InMemoryRateLimitStore()
@@ -52,6 +55,10 @@ class RateLimitFilterTest {
     assertEquals("1", secondRes.getHeader("X-RateLimit-Limit"))
     assertEquals("0", secondRes.getHeader("X-RateLimit-Remaining"))
     assertTrue(secondRes.getHeader("Retry-After")?.toLong() ?: 0L > 0L)
+    assertEquals("application/json", secondRes.contentType)
+    val body = objectMapper.readTree(secondRes.contentAsString)
+    assertEquals("RATE_LIMIT_EXCEEDED", body["code"]?.stringValue())
+    assertEquals("Too many requests.", body["message"]?.stringValue())
   }
 
   @Test
@@ -99,7 +106,10 @@ class RateLimitFilterTest {
 
     assertEquals(400, response.status)
     assertEquals(0, chainCount.get())
-    assertTrue(response.contentAsString.contains("Rate-limit key is missing"))
+    assertEquals("application/json", response.contentType)
+    val body = objectMapper.readTree(response.contentAsString)
+    assertEquals("RATE_LIMIT_KEY_REQUIRED", body["code"]?.stringValue())
+    assertEquals("Rate-limit key is missing.", body["message"]?.stringValue())
   }
 
   @Test
@@ -123,6 +133,14 @@ class RateLimitFilterTest {
 
     assertEquals(1, chainCount.get())
     assertEquals(200, response.status)
+  }
+
+  @Test
+  fun `rate limit error codes should remain stable`() {
+    assertEquals(
+        listOf("RATE_LIMIT_KEY_REQUIRED", "RATE_LIMIT_EXCEEDED"),
+        RateLimitErrorCode.entries.map { it.name },
+    )
   }
 
   @Test
@@ -158,5 +176,7 @@ class RateLimitFilterTest {
     assertEquals(200, first.status)
     assertEquals(429, second.status)
     assertFalse(second.getHeader("Retry-After").isNullOrBlank())
+    val body = objectMapper.readTree(second.contentAsString)
+    assertEquals("RATE_LIMIT_EXCEEDED", body["code"]?.stringValue())
   }
 }

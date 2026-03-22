@@ -23,6 +23,7 @@ import kotlin.reflect.full.primaryConstructor
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
@@ -150,6 +151,8 @@ class AppVersionPublicContractTest {
         ),
         AppVersionErrorCode.entries.map { it.name },
     )
+    assertTrue(
+        AppVersionApplicationException::class.memberProperties.any { it.name == "errorCode" })
   }
 
   @Test

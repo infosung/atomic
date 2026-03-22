@@ -10,6 +10,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import kotlin.test.assertSame
 import org.mockito.Mockito
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
@@ -20,6 +21,7 @@ import org.springframework.data.redis.connection.RedisConnectionFactory
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.mock.web.MockHttpServletResponse
+import tools.jackson.databind.ObjectMapper
 
 class AtomicWebAutoConfigurationRateLimitTest {
   private val contextRunner =
@@ -108,6 +110,29 @@ class AtomicWebAutoConfigurationRateLimitTest {
 
           assertEquals(400, response.status)
           assertEquals(0, chainCalls.get())
+        }
+  }
+
+  @Test
+  fun `rate limit filter should use host object mapper for rejection body serialization`() {
+    val hostObjectMapper = ObjectMapper()
+    contextRunner
+        .withBean(
+            ObjectMapper::class.java,
+            { hostObjectMapper },
+        )
+        .withPropertyValues(
+            "atomic.web.enabled=true",
+            "atomic.web.rate-limit.enabled=true",
+            "atomic.web.rate-limit.key-strategy=header",
+            "atomic.web.rate-limit.key-header-name=X-Actor-Id",
+        )
+        .run { context ->
+          val filter = context.getBean(RateLimitFilter::class.java)
+          val objectMapperField = RateLimitFilter::class.java.getDeclaredField("objectMapper")
+          objectMapperField.isAccessible = true
+
+          assertSame(hostObjectMapper, objectMapperField.get(filter))
         }
   }
 

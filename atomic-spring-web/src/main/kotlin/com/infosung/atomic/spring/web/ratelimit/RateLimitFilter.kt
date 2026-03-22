@@ -1,5 +1,6 @@
 package com.infosung.atomic.spring.web.ratelimit
 
+import com.infosung.atomic.contract.response.BaseResponse
 import com.infosung.atomic.contract.time.TimeProvider
 import jakarta.servlet.Filter
 import jakarta.servlet.FilterChain
@@ -9,6 +10,7 @@ import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import java.util.Locale
 import org.slf4j.LoggerFactory
+import tools.jackson.databind.ObjectMapper
 
 /** Servlet filter for request rate limiting. */
 class RateLimitFilter(
@@ -19,6 +21,7 @@ class RateLimitFilter(
     private val failOpen: Boolean = true,
     private val missingKeyPolicy: RateLimitMissingKeyPolicy = RateLimitMissingKeyPolicy.REJECT,
     private val responseBody: String = "Too many requests.",
+    private val objectMapper: ObjectMapper = ObjectMapper(),
     includeMethods: Set<String> = setOf("GET", "POST", "PUT", "PATCH", "DELETE"),
 ) : Filter {
   private val log = LoggerFactory.getLogger(this::class.java)
@@ -58,7 +61,12 @@ class RateLimitFilter(
               httpRequest.method,
               httpRequest.requestURI,
           )
-          writeBadRequest(httpResponse, "Rate-limit key is missing.")
+          writeError(
+              response = httpResponse,
+              status = HttpServletResponse.SC_BAD_REQUEST,
+              code = RateLimitErrorCode.RATE_LIMIT_KEY_REQUIRED.name,
+              message = "Rate-limit key is missing.",
+          )
         }
       }
       return
@@ -96,21 +104,39 @@ class RateLimitFilter(
       return
     }
 
-    httpResponse.status = 429
-    httpResponse.contentType = "text/plain;charset=UTF-8"
-    if (!httpResponse.isCommitted) {
-      httpResponse.writer.write(responseBody)
-    }
+    log.debug(
+        "RateLimit threshold exceeded. Rejecting request: method={}, uri={}, limit={}, remaining={}, retryAfterSeconds={}",
+        httpRequest.method,
+        httpRequest.requestURI,
+        decision.limit,
+        decision.remaining,
+        decision.retryAfterSeconds,
+    )
+    writeError(
+        response = httpResponse,
+        status = 429,
+        code = RateLimitErrorCode.RATE_LIMIT_EXCEEDED.name,
+        message = responseBody,
+    )
   }
 
-  private fun writeBadRequest(
+  private fun writeError(
       response: HttpServletResponse,
+      status: Int,
+      code: String,
       message: String,
   ) {
-    response.status = HttpServletResponse.SC_BAD_REQUEST
-    response.contentType = "text/plain;charset=UTF-8"
+    response.status = status
+    response.contentType = "application/json"
     if (!response.isCommitted) {
-      response.writer.write(message)
+      response.writer.write(
+          objectMapper.writeValueAsString(
+              BaseResponse<Any>(
+                  code = code,
+                  message = message,
+              ),
+          ),
+      )
     }
   }
 

@@ -14,8 +14,11 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.mock.web.MockHttpServletResponse
+import tools.jackson.databind.ObjectMapper
 
 class IdempotencyFilterTest {
+  private val objectMapper = ObjectMapper()
+
   @Test
   fun `filter should replay stored response for duplicate key`() {
     val store = InMemoryIdempotencyStore()
@@ -67,7 +70,10 @@ class IdempotencyFilterTest {
     filter.doFilter(request, response, chain)
 
     assertEquals(400, response.status)
-    assertTrue(response.contentAsString.contains("Idempotency-Key"))
+    assertEquals("application/json", response.contentType)
+    val body = objectMapper.readTree(response.contentAsString)
+    assertEquals("IDEMPOTENCY_KEY_REQUIRED", body["code"]?.stringValue())
+    assertEquals("Idempotency-Key header is required.", body["message"]?.stringValue())
   }
 
   @Test
@@ -96,6 +102,70 @@ class IdempotencyFilterTest {
     filter.doFilter(second, secondResponse, chain)
 
     assertEquals(409, secondResponse.status)
+    assertEquals("application/json", secondResponse.contentType)
+    val body = objectMapper.readTree(secondResponse.contentAsString)
+    assertEquals("IDEMPOTENCY_FINGERPRINT_MISMATCH", body["code"]?.stringValue())
+    assertEquals(
+        "Idempotency key has been used with a different request.",
+        body["message"]?.stringValue(),
+    )
+  }
+
+  @Test
+  fun `idempotency error codes should remain stable`() {
+    assertEquals(
+        listOf(
+            "IDEMPOTENCY_KEY_REQUIRED",
+            "IDEMPOTENCY_REQUEST_PROCESSING",
+            "IDEMPOTENCY_FINGERPRINT_MISMATCH",
+        ),
+        IdempotencyErrorCode.entries.map { it.name },
+    )
+  }
+
+  @Test
+  fun `filter should return stable code while request is already processing`() {
+    val filter =
+        IdempotencyFilter(
+            store =
+                object : IdempotencyStore {
+                  override fun claim(
+                      key: String,
+                      fingerprint: String,
+                      expiresAtMillis: Long,
+                  ): IdempotencyClaimResult = IdempotencyClaimResult.Processing
+
+                  override fun complete(
+                      key: String,
+                      claimToken: String,
+                      fingerprint: String,
+                      response: IdempotencyStoredResponse,
+                      expiresAtMillis: Long,
+                  ) = Unit
+
+                  override fun remove(
+                      key: String,
+                      claimToken: String,
+                  ) = Unit
+                },
+            fingerprintResolver = DefaultIdempotencyFingerprintResolver(),
+            includeMethods = setOf("POST"),
+            failOpen = false,
+        )
+    val request =
+        MockHttpServletRequest("POST", "/api/v1/orders").apply {
+          addHeader("Idempotency-Key", "processing-key")
+        }
+    val response = MockHttpServletResponse()
+    val chain = FilterChain { _, _ -> throw IllegalStateException("chain should not execute") }
+
+    filter.doFilter(request, response, chain)
+
+    assertEquals(409, response.status)
+    assertEquals("application/json", response.contentType)
+    val body = objectMapper.readTree(response.contentAsString)
+    assertEquals("IDEMPOTENCY_REQUEST_PROCESSING", body["code"]?.stringValue())
+    assertEquals("Idempotent request is already processing.", body["message"]?.stringValue())
   }
 
   @Test

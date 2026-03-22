@@ -34,6 +34,15 @@ Recommended:
 - `JwtAuthenticationEntryPoint`
 - `JwtAccessDeniedHandler`
 
+Stable non-MVC error codes:
+
+- `SECURITY_UNAUTHORIZED`
+  - emitted by `SecurityFilter` and `JwtAuthenticationEntryPoint`
+  - HTTP status `401`
+- `SECURITY_FORBIDDEN`
+  - emitted by `JwtAccessDeniedHandler`
+  - HTTP status `403`
+
 Optional:
 
 - `TimeProvider` for deterministic tests or custom clock behavior
@@ -150,6 +159,12 @@ http.authorizeHttpRequests {
 
 This behavior comes from `ChannelAwareTokenResolver`.
 
+## Error Handling Notes
+
+- Security rejection paths outside MVC controller advice also emit stable `BaseResponse.code` values.
+- Prefer branching on `SECURITY_UNAUTHORIZED` and `SECURITY_FORBIDDEN` instead of matching prose messages.
+- If your host app wraps security responses, keep the same status semantics (`401` / `403`) and preserve the stable code.
+
 ## JwtProvider Usage
 
 ```kotlin
@@ -177,6 +192,8 @@ Useful notes:
 ## Troubleshooting
 
 - Always unauthorized: check token source by channel (`WEB` cookie vs `APP` header).
+- Need machine-readable branching: map on `SECURITY_UNAUTHORIZED` / `SECURITY_FORBIDDEN` instead of message text.
 - Refresh re-issue not working: check `refreshToken` cookie and cookie policy.
 - Random expiration test failures: inject fixed `TimeProvider` in tests.
 - Public endpoint still protected: check `excludeUrls` exact method/path string.
+- If you customize host/global exception policy, branch on stable security codes instead of message text.

@@ -1,8 +1,10 @@
 package com.infosung.atomic.spring.security.filter
 
 import com.infosung.atomic.contract.time.TimeProvider
+import com.infosung.atomic.spring.security.auth.TokenAuthenticationProcessor
 import com.infosung.atomic.spring.security.channel.ClientChannel
 import com.infosung.atomic.spring.security.jwt.JwtProvider
+import com.infosung.atomic.spring.security.token.RequestTokenResolver
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.Cookie
 import java.time.Clock
@@ -251,8 +253,8 @@ class SecurityFilterTest {
     assertTrue(!chainCalled)
     assertEquals(401, response.status)
     assertEquals("application/json", response.contentType)
-    assertEquals("UNAUTHORIZED", body["code"]?.toString()?.removeSurrounding("\""))
-    assertEquals("UNAUTHORIZED", body["message"]?.toString()?.removeSurrounding("\""))
+    assertEquals("SECURITY_UNAUTHORIZED", body["code"]?.toString()?.removeSurrounding("\""))
+    assertEquals("Unauthorized", body["message"]?.toString()?.removeSurrounding("\""))
     assertNull(SecurityContextHolder.getContext().authentication)
   }
 
@@ -283,13 +285,13 @@ class SecurityFilterTest {
     assertTrue(!chainCalled)
     assertEquals(401, response.status)
     assertEquals("application/json", response.contentType)
-    assertEquals("UNAUTHORIZED", body["code"]?.toString()?.removeSurrounding("\""))
-    assertEquals("UNAUTHORIZED", body["message"]?.toString()?.removeSurrounding("\""))
+    assertEquals("SECURITY_UNAUTHORIZED", body["code"]?.toString()?.removeSurrounding("\""))
+    assertEquals("Unauthorized", body["message"]?.toString()?.removeSurrounding("\""))
     assertNull(SecurityContextHolder.getContext().authentication)
   }
 
   @Test
-  fun `invalid refresh token cookie should propagate exception`() {
+  fun `invalid refresh token cookie should return unauthorized json response`() {
     val filter =
         SecurityFilter(
             jwtProvider = jwtProvider(),
@@ -306,8 +308,72 @@ class SecurityFilterTest {
     var chainCalled = false
     val chain = FilterChain { _, _ -> chainCalled = true }
 
-    assertThrows(Exception::class.java) { filter.doFilter(request, response, chain) }
+    filter.doFilter(request, response, chain)
+
     assertTrue(!chainCalled)
+    val body = ObjectMapper().readTree(response.contentAsString)
+    assertEquals(401, response.status)
+    assertEquals("application/json", response.contentType)
+    assertEquals("SECURITY_UNAUTHORIZED", body["code"]?.toString()?.removeSurrounding("\""))
+    assertEquals("Unauthorized", body["message"]?.toString()?.removeSurrounding("\""))
+    assertNull(SecurityContextHolder.getContext().authentication)
+  }
+
+  @Test
+  fun `unexpected token resolution failure should bubble instead of returning unauthorized`() {
+    val filter =
+        SecurityFilter(
+            objectMapper = ObjectMapper(),
+            excludeUrls = emptyList(),
+            tokenResolver =
+                RequestTokenResolver { _, _ ->
+                  throw IllegalStateException("channel resolution failed")
+                },
+            tokenAuthenticationProcessor = TokenAuthenticationProcessor {},
+        )
+    val request = MockHttpServletRequest("GET", "/api/test")
+    val response = MockHttpServletResponse()
+    var chainCalled = false
+    val chain = FilterChain { _, _ -> chainCalled = true }
+
+    val exception =
+        assertThrows(IllegalStateException::class.java) {
+          filter.doFilter(request, response, chain)
+        }
+
+    assertEquals("channel resolution failed", exception.message)
+    assertTrue(!chainCalled)
+    assertEquals(200, response.status)
+    assertEquals("", response.contentAsString)
+    assertNull(SecurityContextHolder.getContext().authentication)
+  }
+
+  @Test
+  fun `unexpected authentication failure should bubble instead of returning unauthorized`() {
+    val filter =
+        SecurityFilter(
+            objectMapper = ObjectMapper(),
+            excludeUrls = emptyList(),
+            tokenResolver = RequestTokenResolver { _, _ -> "access-token" },
+            tokenAuthenticationProcessor =
+                TokenAuthenticationProcessor {
+                  throw IllegalStateException("authentication factory failed")
+                },
+        )
+    val request = MockHttpServletRequest("GET", "/api/test")
+    val response = MockHttpServletResponse()
+    var chainCalled = false
+    val chain = FilterChain { _, _ -> chainCalled = true }
+
+    val exception =
+        assertThrows(IllegalStateException::class.java) {
+          filter.doFilter(request, response, chain)
+        }
+
+    assertEquals("authentication factory failed", exception.message)
+    assertTrue(!chainCalled)
+    assertEquals(200, response.status)
+    assertEquals("", response.contentAsString)
     assertNull(SecurityContextHolder.getContext().authentication)
   }
 

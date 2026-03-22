@@ -1,6 +1,7 @@
 package com.infosung.atomic.spring.security.handler
 
 import com.infosung.atomic.contract.response.BaseResponse
+import com.infosung.atomic.spring.security.SecurityErrorCode
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.slf4j.Logger
@@ -33,8 +34,8 @@ class JwtAccessDeniedHandler(
     response.writer?.print(
         objectMapper.writeValueAsString(
             BaseResponse<Any>(
-                code = HttpStatus.FORBIDDEN.name,
-                message = HttpStatus.FORBIDDEN.name,
+                code = SecurityErrorCode.SECURITY_FORBIDDEN.name,
+                message = HttpStatus.FORBIDDEN.reasonPhrase,
             ),
         ),
     )
