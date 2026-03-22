@@ -39,7 +39,7 @@ abstract class BaseExceptionHandler(
   ): ResponseEntity<BaseResponse<Any>> {
     val status = HttpStatus.INTERNAL_SERVER_ERROR.value()
     handle(e, request, status)
-    return ResponseEntity.status(status).body(errorResponse(e = e, status = status))
+    return ResponseEntity.status(status).body(createErrorResponse(e = e, status = status))
   }
 
   /** Handles missing-resource exceptions as HTTP 404. */
@@ -50,7 +50,7 @@ abstract class BaseExceptionHandler(
   ): ResponseEntity<BaseResponse<Any>> {
     val status = HttpStatus.NOT_FOUND.value()
     handle(e, request, status)
-    return ResponseEntity.status(status).body(errorResponse(e = e, status = status))
+    return ResponseEntity.status(status).body(createErrorResponse(e = e, status = status))
   }
 
   /** Handles [HttpStatusException] using its embedded status code. */
@@ -60,7 +60,7 @@ abstract class BaseExceptionHandler(
       request: HttpServletRequest,
   ): ResponseEntity<BaseResponse<Any>> {
     handle(e, request, e.status)
-    return ResponseEntity.status(e.status).body(errorResponse(e = e, status = e.status))
+    return ResponseEntity.status(e.status).body(createErrorResponse(e = e, status = e.status))
   }
 
   /** Handles missing request parameter exceptions as HTTP 400. */
@@ -148,7 +148,8 @@ abstract class BaseExceptionHandler(
             code = "HTTP_METHOD_NOT_SUPPORTED",
         )
     handle(httpException, request, status)
-    return ResponseEntity.status(status).body(errorResponse(e = httpException, status = status))
+    return ResponseEntity.status(status)
+        .body(createErrorResponse(e = httpException, status = status))
   }
 
   /** Handles unsupported media types as HTTP 415. */
@@ -166,7 +167,8 @@ abstract class BaseExceptionHandler(
             code = "UNSUPPORTED_MEDIA_TYPE",
         )
     handle(httpException, request, status)
-    return ResponseEntity.status(status).body(errorResponse(e = httpException, status = status))
+    return ResponseEntity.status(status)
+        .body(createErrorResponse(e = httpException, status = status))
   }
 
   private fun handle(
@@ -192,8 +194,29 @@ abstract class BaseExceptionHandler(
       )
       log.trace("Client exception stacktrace", e)
     }
-    alertMessage(e, request)
+    if (shouldAlert(e = e, request = request, status = status)) {
+      alertMessage(e, request)
+    } else {
+      log.debug(
+          "Skipping alert delivery for handled exception: method={}, uri={}, status={}",
+          request.method,
+          request.requestURI,
+          status,
+      )
+    }
   }
+
+  /**
+   * Controls whether this handler should delegate alert delivery for the given exception.
+   *
+   * Override when a host-specific handler wants to disable or narrow alerting without replacing the
+   * rest of the exception mapping behavior.
+   */
+  protected open fun shouldAlert(
+      e: Exception,
+      request: HttpServletRequest,
+      status: Int,
+  ): Boolean = true
 
   /** Sends alert message through the concrete handler implementation. */
   fun alertMessage(e: Exception, request: HttpServletRequest) {
@@ -205,7 +228,13 @@ abstract class BaseExceptionHandler(
   /** Implement integration-specific alert delivery (for example Slack/Discord/email). */
   abstract fun alert(e: Exception, message: String)
 
-  private fun errorResponse(
+  /**
+   * Creates the response envelope returned to the caller.
+   *
+   * Override when a host-specific handler needs to customize the response body without
+   * reimplementing every exception handler method.
+   */
+  protected open fun createErrorResponse(
       e: Exception,
       status: Int,
   ): BaseResponse<Any> {
@@ -237,7 +266,8 @@ abstract class BaseExceptionHandler(
             code = code,
         )
     handle(httpException, request, status)
-    return ResponseEntity.status(status).body(errorResponse(e = httpException, status = status))
+    return ResponseEntity.status(status)
+        .body(createErrorResponse(e = httpException, status = status))
   }
 
   private fun stackTraceWithRequestInfo(request: HttpServletRequest, e: Exception): String {

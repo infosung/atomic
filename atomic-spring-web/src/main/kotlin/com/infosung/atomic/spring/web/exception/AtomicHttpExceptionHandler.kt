@@ -1,5 +1,6 @@
 package com.infosung.atomic.spring.web.exception
 
+import jakarta.servlet.http.HttpServletRequest
 import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
 import org.springframework.core.env.Environment
@@ -16,6 +17,12 @@ import org.springframework.web.bind.annotation.RestControllerAdvice
 class AtomicHttpExceptionHandler(
     environment: Environment,
 ) : BaseExceptionHandler(environment) {
+  override fun shouldAlert(
+      e: Exception,
+      request: HttpServletRequest,
+      status: Int,
+  ): Boolean = false
+
   override fun alert(
       e: Exception,
       message: String,

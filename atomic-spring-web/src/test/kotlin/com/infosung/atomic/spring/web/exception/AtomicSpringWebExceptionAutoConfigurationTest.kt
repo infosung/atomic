@@ -1,6 +1,7 @@
 package com.infosung.atomic.spring.web.exception
 
 import com.infosung.atomic.contract.exception.HttpStatusException
+import com.infosung.atomic.contract.response.BaseResponse
 import com.infosung.atomic.spring.web.autoconfigure.AtomicSpringWebExceptionAutoConfiguration
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -80,6 +81,20 @@ class BaseExceptionHandlerCustomizationSmokeTest {
         .andExpect(jsonPath("$.code").value("DOC_SAMPLE_CODE"))
         .andExpect(jsonPath("$.message").value("Doc sample failure"))
   }
+
+  @Test
+  fun `documented base exception handler subclass should allow centralized response customization`() {
+    val mockMvc =
+        MockMvcBuilders.standaloneSetup(ThrowingController())
+            .setControllerAdvice(CustomizingExceptionHandler(MockEnvironment()))
+            .build()
+
+    mockMvc
+        .perform(get("/test/error"))
+        .andExpect(status().isBadRequest)
+        .andExpect(jsonPath("$.code").value("HOST_DOC_OVERRIDE"))
+        .andExpect(jsonPath("$.message").value("Host customized response"))
+  }
 }
 
 @RestController
@@ -98,6 +113,26 @@ private class ThrowingController {
 private class CustomExceptionHandler(
     environment: Environment,
 ) : BaseExceptionHandler(environment = environment) {
+  override fun alert(
+      e: Exception,
+      message: String,
+  ) = Unit
+}
+
+@RestControllerAdvice
+private class CustomizingExceptionHandler(
+    environment: Environment,
+) : BaseExceptionHandler(environment = environment) {
+  override fun createErrorResponse(
+      e: Exception,
+      status: Int,
+  ): BaseResponse<Any> {
+    return BaseResponse(
+        code = "HOST_DOC_OVERRIDE",
+        message = "Host customized response",
+    )
+  }
+
   override fun alert(
       e: Exception,
       message: String,

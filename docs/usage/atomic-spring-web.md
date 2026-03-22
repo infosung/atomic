@@ -45,15 +45,20 @@ Required:
   - the built-in `AtomicHttpExceptionHandler` is scoped to `com.infosung.atomic.app` controllers only
   - the built-in handler does not send alerts; register your own `BaseExceptionHandler` subclass if you need Slack/webhook/email integration
   - if you want one app-wide exception policy for your own controllers too, register your own `@RestControllerAdvice` subclass of `BaseExceptionHandler`
-  - your own `BaseExceptionHandler` advice does not suppress the built-in Atomic advice by itself; the built-in handler remains active for `atomic.app.*` unless you explicitly replace it
+  - your own `BaseExceptionHandler` advice does not suppress the built-in Atomic advice by itself; the built-in handler stays registered for `atomic.app.*` unless you explicitly replace it
+  - if both your advice and the built-in advice match the same controller, normal Spring advice ordering decides which one actually handles the exception
   - if you intentionally want to replace the built-in scoped handler, implement `AtomicHttpExceptionHandlerReplacement` on your `BaseExceptionHandler` advice
+  - do not rely on plain advice ordering to replace the built-in scoped handler; replacement is only deterministic through `AtomicHttpExceptionHandlerReplacement`
 - or your subclass of `BaseExceptionHandler`
 
 Optional:
 
 - custom `alert(...)` integration (Slack/webhook)
-  - the built-in `AtomicHttpExceptionHandler` still sends no alerts because its `alert(...)` implementation is a no-op
+  - the built-in `AtomicHttpExceptionHandler` still sends no alerts because it disables alert delivery through `shouldAlert(...) = false`
   - your own `BaseExceptionHandler` subclass owns its alert policy, including production behavior
+- `BaseExceptionHandler` customization hooks
+  - override `shouldAlert(...)` if you want to suppress or narrow alert delivery without changing response mapping
+  - override `createErrorResponse(...)` if you want to customize the response envelope without reimplementing every exception handler method
 
 Recommended direction:
 
@@ -171,7 +176,7 @@ fills the JSON `message` field rather than a plain text body.
 
 | Feature | Required Beans/Classes | Optional |
 |---|---|---|
-| Exception handling | `BaseExceptionHandler` subclass | alert integration |
+| Exception handling | built-in `AtomicHttpExceptionHandler` for `atomic.app.*`, or your `BaseExceptionHandler` subclass for broader/custom policy | alert integration |
 | API logging | `JsonTransfer`, `LogSaver`, `ServiceLogger`, `ApiLogFilter`, `ApiLogAspect` subclass | `TimeProvider`, `TraceIdGenerator` |
 | Rate-limit | `RateLimitStore`, `RateLimitPolicyResolver`, `RateLimitKeyResolver`, `RateLimitFilter` | Redis store or custom store |
 | Outbound HTTP (`RestTemplate`) | `RestClientInterceptor`, `RestClientErrorHandler` | custom rest policies |
@@ -200,6 +205,7 @@ If one of `ApiLogAspect` or `ApiLogFilter` is missing, paired request/response l
 ```kotlin
 import com.infosung.atomic.spring.web.exception.AtomicHttpExceptionHandlerReplacement
 import com.infosung.atomic.spring.web.exception.BaseExceptionHandler
+import jakarta.servlet.http.HttpServletRequest
 import org.springframework.core.env.Environment
 import org.springframework.web.bind.annotation.RestControllerAdvice
 
@@ -207,6 +213,12 @@ import org.springframework.web.bind.annotation.RestControllerAdvice
 class AppExceptionHandler(
     environment: Environment,
 ) : BaseExceptionHandler(environment = environment) {
+  override fun shouldAlert(
+      e: Exception,
+      request: HttpServletRequest,
+      status: Int,
+  ): Boolean = status >= 500
+
   override fun alert(e: Exception, message: String) {
     // optional alert integration
   }
@@ -221,6 +233,41 @@ If you want that advice to replace the built-in scoped `AtomicHttpExceptionHandl
 class GlobalAppExceptionHandler(
     environment: Environment,
 ) : BaseExceptionHandler(environment = environment), AtomicHttpExceptionHandlerReplacement {
+  override fun shouldAlert(
+      e: Exception,
+      request: HttpServletRequest,
+      status: Int,
+  ): Boolean = status >= 500
+
+  override fun alert(e: Exception, message: String) {
+    // optional alert integration
+  }
+}
+```
+
+If you want to keep the default handler methods but shape the response envelope differently, override
+`createErrorResponse(...)`:
+
+```kotlin
+import com.infosung.atomic.contract.response.BaseResponse
+import com.infosung.atomic.spring.web.exception.BaseExceptionHandler
+import org.springframework.core.env.Environment
+import org.springframework.web.bind.annotation.RestControllerAdvice
+
+@RestControllerAdvice
+class AppExceptionHandler(
+    environment: Environment,
+) : BaseExceptionHandler(environment = environment) {
+  override fun createErrorResponse(
+      e: Exception,
+      status: Int,
+  ): BaseResponse<Any> {
+    return BaseResponse(
+        code = "HOST_OVERRIDE_CODE",
+        message = "Host override response",
+    )
+  }
+
   override fun alert(e: Exception, message: String) {
     // optional alert integration
   }

@@ -2,6 +2,8 @@ package com.infosung.atomic.spring.web.exception
 
 import com.infosung.atomic.contract.exception.HttpStatusException
 import com.infosung.atomic.contract.exception.HttpUnauthorizedException
+import com.infosung.atomic.contract.response.BaseResponse
+import jakarta.servlet.http.HttpServletRequest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -98,6 +100,34 @@ class BaseExceptionHandlerTest {
     assertTrue(handler.lastAlertMessage?.contains("GET /v1/test") == true)
   }
 
+  @Test
+  fun `httpStatusException should allow host subclasses to customize error response in one place`() {
+    val handler = CustomResponseExceptionHandler()
+    val request = MockHttpServletRequest("GET", "/v1/test")
+    val exception =
+        HttpStatusException(
+            status = 404,
+            code = "VERSION_POLICY_NOT_FOUND",
+            message = "No version policy found.",
+        )
+
+    val response = handler.httpStatusException(exception, request)
+
+    assertEquals(404, response.statusCode.value())
+    assertEquals("HOST_OVERRIDE_CODE", response.body?.code)
+    assertEquals("Host override response", response.body?.message)
+  }
+
+  @Test
+  fun `exception should skip alert delivery when handler disables alerts`() {
+    val handler = NoAlertExceptionHandler()
+    val request = MockHttpServletRequest("GET", "/v1/test")
+
+    handler.exception(IllegalStateException("boom"), request)
+
+    assertEquals(0, handler.alertCalls)
+  }
+
   private class TestExceptionHandler :
       BaseExceptionHandler(
           environment = MockEnvironment(),
@@ -120,6 +150,45 @@ class BaseExceptionHandlerTest {
     ) {
       alertCalls += 1
       lastAlertMessage = message
+    }
+  }
+
+  private class CustomResponseExceptionHandler :
+      BaseExceptionHandler(
+          environment = MockEnvironment(),
+      ) {
+    override fun alert(
+        e: Exception,
+        message: String,
+    ) {}
+
+    override fun createErrorResponse(
+        e: Exception,
+        status: Int,
+    ): BaseResponse<Any> =
+        BaseResponse(
+            code = "HOST_OVERRIDE_CODE",
+            message = "Host override response",
+        )
+  }
+
+  private class NoAlertExceptionHandler :
+      BaseExceptionHandler(
+          environment = MockEnvironment(),
+      ) {
+    var alertCalls: Int = 0
+
+    override fun shouldAlert(
+        e: Exception,
+        request: HttpServletRequest,
+        status: Int,
+    ): Boolean = false
+
+    override fun alert(
+        e: Exception,
+        message: String,
+    ) {
+      alertCalls += 1
     }
   }
 }
