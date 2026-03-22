@@ -209,6 +209,16 @@ class StorageApiPublicContractTest {
     assertEquals(
         listOf(
             Triple("STORAGE_INVALID_IMAGE_REQUEST", 400, "Storage image request is invalid."),
+            Triple("STORAGE_IMAGE_QUALITY_INVALID", 400, "Storage image quality is invalid."),
+            Triple("STORAGE_FILE_NAME_REQUIRED", 400, "Storage image file name is required."),
+            Triple("STORAGE_IMAGE_ID_INVALID", 400, "Storage imageId is invalid."),
+            Triple(
+                "STORAGE_IMAGE_PATH_MISMATCH", 400, "Storage image does not match request path."),
+            Triple(
+                "STORAGE_STORAGE_TYPE_UNAVAILABLE",
+                400,
+                "Stored storage type is unavailable.",
+            ),
             Triple("STORAGE_IMAGE_NOT_FOUND", 404, "Storage image was not found."),
             Triple(
                 "STORAGE_IMAGE_OWNERSHIP_MISMATCH",

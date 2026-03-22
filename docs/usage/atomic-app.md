@@ -332,14 +332,26 @@ Image API exception semantics:
 | Code | Status | Default message |
 |---|---:|---|
 | `STORAGE_INVALID_IMAGE_REQUEST` | `400` | `Storage image request is invalid.` |
+| `STORAGE_IMAGE_QUALITY_INVALID` | `400` | `Storage image quality is invalid.` |
+| `STORAGE_FILE_NAME_REQUIRED` | `400` | `Storage image file name is required.` |
+| `STORAGE_IMAGE_ID_INVALID` | `400` | `Storage imageId is invalid.` |
+| `STORAGE_IMAGE_PATH_MISMATCH` | `400` | `Storage image does not match request path.` |
+| `STORAGE_STORAGE_TYPE_UNAVAILABLE` | `400` | `Stored storage type is unavailable.` |
 | `STORAGE_IMAGE_NOT_FOUND` | `404` | `Storage image was not found.` |
 | `STORAGE_IMAGE_OWNERSHIP_MISMATCH` | `403` | `Storage image ownership does not match.` |
 | `STORAGE_UPLOADER_PARAMETER_REQUIRED` | `400` | `Uploader parameter is required.` |
 | `STORAGE_CONFIGURATION_INVALID` | `500` | `Storage configuration is invalid.` |
 
-- invalid quality / unknown storage key / invalid UUID / path mismatch / unavailable persisted delete storage mapping typically surface through `STORAGE_INVALID_IMAGE_REQUEST`
+- invalid quality now surfaces through `STORAGE_IMAGE_QUALITY_INVALID`
+- missing original filename now surfaces through `STORAGE_FILE_NAME_REQUIRED`
+- invalid delete `imageId` format now surfaces through `STORAGE_IMAGE_ID_INVALID`
+- delete request path mismatch now surfaces through `STORAGE_IMAGE_PATH_MISMATCH`
+- unavailable persisted delete storage mapping now surfaces through `STORAGE_STORAGE_TYPE_UNAVAILABLE`
+- unknown upload storage key and other remaining request-shape failures still surface through `STORAGE_INVALID_IMAGE_REQUEST`
 - uploader parameter missing when uploader tracking is enabled surfaces through `STORAGE_UPLOADER_PARAMETER_REQUIRED`
-- original image object key / public URL budget violation before storage write also surfaces through `STORAGE_INVALID_IMAGE_REQUEST`
+- blank uploader tracking configuration surfaces through `STORAGE_CONFIGURATION_INVALID`
+- storage `5xx` codes keep stable `code`/`status`, but the built-in shared handler still masks the default wire message to `Internal Server Error` unless a host replaces that behavior
+- original image object key / public URL budget violation before storage write still surfaces through `STORAGE_INVALID_IMAGE_REQUEST`
 - other upload/delete exceptions can propagate from underlying storage client or image processing layer
 - thumbnail key / thumbnail URL budget violations remain non-fatal original uploads and surface through nullable thumbnail fields plus `thumbnailUploadFailed=true`
 

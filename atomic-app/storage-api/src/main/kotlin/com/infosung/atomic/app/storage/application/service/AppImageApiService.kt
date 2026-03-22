@@ -2,6 +2,8 @@ package com.infosung.atomic.app.storage.application.service
 
 import com.infosung.atomic.app.storage.application.exception.ImageOwnershipMismatchException
 import com.infosung.atomic.app.storage.application.exception.InvalidImageRequestException
+import com.infosung.atomic.app.storage.application.exception.StorageConfigurationException
+import com.infosung.atomic.app.storage.application.exception.StorageErrorCode
 import com.infosung.atomic.app.storage.application.model.AppImageRequestPolicy
 import com.infosung.atomic.app.storage.application.model.DeleteAppImageCommand
 import com.infosung.atomic.app.storage.application.model.UploadAppImageCommand
@@ -24,14 +26,33 @@ class AppImageApiService(
 
   override fun uploadImage(command: UploadAppImageCommand): StoredImage {
     if (command.quality !in requestPolicy.minQuality..requestPolicy.maxQuality) {
+      log.warn(
+          "Upload rejected due to invalid quality: serviceName={}, storageService={}, quality={}, allowedRange={}..{}",
+          command.serviceName,
+          command.storageService,
+          command.quality,
+          requestPolicy.minQuality,
+          requestPolicy.maxQuality,
+      )
       throw InvalidImageRequestException(
           "quality must be in range ${requestPolicy.minQuality}..${requestPolicy.maxQuality}",
+          errorCode = StorageErrorCode.STORAGE_IMAGE_QUALITY_INVALID,
       )
     }
 
     val originalFilename =
         command.uploadSource.originalFilename?.takeIf { it.isNotBlank() }
-            ?: throw InvalidImageRequestException("file original filename is required.")
+            ?: run {
+              log.warn(
+                  "Upload rejected because original filename is missing: serviceName={}, storageService={}",
+                  command.serviceName,
+                  command.storageService,
+              )
+              throw InvalidImageRequestException(
+                  "file original filename is required.",
+                  errorCode = StorageErrorCode.STORAGE_FILE_NAME_REQUIRED,
+              )
+            }
     val resolvedUploaderId = resolveUploaderIdForUpload(command.uploaderId)
     log.debug(
         "Uploading image: serviceName={}, storageService={}, originalFilenamePreview={}, originalFilenameLength={}, uploaderTracked={}, thumbnailEnabled={}",
@@ -124,7 +145,19 @@ class AppImageApiService(
     )
     val imageUuid =
         runCatching { UUID.fromString(command.imageId) }
-            .getOrElse { throw InvalidImageRequestException("imageId must be a valid UUID.", it) }
+            .getOrElse {
+              log.warn(
+                  "Delete rejected because imageId is invalid UUID: imageId={}, serviceName={}, storageService={}",
+                  command.imageId,
+                  command.serviceName,
+                  command.storageService,
+              )
+              throw InvalidImageRequestException(
+                  "imageId must be a valid UUID.",
+                  it,
+                  errorCode = StorageErrorCode.STORAGE_IMAGE_ID_INVALID,
+              )
+            }
     val image = imageMetadataPort.findByIdOrThrow(imageUuid, command.imageId)
 
     if (!image.serviceName.equals(command.serviceName, ignoreCase = true) ||
@@ -137,7 +170,10 @@ class AppImageApiService(
           image.serviceName,
           image.storageService,
       )
-      throw InvalidImageRequestException("image does not match service/storage path parameters.")
+      throw InvalidImageRequestException(
+          "image does not match service/storage path parameters.",
+          errorCode = StorageErrorCode.STORAGE_IMAGE_PATH_MISMATCH,
+      )
     }
     validateDeleteUploader(image = image, uploaderId = command.uploaderId)
 
@@ -203,6 +239,7 @@ class AppImageApiService(
     return uploaderId?.takeIf { it.isNotBlank() }
         ?: throw InvalidImageRequestException(
             "$parameterName is required when uploader parameter tracking is enabled.",
+            errorCode = StorageErrorCode.STORAGE_UPLOADER_PARAMETER_REQUIRED,
         )
   }
 
@@ -218,6 +255,7 @@ class AppImageApiService(
         uploaderId?.takeIf { it.isNotBlank() }
             ?: throw InvalidImageRequestException(
                 "$parameterName is required when uploader parameter tracking is enabled.",
+                errorCode = StorageErrorCode.STORAGE_UPLOADER_PARAMETER_REQUIRED,
             )
     if (image.uploaderId != requestUploaderId) {
       log.warn(
@@ -235,7 +273,7 @@ class AppImageApiService(
   private fun resolveUploaderParameterName(): String {
     val parameterName = requestPolicy.uploaderParameterName.trim()
     if (parameterName.isBlank()) {
-      throw IllegalStateException(
+      throw StorageConfigurationException(
           "atomic.app.image.uploader-parameter-name must not be blank when uploader parameter tracking is enabled.",
       )
     }

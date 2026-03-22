@@ -2,7 +2,9 @@ package com.infosung.atomic.app.storage
 
 import com.infosung.atomic.app.storage.adapter.`in`.web.AppStorageController
 import com.infosung.atomic.app.storage.application.exception.ImageNotFoundException
+import com.infosung.atomic.app.storage.application.exception.ImageOwnershipMismatchException
 import com.infosung.atomic.app.storage.application.exception.InvalidImageRequestException
+import com.infosung.atomic.app.storage.application.exception.StorageConfigurationException
 import com.infosung.atomic.app.storage.application.model.DeleteAppImageCommand
 import com.infosung.atomic.app.storage.application.model.UploadAppImageCommand
 import com.infosung.atomic.app.storage.application.port.`in`.DeleteAppImageUseCase
@@ -131,7 +133,13 @@ class AppStorageControllerHttpContractTest {
   fun `quality validation failure should return documented 400 error envelope`() {
     val uploadUseCase =
         RecordingUploadUseCase(sampleStoredImage()).apply {
-          uploadException = InvalidImageRequestException("quality must be in range 0.1..1.0")
+          uploadException =
+              InvalidImageRequestException(
+                  "quality must be in range 0.1..1.0",
+                  errorCode =
+                      com.infosung.atomic.app.storage.application.exception.StorageErrorCode
+                          .STORAGE_IMAGE_QUALITY_INVALID,
+              )
         }
     val controller =
         AppStorageController(
@@ -148,8 +156,36 @@ class AppStorageControllerHttpContractTest {
         )
         .andExpect(status().isBadRequest)
         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-        .andExpect(jsonPath("$.code").value("STORAGE_INVALID_IMAGE_REQUEST"))
+        .andExpect(jsonPath("$.code").value("STORAGE_IMAGE_QUALITY_INVALID"))
         .andExpect(jsonPath("$.message").value("quality must be in range 0.1..1.0"))
+  }
+
+  @Test
+  fun `delete invalid imageId should return refined 400 error envelope`() {
+    val deleteUseCase =
+        RecordingDeleteUseCase().apply {
+          deleteException =
+              InvalidImageRequestException(
+                  "imageId must be a valid UUID.",
+                  errorCode =
+                      com.infosung.atomic.app.storage.application.exception.StorageErrorCode
+                          .STORAGE_IMAGE_ID_INVALID,
+              )
+        }
+    val controller =
+        AppStorageController(
+            RecordingUploadUseCase(sampleStoredImage()),
+            deleteUseCase,
+            AtomicAppImageProperties(),
+        )
+    val mockMvc = newMockMvc(controller, "/api/v1/storage/image")
+
+    mockMvc
+        .perform(delete("/api/v1/storage/image/svc/S3").param("imageId", "not-a-uuid"))
+        .andExpect(status().isBadRequest)
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+        .andExpect(jsonPath("$.code").value("STORAGE_IMAGE_ID_INVALID"))
+        .andExpect(jsonPath("$.message").value("imageId must be a valid UUID."))
   }
 
   @Test
@@ -195,6 +231,58 @@ class AppStorageControllerHttpContractTest {
         .andExpect(status().isNotFound)
         .andExpect(jsonPath("$.code").value("STORAGE_IMAGE_NOT_FOUND"))
         .andExpect(jsonPath("$.message").value("image not found: $imageId"))
+  }
+
+  @Test
+  fun `delete endpoint should return documented 403 error envelope`() {
+    val deleteUseCase =
+        RecordingDeleteUseCase().apply {
+          deleteException =
+              ImageOwnershipMismatchException(
+                  "uploader parameter does not match uploaded image owner.")
+        }
+    val controller =
+        AppStorageController(
+            RecordingUploadUseCase(sampleStoredImage()),
+            deleteUseCase,
+            AtomicAppImageProperties(),
+        )
+    val mockMvc = newMockMvc(controller, "/api/v1/storage/image")
+    val imageId = UUID.fromString("11111111-1111-1111-1111-111111111111").toString()
+
+    mockMvc
+        .perform(delete("/api/v1/storage/image/svc/S3").param("imageId", imageId))
+        .andExpect(status().isForbidden)
+        .andExpect(jsonPath("$.code").value("STORAGE_IMAGE_OWNERSHIP_MISMATCH"))
+        .andExpect(
+            jsonPath("$.message").value("uploader parameter does not match uploaded image owner."),
+        )
+  }
+
+  @Test
+  fun `upload endpoint should preserve stable 500 code and mask message for configuration errors`() {
+    val uploadUseCase =
+        RecordingUploadUseCase(sampleStoredImage()).apply {
+          uploadException =
+              StorageConfigurationException(
+                  "atomic.app.image.uploader-parameter-name must not be blank when uploader parameter tracking is enabled.",
+              )
+        }
+    val controller =
+        AppStorageController(
+            uploadUseCase,
+            RecordingDeleteUseCase(),
+            AtomicAppImageProperties(),
+        )
+    val mockMvc = newMockMvc(controller, "/api/v1/storage/image")
+    val multipartFile = MockMultipartFile("file", "profile.png", "image/png", "img".toByteArray())
+
+    mockMvc
+        .perform(multipart("/api/v1/storage/image/svc/S3").file(multipartFile))
+        .andExpect(status().isInternalServerError)
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+        .andExpect(jsonPath("$.code").value("STORAGE_CONFIGURATION_INVALID"))
+        .andExpect(jsonPath("$.message").value("Internal Server Error"))
   }
 
   @Test

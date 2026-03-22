@@ -6,6 +6,8 @@ import com.infosung.atomic.app.storage.adapter.out.persistence.ImageRepository
 import com.infosung.atomic.app.storage.adapter.out.storage.ImageServiceStoragePortAdapter
 import com.infosung.atomic.app.storage.application.exception.ImageOwnershipMismatchException
 import com.infosung.atomic.app.storage.application.exception.InvalidImageRequestException
+import com.infosung.atomic.app.storage.application.exception.StorageConfigurationException
+import com.infosung.atomic.app.storage.application.exception.StorageErrorCode
 import com.infosung.atomic.app.storage.application.model.AppImageRequestPolicy
 import com.infosung.atomic.app.storage.application.model.DeleteAppImageCommand
 import com.infosung.atomic.app.storage.application.model.UploadAppImageCommand
@@ -138,6 +140,7 @@ class AppImageApiServiceTest {
         "memberId is required when uploader parameter tracking is enabled.",
         exception.message,
     )
+    assertEquals(StorageErrorCode.STORAGE_UPLOADER_PARAMETER_REQUIRED, exception.errorCode)
   }
 
   @Test
@@ -163,7 +166,28 @@ class AppImageApiServiceTest {
         }
 
     assertEquals("quality must be in range 0.4..0.8", exception.message)
+    assertEquals(StorageErrorCode.STORAGE_IMAGE_QUALITY_INVALID, exception.errorCode)
     assertTrue(storageClient.putObjectKeys.isEmpty())
+  }
+
+  @Test
+  fun `uploadImage should return refined invalid request when original filename is missing`() {
+    val storageClient = CapturingStorageClient()
+    val imageRepository = mock(ImageRepository::class.java)
+    val imageMetadataPort = AppImageEntityTxService(imageRepository)
+    val apiService = newApiService(storageClient, imageMetadataPort)
+
+    val exception =
+        assertFailsWith<InvalidImageRequestException> {
+          apiService.uploadImage(
+              uploadCommand(
+                  multipartFile = MockMultipartFile("file", "", "image/png", "dummy".toByteArray()),
+              ),
+          )
+        }
+
+    assertEquals("file original filename is required.", exception.message)
+    assertEquals(StorageErrorCode.STORAGE_FILE_NAME_REQUIRED, exception.errorCode)
   }
 
   @Test
@@ -293,6 +317,7 @@ class AppImageApiServiceTest {
         "stored storageType is unavailable for image delete: UNKNOWN",
         exception.message,
     )
+    assertEquals(StorageErrorCode.STORAGE_STORAGE_TYPE_UNAVAILABLE, exception.errorCode)
     assertTrue(storageClient.deletedObjectKeys.isEmpty())
     verify(imageRepository, never()).delete(savedEntity)
   }
@@ -310,6 +335,45 @@ class AppImageApiServiceTest {
         }
 
     assertEquals("imageId must be a valid UUID.", exception.message)
+    assertEquals(StorageErrorCode.STORAGE_IMAGE_ID_INVALID, exception.errorCode)
+    assertTrue(storageClient.deletedObjectKeys.isEmpty())
+  }
+
+  @Test
+  fun `deleteImage should return refined invalid request when image path does not match`() {
+    val imageId = UUID.randomUUID()
+    val storageClient = CapturingStorageClient()
+    val imageRepository = mock(ImageRepository::class.java)
+    val imageMetadataPort = AppImageEntityTxService(imageRepository)
+    val apiService = newApiService(storageClient, imageMetadataPort)
+    val savedEntity =
+        ImageEntity(
+            id = imageId,
+            bucket = "bucket",
+            serviceName = "svc",
+            storageService = "S3",
+            storageType = "S3",
+            fileName = "images/test/original.png",
+            thumbnailFileName = "images/test/original_thumb.webp",
+            url = "https://cdn/images/test/original.png",
+            thumbnailUrl = "https://cdn/images/test/original_thumb.webp",
+            fileSize = 123,
+        )
+    `when`(imageRepository.findById(imageId)).thenReturn(Optional.of(savedEntity))
+
+    val exception =
+        assertFailsWith<InvalidImageRequestException> {
+          apiService.deleteImage(
+              deleteCommand(
+                  imageId = imageId.toString(),
+                  serviceName = "other-svc",
+                  storageService = "cdn",
+              ),
+          )
+        }
+
+    assertEquals("image does not match service/storage path parameters.", exception.message)
+    assertEquals(StorageErrorCode.STORAGE_IMAGE_PATH_MISMATCH, exception.errorCode)
     assertTrue(storageClient.deletedObjectKeys.isEmpty())
   }
 
@@ -389,6 +453,7 @@ class AppImageApiServiceTest {
         "memberId is required when uploader parameter tracking is enabled.",
         exception.message,
     )
+    assertEquals(StorageErrorCode.STORAGE_UPLOADER_PARAMETER_REQUIRED, exception.errorCode)
     assertTrue(storageClient.deletedObjectKeys.isEmpty())
   }
 
@@ -405,7 +470,7 @@ class AppImageApiServiceTest {
     val apiService = newApiService(storageClient, imageMetadataPort, properties)
 
     val exception =
-        assertFailsWith<IllegalStateException> {
+        assertFailsWith<StorageConfigurationException> {
           apiService.uploadImage(
               uploadCommand(
                   multipartFile = sampleMultipartFile(),
@@ -418,6 +483,7 @@ class AppImageApiServiceTest {
         "atomic.app.image.uploader-parameter-name must not be blank when uploader parameter tracking is enabled.",
         exception.message,
     )
+    assertEquals(StorageErrorCode.STORAGE_CONFIGURATION_INVALID, exception.errorCode)
   }
 
   private fun newApiService(

@@ -1,6 +1,7 @@
 package com.infosung.atomic.app.storage.adapter.out.storage
 
 import com.infosung.atomic.app.storage.application.exception.InvalidImageRequestException
+import com.infosung.atomic.app.storage.application.exception.StorageErrorCode
 import com.infosung.atomic.app.storage.application.model.StoredImageObject
 import com.infosung.atomic.app.storage.application.model.UploadImageSource
 import com.infosung.atomic.app.storage.application.port.out.ImageObjectStoragePort
@@ -26,7 +27,10 @@ class ImageServiceStoragePortAdapter(
   ): StoredImageObject {
     val originalFilename =
         uploadSource.originalFilename?.takeIf { it.isNotBlank() }
-            ?: throw InvalidImageRequestException("file original filename is required.")
+            ?: throw InvalidImageRequestException(
+                "file original filename is required.",
+                errorCode = StorageErrorCode.STORAGE_FILE_NAME_REQUIRED,
+            )
     val resolvedStorageType =
         resolveUploadStorageType(serviceName = serviceName, storageService = storageService)
     val extension = originalFilename.substringAfterLast('.', "tmp")
@@ -155,6 +159,7 @@ class ImageServiceStoragePortAdapter(
       )
       throw InvalidImageRequestException(
           "stored storageType is unavailable for image delete: ${imageEntity.storageType}",
+          errorCode = StorageErrorCode.STORAGE_STORAGE_TYPE_UNAVAILABLE,
       )
     }
     log.debug(
