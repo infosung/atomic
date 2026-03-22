@@ -172,6 +172,17 @@ Rate-limit rejection paths now return JSON `BaseResponse` payloads with those st
 `atomic.web.rate-limit.response-body` still controls the user-facing throttle message, but it now
 fills the JSON `message` field rather than a plain text body.
 
+Unexpected rate-limit faults are still implementor-owned. In practice, review and handle failures
+from:
+
+- `RateLimitPolicyResolver.resolve(...)`
+- `RateLimitKeyResolver.resolve(...)`
+- `RateLimitStore.consume(...)` when `failOpen=false`
+- response serialization / servlet writer failures
+
+`failOpen=true` only covers store consumption failures. It does not flatten resolver failures or
+unexpected servlet/runtime faults into a stable Atomic `500` response.
+
 ## Feature-to-Bean Matrix
 
 | Feature | Required Beans/Classes | Optional |

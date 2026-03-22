@@ -85,6 +85,19 @@ Stable non-MVC error codes:
 
 These rejection branches return JSON `BaseResponse` payloads instead of plain text bodies.
 
+Unexpected idempotency faults are still implementor-owned. In practice, review and handle failures
+from:
+
+- `IdempotencyFingerprintResolver.resolve(...)`
+- `IdempotencyStore.claim(...)` when `failOpen=false`
+- `IdempotencyStore.complete(...)` when `failOpen=false`
+- `IdempotencyStore.remove(...)` when `failOpen=false` and no original exception is already propagating
+- response serialization / servlet writer failures
+- downstream `FilterChain` server faults
+
+`failOpen=true` only covers store interaction failures. It does not flatten downstream server faults
+or other unexpected runtime exceptions into a stable Atomic `500` response.
+
 ## Important Notes
 
 - Default in-memory store is process-local.

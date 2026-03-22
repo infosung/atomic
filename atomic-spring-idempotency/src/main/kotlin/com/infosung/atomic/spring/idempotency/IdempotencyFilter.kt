@@ -12,7 +12,21 @@ import java.util.Locale
 import org.slf4j.LoggerFactory
 import tools.jackson.databind.ObjectMapper
 
-/** Servlet filter that enforces one-time processing by idempotency key. */
+/**
+ * Servlet filter that enforces one-time processing by idempotency key.
+ *
+ * Stable JSON error responses are emitted only for expected rejection branches:
+ * - missing idempotency header when `requireHeader=true`
+ * - request already processing
+ * - fingerprint mismatch
+ *
+ * Unexpected faults remain implementor-owned. Hosts should handle or observe failures from
+ * `IdempotencyFingerprintResolver`, `IdempotencyStore`, downstream `FilterChain`, or response
+ * serialization according to their own operational policy.
+ *
+ * When `failOpen=true`, store failures during `claim`, `complete`, and `remove` are logged and the
+ * filter prefers request/response continuity. Unexpected downstream server faults still propagate.
+ */
 class IdempotencyFilter(
     private val store: IdempotencyStore,
     private val fingerprintResolver: IdempotencyFingerprintResolver,

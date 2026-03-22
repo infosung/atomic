@@ -12,7 +12,20 @@ import java.util.Locale
 import org.slf4j.LoggerFactory
 import tools.jackson.databind.ObjectMapper
 
-/** Servlet filter for request rate limiting. */
+/**
+ * Servlet filter for request rate limiting.
+ *
+ * Stable JSON error responses are emitted only for expected rejection branches:
+ * - missing actor key when `missingKeyPolicy=REJECT`
+ * - rate-limit threshold exceeded
+ *
+ * Unexpected faults remain implementor-owned. Hosts should handle or observe failures from
+ * `RateLimitPolicyResolver`, `RateLimitKeyResolver`, `RateLimitStore`, or response serialization
+ * according to their own operational policy.
+ *
+ * When `failOpen=true`, store consumption failures are logged and the request is allowed through.
+ * Resolver failures and unexpected servlet/serialization failures are not flattened by this filter.
+ */
 class RateLimitFilter(
     private val store: RateLimitStore,
     private val policyResolver: RateLimitPolicyResolver,
