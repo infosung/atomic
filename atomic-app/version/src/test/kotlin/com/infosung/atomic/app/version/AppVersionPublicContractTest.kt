@@ -143,13 +143,15 @@ class AppVersionPublicContractTest {
     )
     assertEquals(
         listOf(
-            "VERSION_SERVICE_NAME_REQUIRED",
-            "VERSION_PLATFORM_REQUIRED",
-            "VERSION_APP_VERSION_REQUIRED",
-            "VERSION_INVALID_APP_VERSION",
-            "VERSION_POLICY_NOT_FOUND",
+            Triple("VERSION_SERVICE_NAME_REQUIRED", 400, "Service name is required."),
+            Triple("VERSION_PLATFORM_REQUIRED", 400, "Platform is required."),
+            Triple("VERSION_APP_VERSION_REQUIRED", 400, "App version is required."),
+            Triple("VERSION_INVALID_APP_VERSION", 400, "App version is invalid."),
+            Triple("VERSION_POLICY_NOT_FOUND", 404, "No version policy was found."),
         ),
-        AppVersionErrorCode.entries.map { it.name },
+        AppVersionErrorCode.entries.map {
+          Triple(it.name, it.defaultHttpStatus, it.defaultMessage)
+        },
     )
     assertTrue(
         AppVersionApplicationException::class.memberProperties.any { it.name == "errorCode" })

@@ -36,12 +36,10 @@ Recommended:
 
 Stable non-MVC error codes:
 
-- `SECURITY_UNAUTHORIZED`
-  - emitted by `SecurityFilter` and `JwtAuthenticationEntryPoint`
-  - HTTP status `401`
-- `SECURITY_FORBIDDEN`
-  - emitted by `JwtAccessDeniedHandler`
-  - HTTP status `403`
+| Code | Status | Default message | Emitted by |
+|---|---:|---|---|
+| `SECURITY_UNAUTHORIZED` | `401` | `Unauthorized` | `SecurityFilter`, `JwtAuthenticationEntryPoint` |
+| `SECURITY_FORBIDDEN` | `403` | `Forbidden` | `JwtAccessDeniedHandler` |
 
 Optional:
 

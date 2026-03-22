@@ -6,7 +6,6 @@ import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.security.access.AccessDeniedException
 import org.springframework.security.web.access.AccessDeniedHandler
@@ -24,18 +23,19 @@ class JwtAccessDeniedHandler(
       response: HttpServletResponse,
       accessDeniedException: AccessDeniedException,
   ) {
+    val errorCode = SecurityErrorCode.SECURITY_FORBIDDEN
     log.warn(
         "Access denied: method={}, uri={}",
         request.method,
         request.requestURI,
         accessDeniedException,
     )
-    response.status = HttpServletResponse.SC_FORBIDDEN
+    response.status = errorCode.defaultHttpStatus
     response.writer?.print(
         objectMapper.writeValueAsString(
             BaseResponse<Any>(
-                code = SecurityErrorCode.SECURITY_FORBIDDEN.name,
-                message = HttpStatus.FORBIDDEN.reasonPhrase,
+                code = errorCode.name,
+                message = errorCode.defaultMessage,
             ),
         ),
     )

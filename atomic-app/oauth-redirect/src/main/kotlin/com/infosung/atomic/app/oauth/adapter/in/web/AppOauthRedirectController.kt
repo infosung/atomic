@@ -120,10 +120,11 @@ class AppOauthRedirectController(
 
   @GetMapping("\${atomic.app.oauth.redirect.callback-endpoint-path:/oauth/callback}/apple")
   fun callbackAppleGet(): String {
+    val errorCode = OauthRedirectErrorCode.OAUTH_APPLE_CALLBACK_POST_ONLY
     throw HttpStatusException(
-        status = 400,
-        code = OauthRedirectErrorCode.OAUTH_APPLE_CALLBACK_POST_ONLY.name,
-        message = "Apple callback supports POST form_post only.",
+        status = errorCode.defaultHttpStatus,
+        code = errorCode.name,
+        message = errorCode.defaultMessage,
     )
   }
 
@@ -280,9 +281,9 @@ class AppOauthRedirectController(
         cause.message,
     )
     throw HttpStatusException(
-        status = 500,
+        status = code.defaultHttpStatus,
         code = code.name,
-        message = cause.message ?: "Upstream OAuth callback failed for provider: $provider",
+        message = cause.message ?: code.defaultMessage,
         cause = cause,
     )
   }
@@ -300,9 +301,9 @@ class AppOauthRedirectController(
         cause.message,
     )
     throw HttpStatusException(
-        status = 500,
+        status = code.defaultHttpStatus,
         code = code.name,
-        message = cause.message ?: "Upstream OAuth provider request failed for provider: $provider",
+        message = cause.message ?: code.defaultMessage,
         cause = cause,
     )
   }
@@ -316,7 +317,7 @@ class AppOauthRedirectController(
   ): Nothing {
     log.warn("Rejected {} at web adapter: provider={}, message={}", action, provider, cause.message)
     throw HttpStatusException(
-        status = 400,
+        status = code.defaultHttpStatus,
         code = code.name,
         message = cause.message ?: fallbackMessage,
         cause = cause,
@@ -336,10 +337,11 @@ class AppOauthRedirectController(
         cause,
     )
     throw HttpStatusException(
-        status = 500,
+        status = OauthRedirectErrorCode.OAUTH_REDIRECT_CONFIGURATION_INVALID.defaultHttpStatus,
         code = OauthRedirectErrorCode.OAUTH_REDIRECT_CONFIGURATION_INVALID.name,
         message =
-            cause.message ?: "OAuth redirect configuration is invalid for provider: $provider",
+            cause.message
+                ?: OauthRedirectErrorCode.OAUTH_REDIRECT_CONFIGURATION_INVALID.defaultMessage,
         cause = cause,
     )
   }
@@ -433,7 +435,7 @@ class AppOauthRedirectController(
           cookieName,
       )
       throw HttpStatusException(
-          status = 400,
+          status = OauthRedirectErrorCode.OAUTH_CALLBACK_INVALID_REQUEST.defaultHttpStatus,
           message = "OAuth callback binding cookie is ambiguous.",
           code = OauthRedirectErrorCode.OAUTH_CALLBACK_INVALID_REQUEST.name,
       )

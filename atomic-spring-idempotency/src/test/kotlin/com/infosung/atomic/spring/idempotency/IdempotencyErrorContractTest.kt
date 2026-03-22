@@ -11,6 +11,28 @@ class IdempotencyErrorContractTest {
   private val objectMapper = ObjectMapper()
 
   @Test
+  fun `idempotency error catalog should remain stable`() {
+    assertEquals(
+        listOf(
+            Triple("IDEMPOTENCY_KEY_REQUIRED", 400, "Idempotency-Key header is required."),
+            Triple(
+                "IDEMPOTENCY_REQUEST_PROCESSING",
+                409,
+                "Idempotent request is already processing.",
+            ),
+            Triple(
+                "IDEMPOTENCY_FINGERPRINT_MISMATCH",
+                409,
+                "Idempotency key has been used with a different request.",
+            ),
+        ),
+        IdempotencyErrorCode.entries.map {
+          Triple(it.name, it.defaultHttpStatus, it.defaultMessage)
+        },
+    )
+  }
+
+  @Test
   fun `filter should return stable code when idempotency key is missing`() {
     val filter =
         IdempotencyFilter(

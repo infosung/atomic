@@ -56,6 +56,7 @@ class RateLimitFilter(
       when (missingKeyPolicy) {
         RateLimitMissingKeyPolicy.SKIP -> chain.doFilter(request, response)
         RateLimitMissingKeyPolicy.REJECT -> {
+          val errorCode = RateLimitErrorCode.RATE_LIMIT_KEY_REQUIRED
           log.debug(
               "RateLimit key is missing. Rejecting request due to missingKeyPolicy=REJECT: method={}, uri={}",
               httpRequest.method,
@@ -63,9 +64,9 @@ class RateLimitFilter(
           )
           writeError(
               response = httpResponse,
-              status = HttpServletResponse.SC_BAD_REQUEST,
-              code = RateLimitErrorCode.RATE_LIMIT_KEY_REQUIRED.name,
-              message = "Rate-limit key is missing.",
+              status = errorCode.defaultHttpStatus,
+              code = errorCode.name,
+              message = errorCode.defaultMessage,
           )
         }
       }
@@ -112,10 +113,11 @@ class RateLimitFilter(
         decision.remaining,
         decision.retryAfterSeconds,
     )
+    val errorCode = RateLimitErrorCode.RATE_LIMIT_EXCEEDED
     writeError(
         response = httpResponse,
-        status = 429,
-        code = RateLimitErrorCode.RATE_LIMIT_EXCEEDED.name,
+        status = errorCode.defaultHttpStatus,
+        code = errorCode.name,
         message = responseBody,
     )
   }

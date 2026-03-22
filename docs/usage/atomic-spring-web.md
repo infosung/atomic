@@ -158,12 +158,10 @@ Recommended with starter:
 
 Stable non-MVC error codes:
 
-- `RATE_LIMIT_KEY_REQUIRED`
-  - emitted when the key resolver returns no usable actor and `missingKeyPolicy=REJECT`
-  - HTTP status `400`
-- `RATE_LIMIT_EXCEEDED`
-  - emitted when a request is over the configured threshold
-  - HTTP status `429`
+| Code | Status | Default message | Emitted when |
+|---|---:|---|---|
+| `RATE_LIMIT_KEY_REQUIRED` | `400` | `Rate-limit key is missing.` | the key resolver returns no usable actor and `missingKeyPolicy=REJECT` |
+| `RATE_LIMIT_EXCEEDED` | `429` | `Too many requests.` | a request is over the configured threshold |
 
 Rate-limit rejection paths now return JSON `BaseResponse` payloads with those stable codes.
 `atomic.web.rate-limit.response-body` still controls the user-facing throttle message, but it now

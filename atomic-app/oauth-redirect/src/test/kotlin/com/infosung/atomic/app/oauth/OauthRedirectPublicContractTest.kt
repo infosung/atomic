@@ -169,14 +169,24 @@ class OauthRedirectPublicContractTest {
     )
     assertEquals(
         listOf(
-            "OAUTH_REDIRECT_INVALID_REQUEST",
-            "OAUTH_CALLBACK_INVALID_REQUEST",
-            "OAUTH_PROVIDER_REMOTE_FAILURE",
-            "OAUTH_APPLE_CALLBACK_POST_ONLY",
-            "OAUTH_REDIRECT_CONFIGURATION_INVALID",
-            "OAUTH_RELAY_CODE_INVALID_REQUEST",
+            Triple("OAUTH_REDIRECT_INVALID_REQUEST", 400, "OAuth redirect request is invalid."),
+            Triple("OAUTH_CALLBACK_INVALID_REQUEST", 400, "OAuth callback request is invalid."),
+            Triple("OAUTH_PROVIDER_REMOTE_FAILURE", 500, "Upstream OAuth provider request failed."),
+            Triple(
+                "OAUTH_APPLE_CALLBACK_POST_ONLY",
+                400,
+                "Apple callback supports POST form_post only.",
+            ),
+            Triple(
+                "OAUTH_REDIRECT_CONFIGURATION_INVALID",
+                500,
+                "OAuth redirect configuration is invalid.",
+            ),
+            Triple("OAUTH_RELAY_CODE_INVALID_REQUEST", 400, "OAuth relay code request is invalid."),
         ),
-        OauthRedirectErrorCode.entries.map { it.name },
+        OauthRedirectErrorCode.entries.map {
+          Triple(it.name, it.defaultHttpStatus, it.defaultMessage)
+        },
     )
     assertTrue(
         OauthRedirectApplicationException::class.memberProperties.any { it.name == "errorCode" },

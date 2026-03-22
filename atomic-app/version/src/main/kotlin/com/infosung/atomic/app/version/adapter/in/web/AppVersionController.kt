@@ -43,27 +43,30 @@ class AppVersionController(
     val appVersion = appVersionHeader?.takeIf { it.isNotBlank() }
 
     if (serviceName == null) {
+      val errorCode = AppVersionErrorCode.VERSION_SERVICE_NAME_REQUIRED
       log.warn("Version check rejected: missing header {}", ApiHeaderNames.HEADER_X_SERVICE_NAME)
       throw HttpStatusException(
-          status = 400,
-          code = AppVersionErrorCode.VERSION_SERVICE_NAME_REQUIRED.name,
-          message = "Service name is required.",
+          status = errorCode.defaultHttpStatus,
+          code = errorCode.name,
+          message = errorCode.defaultMessage,
       )
     }
     if (platform == null) {
+      val errorCode = AppVersionErrorCode.VERSION_PLATFORM_REQUIRED
       log.warn("Version check rejected: missing header {}", ApiHeaderNames.HEADER_X_PLATFORM)
       throw HttpStatusException(
-          status = 400,
-          code = AppVersionErrorCode.VERSION_PLATFORM_REQUIRED.name,
-          message = "Platform is required.",
+          status = errorCode.defaultHttpStatus,
+          code = errorCode.name,
+          message = errorCode.defaultMessage,
       )
     }
     if (appVersion == null) {
+      val errorCode = AppVersionErrorCode.VERSION_APP_VERSION_REQUIRED
       log.warn("Version check rejected: missing header {}", ApiHeaderNames.HEADER_X_APP_VERSION)
       throw HttpStatusException(
-          status = 400,
-          code = AppVersionErrorCode.VERSION_APP_VERSION_REQUIRED.name,
-          message = "App version is required.",
+          status = errorCode.defaultHttpStatus,
+          code = errorCode.name,
+          message = errorCode.defaultMessage,
       )
     }
     log.debug(
@@ -81,12 +84,6 @@ class AppVersionController(
               appVersion = appVersion,
           )
         } catch (e: AppVersionApplicationException) {
-          val status =
-              when (e.errorCode) {
-                AppVersionErrorCode.VERSION_INVALID_APP_VERSION -> 400
-                AppVersionErrorCode.VERSION_POLICY_NOT_FOUND -> 404
-                else -> 400
-              }
           log.warn(
               "Version check rejected at web adapter: service={}, platform={}, errorCode={}, message={}",
               serviceName,
@@ -95,9 +92,9 @@ class AppVersionController(
               e.message,
           )
           throw HttpStatusException(
-              status = status,
+              status = e.errorCode.defaultHttpStatus,
               code = e.errorCode.name,
-              message = e.message ?: e.errorCode.name,
+              message = e.message ?: e.errorCode.defaultMessage,
               cause = e,
           )
         }

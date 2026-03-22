@@ -1,8 +1,5 @@
 package com.infosung.atomic.app.storage.adapter.`in`.web
 
-import com.infosung.atomic.app.storage.application.exception.ImageNotFoundException
-import com.infosung.atomic.app.storage.application.exception.ImageOwnershipMismatchException
-import com.infosung.atomic.app.storage.application.exception.InvalidImageRequestException
 import com.infosung.atomic.app.storage.application.exception.StorageApplicationException
 import com.infosung.atomic.app.storage.application.exception.StorageConfigurationException
 import com.infosung.atomic.app.storage.application.exception.StorageErrorCode
@@ -129,14 +126,7 @@ class AppStorageController(
       storageService: String,
       exception: StorageApplicationException,
   ): HttpStatusException {
-    val status =
-        when (exception) {
-          is InvalidImageRequestException -> 400
-          is ImageNotFoundException -> 404
-          is ImageOwnershipMismatchException -> 403
-          is StorageConfigurationException -> 500
-          else -> 400
-        }
+    val status = exception.errorCode.defaultHttpStatus
     if (status >= 500) {
       log.error(
           "Storage request failed at web adapter: operation={}, service={}, storageService={}, errorCode={}, message={}",
@@ -160,7 +150,7 @@ class AppStorageController(
     return HttpStatusException(
         status = status,
         code = exception.errorCode.name,
-        message = exception.message ?: exception.errorCode.name,
+        message = exception.message ?: exception.errorCode.defaultMessage,
         cause = exception,
     )
   }

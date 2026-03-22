@@ -52,6 +52,7 @@ class IdempotencyFilter(
     val keyValue = httpRequest.getHeader(headerName)?.trim()
     if (keyValue.isNullOrBlank()) {
       if (requireHeader) {
+        val errorCode = IdempotencyErrorCode.IDEMPOTENCY_KEY_REQUIRED
         log.debug(
             "Idempotency key is missing. Rejecting request: method={}, uri={}",
             httpRequest.method,
@@ -59,9 +60,9 @@ class IdempotencyFilter(
         )
         writeError(
             response = httpResponse,
-            status = HttpServletResponse.SC_BAD_REQUEST,
-            code = IdempotencyErrorCode.IDEMPOTENCY_KEY_REQUIRED.name,
-            message = "$headerName header is required.",
+            status = errorCode.defaultHttpStatus,
+            code = errorCode.name,
+            message = errorCode.defaultMessage.replace("Idempotency-Key", headerName),
         )
         return
       }
@@ -109,6 +110,7 @@ class IdempotencyFilter(
       }
 
       IdempotencyClaimResult.Processing -> {
+        val errorCode = IdempotencyErrorCode.IDEMPOTENCY_REQUEST_PROCESSING
         log.debug(
             "Idempotent request is already processing. Rejecting request: method={}, uri={}",
             httpRequest.method,
@@ -116,13 +118,14 @@ class IdempotencyFilter(
         )
         writeError(
             response = httpResponse,
-            status = HttpServletResponse.SC_CONFLICT,
-            code = IdempotencyErrorCode.IDEMPOTENCY_REQUEST_PROCESSING.name,
-            message = "Idempotent request is already processing.",
+            status = errorCode.defaultHttpStatus,
+            code = errorCode.name,
+            message = errorCode.defaultMessage,
         )
       }
 
       IdempotencyClaimResult.FingerprintMismatch -> {
+        val errorCode = IdempotencyErrorCode.IDEMPOTENCY_FINGERPRINT_MISMATCH
         log.debug(
             "Idempotency key fingerprint mismatch. Rejecting request: method={}, uri={}",
             httpRequest.method,
@@ -130,9 +133,9 @@ class IdempotencyFilter(
         )
         writeError(
             response = httpResponse,
-            status = HttpServletResponse.SC_CONFLICT,
-            code = IdempotencyErrorCode.IDEMPOTENCY_FINGERPRINT_MISMATCH.name,
-            message = "Idempotency key has been used with a different request.",
+            status = errorCode.defaultHttpStatus,
+            code = errorCode.name,
+            message = errorCode.defaultMessage,
         )
       }
     }

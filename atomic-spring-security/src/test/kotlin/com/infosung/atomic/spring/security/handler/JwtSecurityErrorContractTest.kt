@@ -16,8 +16,11 @@ class JwtSecurityErrorContractTest {
   @Test
   fun `security error codes should remain stable`() {
     assertEquals(
-        listOf("SECURITY_UNAUTHORIZED", "SECURITY_FORBIDDEN"),
-        SecurityErrorCode.entries.map { it.name },
+        listOf(
+            Triple("SECURITY_UNAUTHORIZED", 401, "Unauthorized"),
+            Triple("SECURITY_FORBIDDEN", 403, "Forbidden"),
+        ),
+        SecurityErrorCode.entries.map { Triple(it.name, it.defaultHttpStatus, it.defaultMessage) },
     )
   }
 
