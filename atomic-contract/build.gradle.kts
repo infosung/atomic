@@ -19,6 +19,13 @@ java {
 repositories { mavenCentral() }
 
 dependencies {
+  testImplementation(platform(libs.spring.boot.dependencies.bom))
+  testImplementation(projects.atomicApp.appVersion)
+  testImplementation(projects.atomicApp.storageApi)
+  testImplementation(projects.atomicApp.oauthRedirect)
+  testImplementation(projects.atomicSpringSecurity)
+  testImplementation(projects.atomicSpringWeb)
+  testImplementation(projects.atomicSpringIdempotency)
   testImplementation(libs.kotlin.test.junit5)
   testImplementation(platform(libs.jupiter.bom))
   testRuntimeOnly(libs.jupiter.launcher)
