@@ -9,8 +9,10 @@ import com.infosung.atomic.spring.web.log.LogSaver
 import com.infosung.atomic.spring.web.log.ServiceApiRequestLog
 import com.infosung.atomic.spring.web.log.ServiceApiResponseLog
 import com.infosung.atomic.spring.web.log.ServiceLog
+import java.net.Inet4Address
+import java.net.Inet6Address
+import java.net.InetAddress
 import java.time.Instant
-import kotlin.math.max
 
 /** Maps atomic-spring-web API logs into the shared event-log envelope. */
 class AtomicSpringWebEventLogSaver(
@@ -91,7 +93,12 @@ class AtomicSpringWebEventLogSaver(
   private fun maskIp(raw: String?): String? {
     val value = raw?.trim()?.takeIf { it.isNotBlank() } ?: return null
     val normalized = normalizeIpCandidate(value)
-    return maskIpv4(normalized) ?: maskIpv6(normalized) ?: "***"
+    val address = parseLiteralAddress(normalized) ?: return "***"
+    return when (address) {
+      is Inet4Address -> maskIpv4(address)
+      is Inet6Address -> maskIpv6(address)
+      else -> "***"
+    }
   }
 
   private fun normalizeIpCandidate(value: String): String {
@@ -102,106 +109,23 @@ class AtomicSpringWebEventLogSaver(
     return withoutScope
   }
 
-  private fun maskIpv4(value: String): String? {
-    val segments = value.split('.')
-    if (segments.size != 4) {
-      return null
-    }
-    val octets = mutableListOf<Int>()
-    for (segment in segments) {
-      val octet = segment.toIntOrNull()?.takeIf { it in 0..255 } ?: return null
-      octets += octet
-    }
+  private fun parseLiteralAddress(value: String): InetAddress? =
+      runCatching { InetAddress.ofLiteral(value) }.getOrNull()
+
+  private fun maskIpv4(address: Inet4Address): String {
+    val octets = address.address.map { it.toInt() and 0xFF }
     return "${octets[0]}.${octets[1]}.${octets[2]}.xxx"
   }
 
-  private fun maskIpv6(value: String): String? {
-    if (!value.contains(':')) {
-      return null
-    }
-    val segments = parseIpv6Segments(value) ?: return null
-    return segments.dropLast(1).plus("***").joinToString(":")
-  }
-
-  private fun parseIpv6Segments(value: String): List<String>? {
-    if (value.count { it == ':' } < 2) {
-      return null
-    }
-    if (value.count { it == ':' } >= 2 && value.contains(":::")) {
-      return null
-    }
-
-    val doubleColonIndex = value.indexOf("::")
-    if (doubleColonIndex != -1 && value.indexOf("::", doubleColonIndex + 2) != -1) {
-      return null
-    }
-
-    val headRaw = if (doubleColonIndex == -1) value else value.substring(0, doubleColonIndex)
-    val tailRaw = if (doubleColonIndex == -1) "" else value.substring(doubleColonIndex + 2)
-    val head = parseIpv6Section(headRaw) ?: return null
-    val tail = parseIpv6Section(tailRaw) ?: return null
-
-    val missingSegmentCount =
-        if (doubleColonIndex == -1) {
-          if (head.size != IPV6_SEGMENT_COUNT) {
-            return null
-          }
-          0
-        } else {
-          IPV6_SEGMENT_COUNT - head.size - tail.size
+  private fun maskIpv6(address: Inet6Address): String {
+    val hextets =
+        address.address.asList().chunked(2).map {
+          ((it[0].toInt() and 0xFF) shl 8 or (it[1].toInt() and 0xFF)).toString(16)
         }
-    if (missingSegmentCount < 1 && doubleColonIndex != -1) {
-      return null
-    }
-
-    return buildList(IPV6_SEGMENT_COUNT) {
-          addAll(head)
-          repeat(max(missingSegmentCount, 0)) { add("0") }
-          addAll(tail)
-        }
-        .takeIf { it.size == IPV6_SEGMENT_COUNT }
-  }
-
-  private fun parseIpv6Section(section: String): List<String>? {
-    if (section.isEmpty()) {
-      return emptyList()
-    }
-    val tokens = section.split(':')
-    val segments = mutableListOf<String>()
-    for ((index, token) in tokens.withIndex()) {
-      if (token.isEmpty()) {
-        return null
-      }
-      if ('.' in token) {
-        if (index != tokens.lastIndex) {
-          return null
-        }
-        segments += parseEmbeddedIpv4(token) ?: return null
-        continue
-      }
-      segments +=
-          token.toIntOrNull(radix = 16)?.takeIf { it in 0..0xFFFF }?.toString(16) ?: return null
-    }
-    return segments
-  }
-
-  private fun parseEmbeddedIpv4(value: String): List<String>? {
-    val segments = value.split('.')
-    if (segments.size != 4) {
-      return null
-    }
-    val octets = mutableListOf<Int>()
-    for (segment in segments) {
-      val octet = segment.toIntOrNull()?.takeIf { it in 0..255 } ?: return null
-      octets += octet
-    }
-    return listOf(
-        ((octets[0] shl 8) or octets[1]).toString(16),
-        ((octets[2] shl 8) or octets[3]).toString(16),
-    )
+    return hextets.take(4).plus(List(4) { MASKED_IPV6_SEGMENT }).joinToString(":")
   }
 
   private companion object {
-    const val IPV6_SEGMENT_COUNT = 8
+    const val MASKED_IPV6_SEGMENT = "***"
   }
 }
