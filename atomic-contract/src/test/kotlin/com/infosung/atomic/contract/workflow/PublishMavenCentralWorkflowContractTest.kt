@@ -32,6 +32,11 @@ class PublishMavenCentralWorkflowContractTest {
   fun `publish workflow should keep exact module list in release order`() {
     val expectedModules =
         listOf(
+            "atomic-event-log",
+            "atomic-event-log:iceberg",
+            "atomic-event-log:parquet",
+            "atomic-event-log:duckdb",
+            "atomic-event-log:spring-web",
             "atomic-contract",
             "atomic-storage",
             "atomic-spring-web",

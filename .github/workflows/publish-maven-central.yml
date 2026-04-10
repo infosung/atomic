@@ -205,6 +205,11 @@ jobs:
           set -euo pipefail
 
           MODULES=(
+            atomic-event-log
+            atomic-event-log:iceberg
+            atomic-event-log:parquet
+            atomic-event-log:duckdb
+            atomic-event-log:spring-web
             atomic-contract
             atomic-storage
             atomic-spring-web
