@@ -118,6 +118,17 @@ class EventLogDuckDbSqlRendererTest {
   }
 
   @Test
+  fun `client ga4 compat parquet view always renders a client platform where clause`() {
+    val sql =
+        renderer.renderCreateClientGa4CompatParquetView(
+            dataset = EventLogDuckDbParquetDataset(rootUri = "s3://bucket/event-log"))
+
+    assertTrue(
+        sql.contains(
+            "WHERE platform IN ('client_web', 'client_mobile', 'client_tablet', 'client_ipad', 'client_desktop')"))
+  }
+
+  @Test
   fun `client analytics queries render active users and sessions`() {
     val activeUsers = renderer.renderClientDailyActiveUsersQuery()
     val activeInstalls = renderer.renderClientActiveInstallsQuery()
