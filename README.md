@@ -47,6 +47,11 @@ If a feature module is not on classpath, its auto-configuration is skipped.
 
 Relationship summary:
 
+- `atomic.event.log`: transport-agnostic common event log ingestion core module
+- `atomic.event.log.iceberg`: Iceberg table and commit contract for multi-service event log lakehouse flows
+- `atomic.event.log.parquet`: durable spool, partition, and staged Parquet export module
+- `atomic.event.log.duckdb`: DuckDB SQL/query helper module for event log lakehouse analysis
+- `atomic.event.log.spring.web`: adapter from `atomic.spring.web` API logs into the common event log envelope
 - `atomic.starter`: common infra auto-config entrypoint
 - `atomic.app.version`: narrow app-level version API module
 - `atomic.app.storage.api`: narrow app-level image API module
@@ -62,6 +67,11 @@ Relationship summary:
 
 ```kotlin
 dependencies {
+  implementation("com.infosung:atomic.event.log:0.0.5")
+  implementation("com.infosung:atomic.event.log.iceberg:0.0.5")
+  implementation("com.infosung:atomic.event.log.parquet:0.0.5")
+  implementation("com.infosung:atomic.event.log.duckdb:0.0.5")
+  implementation("com.infosung:atomic.event.log.spring.web:0.0.5")
   implementation("com.infosung:atomic.contract:0.0.5")
   implementation("com.infosung:atomic.storage:0.0.5")
   implementation("com.infosung:atomic.spring.web:0.0.5")
@@ -79,6 +89,11 @@ dependencies {
 
 Current `.github/workflows/publish-maven-central.yml` publishes:
 
+- `atomic-event-log`
+- `atomic-event-log:iceberg`
+- `atomic-event-log:parquet`
+- `atomic-event-log:duckdb`
+- `atomic-event-log:spring-web`
 - `atomic-contract`
 - `atomic-storage`
 - `atomic-spring-web`
@@ -96,6 +111,11 @@ Current `.github/workflows/publish-maven-central.yml` publishes:
 
 ```kotlin
 dependencies {
+  implementation(project(":atomic-event-log"))
+  implementation(project(":atomic-event-log:iceberg"))
+  implementation(project(":atomic-event-log:parquet"))
+  implementation(project(":atomic-event-log:duckdb"))
+  implementation(project(":atomic-event-log:spring-web"))
   implementation(project(":atomic-starter"))
   implementation(project(":atomic-contract"))
 
@@ -114,6 +134,9 @@ dependencies {
 
 | Feature | Required dependency | Activation properties | App-side required components |
 |---|---|---|---|
+| Common event log ingestion core | `atomic.event.log` (+ `atomic.contract`) | none | call `EventLogIngestionService`, provide `EventLogStore`, and attach transport/storage adapters outside the core module |
+| Multi-service event log lakehouse pipeline | `atomic.event.log` + `atomic.event.log.iceberg` + `atomic.event.log.parquet` + `atomic.event.log.duckdb` (+ `atomic.contract`) | none | append validated records through `SpoolBackedEventLogStore`, export bounded Parquet files, commit them via `EventLogIcebergCatalog`, and query through `EventLogDuckDbSqlRenderer` |
+| atomic.spring.web to common event log adapter | `atomic.event.log.spring.web` + `atomic.spring.web` + `atomic.event.log` | none | register `AtomicSpringWebEventLogSaver` as the `LogSaver` implementation and keep your existing `ApiLogAspect` capture layer |
 | Contract utilities (`TimeProvider`, `TraceIdGenerator`) | `atomic.contract` (starter optional) | none | In starter-based flow these are auto-configured; for direct usage, `atomic.contract` alone is enough |
 | Storage (`storageClients`, `storageProfiles`, `ImageService`) | `atomic.starter` + `atomic.storage` | `atomic.storage.enabled=true` (default); configure at least one enabled `atomic.storage.backends.*` entry before storage API traffic | none |
 | Common version check API (`GET /api/v1/version/check`) | `atomic.app.version` (+ datasource/JPA) or convenience bundle `atomic.app` with the same datasource/JPA prerequisites | `atomic.app.version.enabled=true` | `service_version` table schema and version policy data (`store_available` defaults to `true`; set it to `false` for review/pre-rollout rows that must not become force-update targets yet) |
@@ -582,6 +605,8 @@ This README now consolidates those points into one starter-first onboarding path
 - [Usage Overview](docs/usage/overview.md)
 - [atomic.starter Guide](docs/usage/atomic-starter.md)
 - [atomic.contract Guide](docs/usage/atomic-contract.md)
+- [atomic.event.log Guide](docs/usage/atomic-event-log.md)
+- [atomic.event.log Lakehouse Guide](docs/usage/atomic-event-log-lakehouse.md)
 - [atomic.app Guide](docs/usage/atomic-app.md)
 - [atomic.storage Guide](docs/usage/atomic-storage.md)
 - [atomic.spring.web Guide](docs/usage/atomic-spring-web.md)
