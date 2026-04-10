@@ -193,15 +193,10 @@ class EventLogIngestionService(
       return payload
     }
     var sanitized: MutableMap<String, EventLogValue>? = null
-    payload.forEach { (key, value) ->
+    payload.keys.forEach { key ->
       if (policy.sensitiveKeyPattern.containsMatchIn(key)) {
         val mutablePayload = sanitized ?: payload.toMutableMap().also { sanitized = it }
         mutablePayload[key] = EventLogValue.Text(MASKED_VALUE)
-      } else {
-        val mutablePayload = sanitized
-        if (mutablePayload != null) {
-          mutablePayload[key] = value
-        }
       }
     }
     return sanitized ?: payload

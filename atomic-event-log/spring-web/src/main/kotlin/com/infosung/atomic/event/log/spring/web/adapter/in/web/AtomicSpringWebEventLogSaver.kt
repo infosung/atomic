@@ -9,6 +9,9 @@ import com.infosung.atomic.spring.web.log.LogSaver
 import com.infosung.atomic.spring.web.log.ServiceApiRequestLog
 import com.infosung.atomic.spring.web.log.ServiceApiResponseLog
 import com.infosung.atomic.spring.web.log.ServiceLog
+import java.net.Inet4Address
+import java.net.Inet6Address
+import java.net.InetAddress
 import java.time.Instant
 
 /** Maps atomic-spring-web API logs into the shared event-log envelope. */
@@ -89,20 +92,40 @@ class AtomicSpringWebEventLogSaver(
 
   private fun maskIp(raw: String?): String? {
     val value = raw?.trim()?.takeIf { it.isNotBlank() } ?: return null
-    return when {
-      value.contains('.') -> {
-        val segments = value.split('.')
-        if (segments.size == 4) {
-          "${segments[0]}.${segments[1]}.${segments[2]}.xxx"
-        } else {
-          "***"
-        }
-      }
-      value.contains(':') -> {
-        val segments = value.split(':')
-        if (segments.isEmpty()) "***" else segments.dropLast(1).plus("***").joinToString(":")
-      }
+    val normalized = normalizeIpCandidate(value)
+    val address = parseLiteralAddress(normalized) ?: return "***"
+    return when (address) {
+      is Inet4Address -> maskIpv4(address)
+      is Inet6Address -> maskIpv6(address)
       else -> "***"
     }
+  }
+
+  private fun normalizeIpCandidate(value: String): String {
+    val withoutScope = value.substringBefore('%')
+    if (withoutScope.startsWith('[') && withoutScope.contains(']')) {
+      return withoutScope.substringAfter('[').substringBefore(']')
+    }
+    return withoutScope
+  }
+
+  private fun parseLiteralAddress(value: String): InetAddress? =
+      runCatching { InetAddress.ofLiteral(value) }.getOrNull()
+
+  private fun maskIpv4(address: Inet4Address): String {
+    val octets = address.address.map { it.toInt() and 0xFF }
+    return "${octets[0]}.${octets[1]}.${octets[2]}.xxx"
+  }
+
+  private fun maskIpv6(address: Inet6Address): String {
+    val hextets =
+        address.address.asList().chunked(2).map {
+          ((it[0].toInt() and 0xFF) shl 8 or (it[1].toInt() and 0xFF)).toString(16)
+        }
+    return hextets.take(4).plus(List(4) { MASKED_IPV6_SEGMENT }).joinToString(":")
+  }
+
+  private companion object {
+    const val MASKED_IPV6_SEGMENT = "***"
   }
 }

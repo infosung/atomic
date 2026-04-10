@@ -358,7 +358,7 @@ class EventLogDuckDbSqlRenderer {
     appendLine("  trace_id,")
     appendLine("  tags")
     appendLine(fromClause)
-    renderClientWhereClause(filter)?.let { appendLine(it) }
+    appendLine(renderClientWhereClause(filter))
     append(';')
   }
 
@@ -411,7 +411,7 @@ class EventLogDuckDbSqlRenderer {
         ?.joinToString(prefix = "WHERE ", separator = " AND ")
   }
 
-  private fun renderClientWhereClause(filter: EventLogDuckDbClientFilter): String? {
+  private fun renderClientWhereClause(filter: EventLogDuckDbClientFilter): String {
     val predicates = buildList {
       add(
           filter.platform?.let { "platform = '${escapeSqlLiteral(it.name.lowercase())}'" }

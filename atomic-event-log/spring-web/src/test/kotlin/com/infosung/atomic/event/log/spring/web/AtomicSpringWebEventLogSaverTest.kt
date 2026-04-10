@@ -67,4 +67,56 @@ class AtomicSpringWebEventLogSaverTest {
         assertIs<EventLogValue.Integer>(response.platformPayload.getValue("status")).value,
     )
   }
+
+  @Test
+  fun `compressed ipv6 client ip is masked without breaking address shape`() {
+    val store = InMemoryEventLogStore()
+    val saver =
+        AtomicSpringWebEventLogSaver(
+            serviceId = "totp",
+            ingestionService = EventLogIngestionService(store = store),
+        )
+
+    saver.saveAll(
+        listOf(
+            ServiceApiRequestLog(
+                traceId = "trace-2",
+                logTime = 1_710_000_000_200,
+                httpMethod = "GET",
+                endPoint = "/v1/totp",
+                clientIp = "2001:db8::8a2e:370:7334",
+            )))
+
+    val record = store.snapshot().single()
+    assertEquals(
+        "2001:db8:0:0:***:***:***:***",
+        assertIs<EventLogValue.Text>(record.platformPayload.getValue("clientIpMasked")).value,
+    )
+  }
+
+  @Test
+  fun `invalid mixed ipv4 ipv6 literal falls back to masked placeholder`() {
+    val store = InMemoryEventLogStore()
+    val saver =
+        AtomicSpringWebEventLogSaver(
+            serviceId = "totp",
+            ingestionService = EventLogIngestionService(store = store),
+        )
+
+    saver.saveAll(
+        listOf(
+            ServiceApiRequestLog(
+                traceId = "trace-3",
+                logTime = 1_710_000_000_300,
+                httpMethod = "GET",
+                endPoint = "/v1/totp",
+                clientIp = "1.2.3.4::5",
+            )))
+
+    val record = store.snapshot().single()
+    assertEquals(
+        "***",
+        assertIs<EventLogValue.Text>(record.platformPayload.getValue("clientIpMasked")).value,
+    )
+  }
 }
