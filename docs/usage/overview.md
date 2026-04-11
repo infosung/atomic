@@ -14,7 +14,7 @@
 Recommended entry docs:
 - Start with minimal setup: [Atomic Quick Start](quick-start.md)
 - Move to production criteria: [Advanced Operations Playbook](advanced-playbook.md)
-- Release upgrade impact: [Release Migration Guide: v0.0.4 -> v0.0.5](../migration/v0.0.4-to-v0.0.5.md)
+- Release upgrade impact: [Release Migration Guide: v0.0.5 -> v0.1.0](../migration/v0.0.5-to-v0.1.0.md)
 
 ## What Atomic Solves
 
@@ -43,30 +43,55 @@ Use only the modules you need.
 - `atomic.spring.security`: JWT issue/verify + Spring Security filter integration
 - `atomic.spring.oauth2`: OAuth provider integration (Google/Kakao/Apple), redirect flow and id token/userinfo identity resolution
 - `atomic.heartbeat`: periodic heartbeat ping orchestration with optional DB/Redis dependency checks and dedup policy
+- `atomic.event.log`: common event log ingestion core
+- `atomic.event.log.parquet`: bounded Parquet export and spool/store integration
+- `atomic.event.log.iceberg`: Iceberg publication strategy and commit/table contracts
+- `atomic.event.log.duckdb`: DuckDB query helper layer for event-log analysis
+- `atomic.event.log.spring.web`: bridge from `atomic.spring.web` API logs into event-log envelopes
+- `atomic.event.log.ingest.api`: official Spring MVC ingest API with async memory-queue intake
+
+If your first goal is event-log collection rather than app APIs, start in this order:
+
+1. `atomic.event.log`
+2. `atomic.event.log.parquet`
+3. `atomic.event.log.ingest.api` or `atomic.event.log.spring.web`
+4. `atomic.event.log.iceberg` and `atomic.event.log.duckdb` only when you need them
 
 ## 2. Dependencies
 
-Published artifact examples (`v0.0.5`):
+Published artifact examples (`v0.1.0`):
 
 ```kotlin
 dependencies {
-  implementation("com.infosung:atomic.contract:0.0.5")
-  implementation("com.infosung:atomic.storage:0.0.5")
-  implementation("com.infosung:atomic.spring.web:0.0.5")
-  implementation("com.infosung:atomic.spring.security:0.0.5")
-  implementation("com.infosung:atomic.spring.idempotency:0.0.5")
-  implementation("com.infosung:atomic.spring.oauth2:0.0.5")
-  implementation("com.infosung:atomic.heartbeat:0.0.5")
-  implementation("com.infosung:atomic.starter:0.0.5")
-  implementation("com.infosung:atomic.app.version:0.0.5")
-  implementation("com.infosung:atomic.app.storage.api:0.0.5")
-  implementation("com.infosung:atomic.app.oauth.redirect:0.0.5")
-  implementation("com.infosung:atomic.app:0.0.5")
+  implementation("com.infosung:atomic.event.log:0.1.0")
+  implementation("com.infosung:atomic.event.log.parquet:0.1.0")
+  implementation("com.infosung:atomic.event.log.iceberg:0.1.0")
+  implementation("com.infosung:atomic.event.log.duckdb:0.1.0")
+  implementation("com.infosung:atomic.event.log.spring.web:0.1.0")
+  implementation("com.infosung:atomic.event.log.ingest.api:0.1.0")
+  implementation("com.infosung:atomic.contract:0.1.0")
+  implementation("com.infosung:atomic.storage:0.1.0")
+  implementation("com.infosung:atomic.spring.web:0.1.0")
+  implementation("com.infosung:atomic.spring.security:0.1.0")
+  implementation("com.infosung:atomic.spring.idempotency:0.1.0")
+  implementation("com.infosung:atomic.spring.oauth2:0.1.0")
+  implementation("com.infosung:atomic.heartbeat:0.1.0")
+  implementation("com.infosung:atomic.starter:0.1.0")
+  implementation("com.infosung:atomic.app.version:0.1.0")
+  implementation("com.infosung:atomic.app.storage.api:0.1.0")
+  implementation("com.infosung:atomic.app.oauth.redirect:0.1.0")
+  implementation("com.infosung:atomic.app:0.1.0")
 }
 ```
 
 Current `.github/workflows/publish-maven-central.yml` publishes:
 
+- `atomic-event-log`
+- `atomic-event-log:parquet`
+- `atomic-event-log:iceberg`
+- `atomic-event-log:duckdb`
+- `atomic-event-log:spring-web`
+- `atomic-event-log:ingest-api`
 - `atomic-contract`
 - `atomic-storage`
 - `atomic-spring-web`
@@ -84,6 +109,12 @@ Local multi-module adoption is still available when you need source-level custom
 
 ```kotlin
 dependencies {
+  implementation(project(":atomic-event-log"))
+  implementation(project(":atomic-event-log:parquet"))
+  implementation(project(":atomic-event-log:iceberg"))
+  implementation(project(":atomic-event-log:duckdb"))
+  implementation(project(":atomic-event-log:spring-web"))
+  implementation(project(":atomic-event-log:ingest-api"))
   implementation(project(":atomic-starter"))
   implementation(project(":atomic-contract"))
 

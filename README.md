@@ -17,7 +17,7 @@ Atomic is a Kotlin/Spring library suite for backend services.
 
 1. Minimal adoption: [Atomic Quick Start](docs/usage/quick-start.md)
 2. Production transition: [Advanced Operations Playbook](docs/usage/advanced-playbook.md)
-3. Upgrade from `v0.0.4`: [Release Migration Guide](docs/migration/v0.0.4-to-v0.0.5.md)
+3. Upgrade from `v0.0.5`: [Release Migration Guide](docs/migration/v0.0.5-to-v0.1.0.md)
 4. Module-level details: see `Detailed Guides` below
 
 ## Feature-First Onboarding
@@ -43,6 +43,14 @@ For starter-based path, add:
 Exception:
 - `atomic.app.version` can start without `atomic-starter` (see [Atomic Quick Start](docs/usage/quick-start.md)).
 
+If your first adoption goal is event-log collection rather than app APIs, start in this order:
+
+1. `atomic.event.log`
+2. `atomic.event.log.parquet`
+3. `atomic.event.log.ingest.api` for the official HTTP ingest API, or `atomic.event.log.spring.web` if you want to bridge existing `atomic.spring.web` API logs
+4. `atomic.event.log.iceberg` only when you need catalog/table publication
+5. `atomic.event.log.duckdb` only when you need local analysis/query helpers
+
 If a feature module is not on classpath, its auto-configuration is skipped.
 
 Relationship summary:
@@ -52,6 +60,7 @@ Relationship summary:
 - `atomic.event.log.parquet`: durable spool, partition, and staged Parquet export module
 - `atomic.event.log.duckdb`: DuckDB SQL/query helper module for event log lakehouse analysis
 - `atomic.event.log.spring.web`: adapter from `atomic.spring.web` API logs into the common event log envelope
+- `atomic.event.log.ingest.api`: official Spring MVC ingest API module with async memory-queue intake
 - `atomic.starter`: common infra auto-config entrypoint
 - `atomic.app.version`: narrow app-level version API module
 - `atomic.app.storage.api`: narrow app-level image API module
@@ -61,29 +70,40 @@ Relationship summary:
 - `atomic.app.storage.api` needs storage beans, so typical setup is `atomic.app.storage.api` + `atomic.starter` + `atomic.storage`.
 - `atomic.app.oauth.redirect` needs OAuth beans (`OauthServiceProvider`, `OauthStateManager`), typically from `atomic.starter` + `atomic.spring.oauth2`.
 
+## Common Security Principles
+
+- Atomic provides reusable APIs, adapters, and default auto-configuration, but it does not choose your production security policy for you.
+- Authentication, authorization, tenant isolation, collector allow-list, abuse/rate control, and audit policy remain host-application responsibilities.
+- If you use Spring Security, explicitly register every Atomic HTTP endpoint you expose in your own `SecurityFilterChain`, and decide CSRF, CORS, session, and anonymous-access policy there.
+- Do not treat client-supplied user identifiers, collector identifiers, or service identifiers as trusted identity by themselves; derive trusted actor context from server-side authentication where needed.
+- `atomic.event.log.ingest.api` intentionally keeps authorization pluggable. Its default request authorizer is allow-all, so production deployments should provide `AuthorizeEventLogIngestRequestPort`.
+- `atomic.app.storage.api` and other write APIs are not auto-protected just because the module is on the classpath. Protect their paths explicitly in your authorization rules.
+- `atomic.app.oauth.redirect` only standardizes the redirect/callback relay flow. Final login, session issuance, token issuance, and account binding remain your application's responsibility.
+
 ## Dependency Setup
 
-### Published Artifact Examples (`v0.0.5`)
+### Published Artifact Examples (`v0.1.0`)
 
 ```kotlin
 dependencies {
-  implementation("com.infosung:atomic.event.log:0.0.5")
-  implementation("com.infosung:atomic.event.log.iceberg:0.0.5")
-  implementation("com.infosung:atomic.event.log.parquet:0.0.5")
-  implementation("com.infosung:atomic.event.log.duckdb:0.0.5")
-  implementation("com.infosung:atomic.event.log.spring.web:0.0.5")
-  implementation("com.infosung:atomic.contract:0.0.5")
-  implementation("com.infosung:atomic.storage:0.0.5")
-  implementation("com.infosung:atomic.spring.web:0.0.5")
-  implementation("com.infosung:atomic.spring.security:0.0.5")
-  implementation("com.infosung:atomic.spring.idempotency:0.0.5")
-  implementation("com.infosung:atomic.spring.oauth2:0.0.5")
-  implementation("com.infosung:atomic.heartbeat:0.0.5")
-  implementation("com.infosung:atomic.starter:0.0.5")
-  implementation("com.infosung:atomic.app.version:0.0.5")
-  implementation("com.infosung:atomic.app.storage.api:0.0.5")
-  implementation("com.infosung:atomic.app.oauth.redirect:0.0.5")
-  implementation("com.infosung:atomic.app:0.0.5")
+  implementation("com.infosung:atomic.event.log:0.1.0")
+  implementation("com.infosung:atomic.event.log.iceberg:0.1.0")
+  implementation("com.infosung:atomic.event.log.parquet:0.1.0")
+  implementation("com.infosung:atomic.event.log.duckdb:0.1.0")
+  implementation("com.infosung:atomic.event.log.spring.web:0.1.0")
+  implementation("com.infosung:atomic.event.log.ingest.api:0.1.0")
+  implementation("com.infosung:atomic.contract:0.1.0")
+  implementation("com.infosung:atomic.storage:0.1.0")
+  implementation("com.infosung:atomic.spring.web:0.1.0")
+  implementation("com.infosung:atomic.spring.security:0.1.0")
+  implementation("com.infosung:atomic.spring.idempotency:0.1.0")
+  implementation("com.infosung:atomic.spring.oauth2:0.1.0")
+  implementation("com.infosung:atomic.heartbeat:0.1.0")
+  implementation("com.infosung:atomic.starter:0.1.0")
+  implementation("com.infosung:atomic.app.version:0.1.0")
+  implementation("com.infosung:atomic.app.storage.api:0.1.0")
+  implementation("com.infosung:atomic.app.oauth.redirect:0.1.0")
+  implementation("com.infosung:atomic.app:0.1.0")
 }
 ```
 
@@ -94,6 +114,7 @@ Current `.github/workflows/publish-maven-central.yml` publishes:
 - `atomic-event-log:parquet`
 - `atomic-event-log:duckdb`
 - `atomic-event-log:spring-web`
+- `atomic-event-log:ingest-api`
 - `atomic-contract`
 - `atomic-storage`
 - `atomic-spring-web`
@@ -116,6 +137,7 @@ dependencies {
   implementation(project(":atomic-event-log:parquet"))
   implementation(project(":atomic-event-log:duckdb"))
   implementation(project(":atomic-event-log:spring-web"))
+  implementation(project(":atomic-event-log:ingest-api"))
   implementation(project(":atomic-starter"))
   implementation(project(":atomic-contract"))
 
@@ -136,6 +158,7 @@ dependencies {
 |---|---|---|---|
 | Common event log ingestion core | `atomic.event.log` (+ `atomic.contract`) | none | call `EventLogIngestionService`, provide `EventLogStore`, and attach transport/storage adapters outside the core module |
 | Multi-service event log lakehouse pipeline | `atomic.event.log` + `atomic.event.log.iceberg` + `atomic.event.log.parquet` + `atomic.event.log.duckdb` (+ `atomic.contract`) | none | append validated records through `SpoolBackedEventLogStore`, export bounded Parquet files, commit them via `EventLogIcebergCatalog`, and query through `EventLogDuckDbSqlRenderer` |
+| Official HTTP event-log ingest API | `atomic.event.log.ingest.api` + `atomic.event.log` (+ `atomic.event.log.parquet` for export) | `atomic.event.log.ingest.enabled=true` | provide `EventLogStore` or custom `IngestEventLogUseCase`; choose `ASYNC` memory queue or explicit `SYNC` mode |
 | atomic.spring.web to common event log adapter | `atomic.event.log.spring.web` + `atomic.spring.web` + `atomic.event.log` | none | register `AtomicSpringWebEventLogSaver` as the `LogSaver` implementation and keep your existing `ApiLogAspect` capture layer |
 | Contract utilities (`TimeProvider`, `TraceIdGenerator`) | `atomic.contract` (starter optional) | none | In starter-based flow these are auto-configured; for direct usage, `atomic.contract` alone is enough |
 | Storage (`storageClients`, `storageProfiles`, `ImageService`) | `atomic.starter` + `atomic.storage` | `atomic.storage.enabled=true` (default); configure at least one enabled `atomic.storage.backends.*` entry before storage API traffic | none |

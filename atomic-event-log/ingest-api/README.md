@@ -115,6 +115,14 @@ atomic:
 - 기본 `ASYNC` 응답은 `202 Accepted`
 - 기본 `SYNC` 응답은 `200 OK`
 
+## 보안 원칙
+
+- 이 모듈은 공식 ingest HTTP API를 제공하지만, 운영 보안 정책 자체를 결정하지는 않는다.
+- 기본 authorizer 는 `allow-all` 이므로 개발/로컬 확인용 기본값으로만 보고, 운영에서는 `AuthorizeEventLogIngestRequestPort` 를 반드시 교체하는 것이 전제다.
+- host 애플리케이션은 collector key 검증, service allow-list, 인증 사용자 해석, tenant 분리, rate limit, abuse 차단을 직접 구현해야 한다.
+- Spring Security 를 사용하는 경우 ingest endpoint 경로를 `SecurityFilterChain` 에 명시적으로 포함하고, anonymous 허용 여부와 CSRF 정책을 host 가 결정해야 한다.
+- 사용자 식별이 필요한 경우 client payload 안의 `userId` 류 필드를 신뢰하지 말고, 서버 인증 컨텍스트나 검증된 collector 컨텍스트에서 actor 를 해석하는 편이 맞다.
+
 ## ASYNC 설정
 
 `ASYNC` 모드의 기본 queue 는 `serviceId` 해시 기반 lane 분리를 사용한다.

@@ -13,16 +13,17 @@ This guide focuses only on getting a working flow quickly.
 
 Dependency notation:
 - Gradle snippets below assume a local multi-module setup (`project(":...")`).
-- Published artifact equivalents for `v0.0.5` are:
-  - version-only: `implementation("com.infosung:atomic.app.version:0.0.5")`
-  - image API: `implementation("com.infosung:atomic.starter:0.0.5")`, `implementation("com.infosung:atomic.app.storage.api:0.0.5")`, `implementation("com.infosung:atomic.storage:0.0.5")`
-  - oauth redirect relay API: `implementation("com.infosung:atomic.starter:0.0.5")`, `implementation("com.infosung:atomic.app.oauth.redirect:0.0.5")`, `implementation("com.infosung:atomic.spring.oauth2:0.0.5")`
-  - convenience bundle: `implementation("com.infosung:atomic.app:0.0.5")`
+- Published artifact equivalents for `v0.1.0` are:
+  - version-only: `implementation("com.infosung:atomic.app.version:0.1.0")`
+  - image API: `implementation("com.infosung:atomic.starter:0.1.0")`, `implementation("com.infosung:atomic.app.storage.api:0.1.0")`, `implementation("com.infosung:atomic.storage:0.1.0")`
+  - oauth redirect relay API: `implementation("com.infosung:atomic.starter:0.1.0")`, `implementation("com.infosung:atomic.app.oauth.redirect:0.1.0")`, `implementation("com.infosung:atomic.spring.oauth2:0.1.0")`
+  - event-log ingest API: `implementation("com.infosung:atomic.event.log:0.1.0")`, `implementation("com.infosung:atomic.event.log.parquet:0.1.0")`, `implementation("com.infosung:atomic.event.log.ingest.api:0.1.0")`
+  - convenience bundle: `implementation("com.infosung:atomic.app:0.1.0")`
 
 Quick decision:
 - If you are still pre-production, validate behavior first with this document.
 - For production or multi-instance deployment, continue with [advanced-playbook](advanced-playbook.md).
-- If you are upgrading an existing host, also review the latest [Release Migration Guide: v0.0.4 -> v0.0.5](../migration/v0.0.4-to-v0.0.5.md).
+- If you are upgrading an existing host, also review the latest [Release Migration Guide: v0.0.5 -> v0.1.0](../migration/v0.0.5-to-v0.1.0.md).
 
 ---
 
@@ -40,37 +41,57 @@ If you need more than one app API at once, you can replace the narrow app module
 implementation(project(":atomic-app"))
 ```
 
+If your first goal is common event-log collection instead of app APIs, start with:
+
+```kotlin
+dependencies {
+  implementation(project(":atomic-event-log"))
+  implementation(project(":atomic-event-log:parquet"))
+  implementation(project(":atomic-event-log:ingest-api"))
+}
+```
+
+Published artifact equivalent:
+
+```kotlin
+dependencies {
+  implementation("com.infosung:atomic.event.log:0.1.0")
+  implementation("com.infosung:atomic.event.log.parquet:0.1.0")
+  implementation("com.infosung:atomic.event.log.ingest.api:0.1.0")
+}
+```
+
 Published artifact equivalents for the same three tracks:
 
 ```kotlin
 // A. version-only
 dependencies {
-  implementation("com.infosung:atomic.app.version:0.0.5")
+  implementation("com.infosung:atomic.app.version:0.1.0")
 }
 ```
 
 ```kotlin
 // B. image API
 dependencies {
-  implementation("com.infosung:atomic.starter:0.0.5")
-  implementation("com.infosung:atomic.app.storage.api:0.0.5")
-  implementation("com.infosung:atomic.storage:0.0.5")
+  implementation("com.infosung:atomic.starter:0.1.0")
+  implementation("com.infosung:atomic.app.storage.api:0.1.0")
+  implementation("com.infosung:atomic.storage:0.1.0")
 }
 ```
 
 ```kotlin
 // C. oauth redirect relay API
 dependencies {
-  implementation("com.infosung:atomic.starter:0.0.5")
-  implementation("com.infosung:atomic.app.oauth.redirect:0.0.5")
-  implementation("com.infosung:atomic.spring.oauth2:0.0.5")
+  implementation("com.infosung:atomic.starter:0.1.0")
+  implementation("com.infosung:atomic.app.oauth.redirect:0.1.0")
+  implementation("com.infosung:atomic.spring.oauth2:0.1.0")
 }
 ```
 
 ```kotlin
 // Convenience bundle
 dependencies {
-  implementation("com.infosung:atomic.app:0.0.5")
+  implementation("com.infosung:atomic.app:0.1.0")
 }
 ```
 
