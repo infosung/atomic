@@ -8,6 +8,7 @@ include(
     ":atomic-app:oauth-redirect",
     ":atomic-app:storage-api",
     ":atomic-event-log",
+    ":atomic-event-log:ingest-api",
     ":atomic-event-log:parquet",
     ":atomic-event-log:iceberg",
     ":atomic-event-log:duckdb",

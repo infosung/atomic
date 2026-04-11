@@ -17,6 +17,11 @@ class EventLogPackageBoundaryContractTest {
             .name,
     )
     assertEquals(
+        "com.infosung.atomic.event.log.application.port.in.IngestEventLogUseCase",
+        requiredClass("com.infosung.atomic.event.log.application.port.in.IngestEventLogUseCase")
+            .name,
+    )
+    assertEquals(
         "com.infosung.atomic.event.log.application.port.out.EventLogStore",
         requiredClass("com.infosung.atomic.event.log.application.port.out.EventLogStore").name,
     )
@@ -36,6 +41,7 @@ class EventLogPackageBoundaryContractTest {
   fun `legacy root core types should be removed`() {
     assertMissing("com.infosung.atomic.event.log.ClientEventLogPayload")
     assertMissing("com.infosung.atomic.event.log.EventLogIngestionService")
+    assertMissing("com.infosung.atomic.event.log.IngestEventLogUseCase")
     assertMissing("com.infosung.atomic.event.log.EventLogStore")
     assertMissing("com.infosung.atomic.event.log.EventLogValidationException")
     assertMissing("com.infosung.atomic.event.log.InMemoryEventLogStore")

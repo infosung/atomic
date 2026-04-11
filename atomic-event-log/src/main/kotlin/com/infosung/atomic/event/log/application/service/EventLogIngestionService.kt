@@ -9,6 +9,7 @@ import com.infosung.atomic.event.log.application.model.EventLogIngestContext
 import com.infosung.atomic.event.log.application.model.EventLogIngestResult
 import com.infosung.atomic.event.log.application.model.EventLogRecord
 import com.infosung.atomic.event.log.application.model.EventLogStatus
+import com.infosung.atomic.event.log.application.port.`in`.IngestEventLogUseCase
 import com.infosung.atomic.event.log.application.port.out.EventLogStore
 import com.infosung.atomic.event.log.application.port.out.EventLogStoreAppendResult
 import com.infosung.atomic.event.log.domain.EventLogPolicy
@@ -19,12 +20,18 @@ import java.time.Instant
 class EventLogIngestionService(
     private val store: EventLogStore,
     private val policy: EventLogPolicy = EventLogPolicy(),
-) {
+) : IngestEventLogUseCase {
   private val log = System.getLogger(EventLogIngestionService::class.java.name)
 
   fun ingest(
       batch: EventLogBatch,
-      context: EventLogIngestContext = EventLogIngestContext(),
+  ): EventLogIngestResult {
+    return ingest(batch = batch, context = EventLogIngestContext())
+  }
+
+  override fun ingest(
+      batch: EventLogBatch,
+      context: EventLogIngestContext,
   ): EventLogIngestResult {
     validateBatch(batch)
     log.log(
