@@ -27,6 +27,7 @@ dependencies {
   testImplementation(projects.atomicSpringWeb)
   testImplementation(projects.atomicSpringIdempotency)
   testImplementation(libs.kotlin.test.junit5)
+  testImplementation(libs.snakeyaml)
   testImplementation(platform(libs.jupiter.bom))
   testRuntimeOnly(libs.jupiter.launcher)
   testRuntimeOnly(libs.jupiter)

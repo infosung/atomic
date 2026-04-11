@@ -72,6 +72,10 @@ subprojects {
   group = projectGroup
   version = projectVersion
 
+  plugins.withId("io.spring.dependency-management") {
+    extensions.extraProperties["kotlin.version"] = libs.versions.kotlin.get()
+  }
+
   // Gradle 9 validates publication task inputs strictly.
   plugins.withId("com.vanniktech.maven.publish") {
     tasks.withType<GenerateModuleMetadata>().configureEach {

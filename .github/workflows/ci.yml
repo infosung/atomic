@@ -12,6 +12,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # 2026-04-10 verified against gradle/libs.versions.toml and official release pages:
+          # Spring Boot 4.0.5 latest stable, 4.0.4 previous patch, Kotlin 2.3.20 latest stable.
           - springboot: "4.0.3"
             kotlin: "2.3.10"
             label: "baseline"
@@ -24,9 +26,21 @@ jobs:
           - springboot: "4.0.3"
             kotlin: "2.3.0"
             label: "compat"
+          - springboot: "4.0.4"
+            kotlin: "2.3.10"
+            label: "previous-stable-boot"
+          - springboot: "4.0.5"
+            kotlin: "2.3.10"
+            label: "latest-boot"
+          - springboot: "4.0.3"
+            kotlin: "2.3.20"
+            label: "latest-kotlin"
+          - springboot: "4.0.5"
+            kotlin: "2.3.20"
+            label: "latest-stable"
+    name: verify (boot=${{ matrix.springboot }}, kotlin=${{ matrix.kotlin }}, ${{ matrix.label }})
     permissions:
       contents: read
-    name: verify (boot=${{ matrix.springboot }}, kotlin=${{ matrix.kotlin }}, ${{ matrix.label }})
 
     steps:
       - name: Checkout
@@ -46,5 +60,10 @@ jobs:
           perl -0pi -e 's/^kotlin = ".*"$/kotlin = "${{ matrix.kotlin }}"/m; s/^springboot = ".*"$/springboot = "${{ matrix.springboot }}"/m' gradle/libs.versions.toml
           grep -nE '^(kotlin|springboot) = ' gradle/libs.versions.toml
 
-      - name: Verify format and tests
+      - name: Verify baseline formatting and tests
+        if: matrix.label == 'baseline'
         run: ./gradlew spotlessCheck test
+
+      - name: Verify compatibility tests
+        if: matrix.label != 'baseline'
+        run: ./gradlew test
