@@ -125,6 +125,7 @@ testcontainers-junit-jupiter = { module = "org.testcontainers:junit-jupiter", ve
 testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
 postgresql = { module = "org.postgresql:postgresql" }
 duckdb-jdbc = { module = "org.duckdb:duckdb_jdbc", version.ref = "duckdbJdbc" }
+snakeyaml = { module = "org.yaml:snakeyaml" }
 
 # oauth
 google-api-client = { group = "com.google.api-client", name = "google-api-client", version = "2.8.1" }

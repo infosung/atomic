@@ -60,5 +60,10 @@ jobs:
           perl -0pi -e 's/^kotlin = ".*"$/kotlin = "${{ matrix.kotlin }}"/m; s/^springboot = ".*"$/springboot = "${{ matrix.springboot }}"/m' gradle/libs.versions.toml
           grep -nE '^(kotlin|springboot) = ' gradle/libs.versions.toml
 
-      - name: Verify format and tests
+      - name: Verify baseline formatting and tests
+        if: matrix.label == 'baseline'
         run: ./gradlew spotlessCheck test
+
+      - name: Verify compatibility tests
+        if: matrix.label != 'baseline'
+        run: ./gradlew test
