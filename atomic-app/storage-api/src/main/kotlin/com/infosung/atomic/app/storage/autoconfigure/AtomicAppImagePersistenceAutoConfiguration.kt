@@ -19,14 +19,8 @@ import org.springframework.jdbc.core.JdbcTemplate
 class AtomicAppImagePersistenceAutoConfiguration {
   @Bean
   @ConditionalOnMissingBean
-  fun appImageEntityTxService(
-      imageRepository: ImageRepository,
-      jdbcTemplate: JdbcTemplate,
-  ): AppImageEntityTxService {
-    return AppImageEntityTxService(
-        imageRepository = imageRepository,
-        jdbcTemplate = jdbcTemplate,
-    )
+  fun appImageEntityTxService(imageRepository: ImageRepository): AppImageEntityTxService {
+    return AppImageEntityTxService(imageRepository = imageRepository)
   }
 
   @Bean

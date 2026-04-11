@@ -477,11 +477,13 @@ Prerequisites:
 - if your service uses only in-memory/cache relay and has no datasource, disable JDBC auto-config or provide datasource config.
   - example: `spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration`
 - if `store.type=entity` (default), prepare relay table (`atomic_oauth_relay_code` or configured table-name) before rollout.
-- official PostgreSQL starting-point SQL assets ship in module resources:
-  - `atomic-app/version`: `META-INF/atomic/sql/postgresql/service_version.sql`
-  - `atomic-app/storage-api`: `META-INF/atomic/sql/postgresql/image.sql`
-  - `atomic-app/oauth-redirect`: `META-INF/atomic/sql/postgresql/atomic_oauth_relay_code.sql`
-- `service_version` and `image` physical table/column names are now fixed in code to match those shipped SQL assets.
+- official starting-point SQL assets ship for `postgresql`, `mysql`, and `mariadb` in module resources:
+  - `atomic-app/version`: `META-INF/atomic/sql/{vendor}/service_version.sql`
+  - `atomic-app/storage-api`: `META-INF/atomic/sql/{vendor}/image.sql`
+  - `atomic-app/oauth-redirect`: `META-INF/atomic/sql/{vendor}/atomic_oauth_relay_code.sql`
+- `service_version` and `image` physical table/column names are fixed in code to match those shipped SQL assets.
+- official DB support in this line means `postgresql`, `mysql`, and `mariadb`.
+- runtime schema preflight no longer assumes PostgreSQL catalog queries. It uses JDBC metadata, so other JDBC/JPA-compatible relational databases may work with equivalent schema, but that path is best-effort and should be self-validated in host CI before production rollout.
 - Login API should consume relay payload using `ConsumeOauthRelayCodeUseCase.consume(relayCode)`.
 - Supported relay seams are the exported build/issue/consume use-case beans plus the exported `OauthRelayCodeStore` seam.
 

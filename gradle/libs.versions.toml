@@ -126,7 +126,12 @@ thumbnailator = { group = "net.coobird", name = "thumbnailator", version.ref = "
 aws-sdk-s3 = { group = "software.amazon.awssdk", name = "s3", version.ref = "awsSdk" }
 testcontainers-junit-jupiter = { module = "org.testcontainers:junit-jupiter", version.ref = "testcontainers" }
 testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
+testcontainers-mysql = { module = "org.testcontainers:mysql", version.ref = "testcontainers" }
+testcontainers-mariadb = { module = "org.testcontainers:mariadb", version.ref = "testcontainers" }
 postgresql = { module = "org.postgresql:postgresql" }
+h2 = { module = "com.h2database:h2" }
+mysql = { module = "com.mysql:mysql-connector-j" }
+mariadb = { module = "org.mariadb.jdbc:mariadb-java-client" }
 duckdb-jdbc = { module = "org.duckdb:duckdb_jdbc", version.ref = "duckdbJdbc" }
 snakeyaml = { module = "org.yaml:snakeyaml" }
 

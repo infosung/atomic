@@ -1,5 +1,6 @@
 package com.infosung.atomic.app.version.autoconfigure
 
+import com.infosung.atomic.contract.database.JdbcTableColumnMetadata
 import org.slf4j.LoggerFactory
 
 /** Validates the fixed physical contract that app-version runtime queries expect. */
@@ -36,11 +37,12 @@ internal class ServiceVersionSchemaPreflightContract {
     }
 
     log.debug(
-        "service_version schema column passed presence preflight: table={}, column={}, dataType={}, characterMaximumLength={}",
+        "service_version schema column passed presence preflight: table={}, column={}, jdbcType={}, typeName={}, columnSize={}",
         TABLE_NAME,
         column.name,
-        column.dataType,
-        column.characterMaximumLength,
+        column.jdbcType,
+        column.typeName,
+        column.columnSize,
     )
     return column
   }
@@ -51,13 +53,14 @@ internal class ServiceVersionSchemaPreflightContract {
   ) {
     val column = validateRequiredColumnPresence(columns = columns, columnName = columnName)
 
-    if (column.isText() || column.isCharacterVaryingAtLeast(MIN_EXTERNAL_LENGTH)) {
+    if (column.isTextLike() || column.isVariableCharacterAtLeast(MIN_EXTERNAL_LENGTH)) {
       log.debug(
-          "service_version schema column passed width preflight: table={}, column={}, dataType={}, characterMaximumLength={}",
+          "service_version schema column passed width preflight: table={}, column={}, jdbcType={}, typeName={}, columnSize={}",
           TABLE_NAME,
           column.name,
-          column.dataType,
-          column.characterMaximumLength,
+          column.jdbcType,
+          column.typeName,
+          column.columnSize,
       )
       return
     }
@@ -90,26 +93,4 @@ internal class ServiceVersionSchemaPreflightContract {
   }
 }
 
-internal data class VersionSchemaColumnShape(
-    val name: String,
-    val dataType: String,
-    val characterMaximumLength: Int?,
-) {
-  fun isText(): Boolean = dataType.equals("text", ignoreCase = true)
-
-  fun isCharacterVaryingAtLeast(minLength: Int): Boolean {
-    return dataType.equals("character varying", ignoreCase = true) &&
-        (characterMaximumLength ?: 0) >= minLength
-  }
-
-  fun render(): String {
-    val renderedType =
-        when {
-          dataType.equals("character varying", ignoreCase = true) -> "VARCHAR"
-          dataType.equals("text", ignoreCase = true) -> "TEXT"
-          else -> dataType.uppercase()
-        }
-    return if (characterMaximumLength == null) renderedType
-    else "$renderedType($characterMaximumLength)"
-  }
-}
+internal typealias VersionSchemaColumnShape = JdbcTableColumnMetadata

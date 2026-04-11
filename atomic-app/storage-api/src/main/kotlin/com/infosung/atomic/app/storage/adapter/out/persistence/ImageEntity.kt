@@ -22,11 +22,14 @@ class ImageEntity(
     @Column(name = "status") val status: String = StoredImage.STATUS_ACTIVE,
     @Column(name = "uploader_id") val uploaderId: String? = null,
     @Column(name = "storage_type", length = 255) val storageType: String,
-    @Column(name = "file_name", columnDefinition = "TEXT") val fileName: String? = null,
-    @Column(name = "thumbnail_file_name", columnDefinition = "TEXT")
+    @Column(name = "file_name") @JdbcTypeCode(SqlTypes.LONGVARCHAR) val fileName: String? = null,
+    @Column(name = "thumbnail_file_name")
+    @JdbcTypeCode(SqlTypes.LONGVARCHAR)
     val thumbnailFileName: String? = null,
-    @Column(name = "url", columnDefinition = "TEXT") val url: String,
-    @Column(name = "thumbnail_url", columnDefinition = "TEXT") val thumbnailUrl: String? = null,
+    @Column(name = "url") @JdbcTypeCode(SqlTypes.LONGVARCHAR) val url: String,
+    @Column(name = "thumbnail_url")
+    @JdbcTypeCode(SqlTypes.LONGVARCHAR)
+    val thumbnailUrl: String? = null,
     @Column(name = "width") val width: Int? = null,
     @Column(name = "height") val height: Int? = null,
     @Column(name = "file_size") val fileSize: Long,
@@ -34,4 +37,9 @@ class ImageEntity(
     @Column(name = "thumbnail_height") val thumbnailHeight: Int? = null,
     @Column(name = "thumbnail_file_size") val thumbnailFileSize: Long? = null,
     @Column(name = "created_at") val createdAt: LocalDateTime = LocalDateTime.now(),
-)
+) {
+  @Column(name = "delete_recovery_claim_token", length = 255)
+  var deleteRecoveryClaimToken: String? = null
+
+  @Column(name = "delete_recovery_claimed_at") var deleteRecoveryClaimedAt: LocalDateTime? = null
+}

@@ -1,5 +1,6 @@
 package com.infosung.atomic.app.version.autoconfigure
 
+import java.sql.Types
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
@@ -13,16 +14,21 @@ class ServiceVersionSchemaPreflightContractTest {
         assertFailsWith<IllegalStateException> {
           contract.verifyOrThrow(
               mapOf(
-                  "id" to VersionSchemaColumnShape("id", "bigint", null),
-                  "main_version" to VersionSchemaColumnShape("main_version", "integer", null),
-                  "minor_version" to VersionSchemaColumnShape("minor_version", "integer", null),
-                  "patch_number" to VersionSchemaColumnShape("patch_number", "integer", null),
-                  "require_update" to VersionSchemaColumnShape("require_update", "boolean", null),
-                  "platform" to VersionSchemaColumnShape("platform", "character varying", 255),
-                  "service" to VersionSchemaColumnShape("service", "character varying", 255),
-                  "store_url" to VersionSchemaColumnShape("store_url", "text", null),
+                  "id" to VersionSchemaColumnShape("id", Types.BIGINT, "BIGINT", null),
+                  "main_version" to
+                      VersionSchemaColumnShape("main_version", Types.INTEGER, "INTEGER", null),
+                  "minor_version" to
+                      VersionSchemaColumnShape("minor_version", Types.INTEGER, "INTEGER", null),
+                  "patch_number" to
+                      VersionSchemaColumnShape("patch_number", Types.INTEGER, "INTEGER", null),
+                  "require_update" to
+                      VersionSchemaColumnShape("require_update", Types.BOOLEAN, "BOOLEAN", null),
+                  "platform" to VersionSchemaColumnShape("platform", Types.VARCHAR, "VARCHAR", 255),
+                  "service" to VersionSchemaColumnShape("service", Types.VARCHAR, "VARCHAR", 255),
+                  "store_url" to
+                      VersionSchemaColumnShape("store_url", Types.LONGVARCHAR, "TEXT", null),
                   "created_at" to
-                      VersionSchemaColumnShape("created_at", "timestamp without time zone", null),
+                      VersionSchemaColumnShape("created_at", Types.TIMESTAMP, "TIMESTAMP", null),
               ),
           )
         }
@@ -39,7 +45,8 @@ class ServiceVersionSchemaPreflightContractTest {
         assertFailsWith<IllegalStateException> {
           contract.verifyOrThrow(
               baseColumns(
-                  "store_url" to VersionSchemaColumnShape("store_url", "character varying", 255)))
+                  "store_url" to
+                      VersionSchemaColumnShape("store_url", Types.VARCHAR, "VARCHAR", 255)))
         }
 
     assertTrue(exception.message!!.contains("service_version.store_url"))
@@ -51,7 +58,27 @@ class ServiceVersionSchemaPreflightContractTest {
     val contract = ServiceVersionSchemaPreflightContract()
 
     contract.verifyOrThrow(
-        baseColumns("store_url" to VersionSchemaColumnShape("store_url", "text", null)))
+        baseColumns(
+            "store_url" to VersionSchemaColumnShape("store_url", Types.LONGVARCHAR, "TEXT", null)))
+  }
+
+  @Test
+  fun `verifyOrThrow should allow mysql longtext contract columns`() {
+    val contract = ServiceVersionSchemaPreflightContract()
+
+    contract.verifyOrThrow(
+        baseColumns(
+            "store_url" to
+                VersionSchemaColumnShape("store_url", Types.LONGVARCHAR, "LONGTEXT", 16_777_215)))
+  }
+
+  @Test
+  fun `verifyOrThrow should allow sufficiently wide mysql varchar contract columns`() {
+    val contract = ServiceVersionSchemaPreflightContract()
+
+    contract.verifyOrThrow(
+        baseColumns(
+            "store_url" to VersionSchemaColumnShape("store_url", Types.VARCHAR, "VARCHAR", 4096)))
   }
 
   private fun baseColumns(
@@ -59,17 +86,22 @@ class ServiceVersionSchemaPreflightContractTest {
   ): Map<String, VersionSchemaColumnShape> {
     val defaults =
         linkedMapOf(
-            "id" to VersionSchemaColumnShape("id", "bigint", null),
-            "main_version" to VersionSchemaColumnShape("main_version", "integer", null),
-            "minor_version" to VersionSchemaColumnShape("minor_version", "integer", null),
-            "patch_number" to VersionSchemaColumnShape("patch_number", "integer", null),
-            "require_update" to VersionSchemaColumnShape("require_update", "boolean", null),
-            "store_available" to VersionSchemaColumnShape("store_available", "boolean", null),
-            "platform" to VersionSchemaColumnShape("platform", "character varying", 255),
-            "service" to VersionSchemaColumnShape("service", "character varying", 255),
-            "store_url" to VersionSchemaColumnShape("store_url", "text", null),
+            "id" to VersionSchemaColumnShape("id", Types.BIGINT, "BIGINT", null),
+            "main_version" to
+                VersionSchemaColumnShape("main_version", Types.INTEGER, "INTEGER", null),
+            "minor_version" to
+                VersionSchemaColumnShape("minor_version", Types.INTEGER, "INTEGER", null),
+            "patch_number" to
+                VersionSchemaColumnShape("patch_number", Types.INTEGER, "INTEGER", null),
+            "require_update" to
+                VersionSchemaColumnShape("require_update", Types.BOOLEAN, "BOOLEAN", null),
+            "store_available" to
+                VersionSchemaColumnShape("store_available", Types.BOOLEAN, "BOOLEAN", null),
+            "platform" to VersionSchemaColumnShape("platform", Types.VARCHAR, "VARCHAR", 255),
+            "service" to VersionSchemaColumnShape("service", Types.VARCHAR, "VARCHAR", 255),
+            "store_url" to VersionSchemaColumnShape("store_url", Types.LONGVARCHAR, "TEXT", null),
             "created_at" to
-                VersionSchemaColumnShape("created_at", "timestamp without time zone", null),
+                VersionSchemaColumnShape("created_at", Types.TIMESTAMP, "TIMESTAMP", null),
         )
     overrides.forEach { (name, column) -> defaults[name] = column }
     return defaults

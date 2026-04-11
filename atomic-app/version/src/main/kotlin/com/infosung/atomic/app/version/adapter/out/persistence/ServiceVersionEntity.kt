@@ -8,6 +8,8 @@ import jakarta.persistence.Id
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
 import java.time.LocalDateTime
+import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.type.SqlTypes
 
 /** Version policy row per service/platform/app version. */
 @Entity(name = "service_version")
@@ -33,7 +35,9 @@ open class ServiceVersionEntity(
     @Column(name = "require_update") open val requireUpdate: Boolean = false,
     @Column(name = "platform", length = 255) open val platform: String = "ANDROID",
     @Column(name = "service", length = 255) open val service: String = "DEFAULT",
-    @Column(name = "store_url", columnDefinition = "TEXT") open val storeUrl: String? = null,
+    @Column(name = "store_url")
+    @JdbcTypeCode(SqlTypes.LONGVARCHAR)
+    open val storeUrl: String? = null,
     @Column(name = "created_at") open val createdAt: LocalDateTime = LocalDateTime.now(),
 ) {
   @Column(name = "store_available") open var storeAvailable: Boolean = true
