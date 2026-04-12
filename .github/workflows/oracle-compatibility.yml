@@ -1,0 +1,34 @@
+name: Oracle Compatibility
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  verify-oracle:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Verify Oracle compatibility contracts
+        run: |
+          ./gradlew --no-configuration-cache \
+            :atomic-contract:test --tests '*JdbcTableMetadataLoaderVendorCompatibilityTest' \
+            :atomic-app:app-version:test --tests '*AppVersionOracleCompatibilityContractTest' \
+            :atomic-app:storage-api:test --tests '*AppImageOracleCompatibilityContractTest' \
+            :atomic-app:oauth-redirect:test --tests '*JpaOauthRelayCodeStoreOracleCompatibilityTest'

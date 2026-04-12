@@ -23,6 +23,7 @@ dependencies {
   implementation(libs.kotlin.reflect)
   implementation(libs.jackson.module.kotlin)
   implementation(libs.spring.boot.autoconfigure)
+  implementation(libs.spring.boot.starter.data.jpa)
   implementation(libs.spring.security.oauth2.jose)
   implementation(libs.spring.boot.starter.webmvc)
   implementation(libs.spring.jdbc)
@@ -32,6 +33,8 @@ dependencies {
 
   testImplementation(libs.spring.boot.starter.test)
   testImplementation(libs.spring.boot.starter.webmvc.test)
+  testImplementation(libs.spring.boot.data.jpa.test)
+  testImplementation(libs.spring.boot.jdbc.test)
   testImplementation(libs.spring.boot.testcontainers)
   testImplementation(libs.testcontainers.junit.jupiter)
   testImplementation(libs.testcontainers.postgresql)

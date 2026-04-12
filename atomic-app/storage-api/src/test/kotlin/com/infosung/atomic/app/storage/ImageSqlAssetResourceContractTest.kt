@@ -10,15 +10,49 @@ class ImageSqlAssetResourceContractTest {
     officialVendors().forEach { vendor ->
       val sql = loadSql(vendor)
 
-      assertTrue(
-          sql.contains("CREATE TABLE IF NOT EXISTS image"), "missing image table DDL for $vendor")
+      when (vendor) {
+        "oracle" -> {
+          assertTrue(sql.contains("CREATE TABLE image"), "missing image table DDL for $vendor")
+          assertTrue(
+              !sql.contains("CREATE TABLE IF NOT EXISTS image"),
+              "oracle table DDL should avoid version-sensitive IF NOT EXISTS syntax",
+          )
+          assertTrue(
+              sql.contains("CREATE INDEX idx_image_service_storage"),
+              "missing service/storage index for $vendor",
+          )
+          assertTrue(
+              sql.contains("CREATE INDEX idx_image_status_created_at"),
+              "missing status/created index for $vendor",
+          )
+          assertTrue(
+              !sql.contains("CREATE INDEX IF NOT EXISTS idx_image_service_storage"),
+              "oracle index DDL should avoid version-sensitive IF NOT EXISTS syntax",
+          )
+          assertTrue(
+              !sql.contains("CREATE INDEX IF NOT EXISTS idx_image_status_created_at"),
+              "oracle index DDL should avoid version-sensitive IF NOT EXISTS syntax",
+          )
+        }
+
+        else -> {
+          assertTrue(
+              sql.contains("CREATE TABLE IF NOT EXISTS image"),
+              "missing image table DDL for $vendor",
+          )
+          assertTrue(
+              sql.contains("idx_image_service_storage"),
+              "missing service/storage index for $vendor",
+          )
+          assertTrue(
+              sql.contains("idx_image_status_created_at"),
+              "missing status/created index for $vendor",
+          )
+        }
+      }
       assertTrue(sql.contains("service_name"), "missing service_name for $vendor")
       assertTrue(sql.contains("storage_service"), "missing storage_service for $vendor")
       assertTrue(sql.contains("storage_type"), "missing storage_type for $vendor")
-      assertTrue(
-          sql.contains("idx_image_service_storage"), "missing service/storage index for $vendor")
-      assertTrue(
-          sql.contains("idx_image_status_created_at"), "missing status/created index for $vendor")
     }
   }
 

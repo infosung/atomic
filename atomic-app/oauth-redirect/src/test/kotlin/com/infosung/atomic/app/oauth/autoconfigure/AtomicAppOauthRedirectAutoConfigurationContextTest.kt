@@ -2,7 +2,9 @@ package com.infosung.atomic.app.oauth.autoconfigure
 
 import com.infosung.atomic.app.oauth.adapter.`in`.web.AppOauthRedirectController
 import com.infosung.atomic.app.oauth.adapter.out.relay.store.CacheOauthRelayCodeStore
+import com.infosung.atomic.app.oauth.adapter.out.relay.store.EntityOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.adapter.out.relay.store.InMemoryOauthRelayCodeStore
+import com.infosung.atomic.app.oauth.adapter.out.relay.store.JpaOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.adapter.out.relay.store.OauthRelayCodeStore
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildAppleCallbackRedirectUseCase
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildAuthorizationRedirectUseCase
@@ -34,7 +36,12 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import org.mockito.Mockito.doReturn
 import org.mockito.Mockito.mock
+import org.springframework.boot.autoconfigure.AutoConfigurationPackage
 import org.springframework.boot.autoconfigure.AutoConfigurations
+import org.springframework.boot.data.jpa.autoconfigure.DataJpaRepositoriesAutoConfiguration
+import org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration
+import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration
+import org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.cache.Cache
 import org.springframework.cache.CacheManager
@@ -45,6 +52,17 @@ class AtomicAppOauthRedirectAutoConfigurationContextTest {
       ApplicationContextRunner()
           .withConfiguration(
               AutoConfigurations.of(AtomicAppOauthRedirectAutoConfiguration::class.java))
+
+  private val entityStoreContextRunner =
+      contextRunner
+          .withConfiguration(
+              AutoConfigurations.of(
+                  DataSourceAutoConfiguration::class.java,
+                  DataJpaRepositoriesAutoConfiguration::class.java,
+                  HibernateJpaAutoConfiguration::class.java,
+                  JacksonAutoConfiguration::class.java,
+              ))
+          .withUserConfiguration(EntityStoreContextBootstrap::class.java)
 
   @Test
   fun `disabled oauth redirect should not register relay or web beans`() {
@@ -356,6 +374,67 @@ class AtomicAppOauthRedirectAutoConfigurationContextTest {
         }
   }
 
+  @Test
+  fun `entity store with default table should register jpa relay store`() {
+    entityStoreContextRunner
+        .withPropertyValues(
+            "atomic.app.oauth.redirect.enabled=true",
+            "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes=https://app.example.com/oauth",
+            "atomic.app.oauth.redirect.store.type=entity",
+            "spring.datasource.url=jdbc:h2:mem:oauthRelayJpaDefault;DB_CLOSE_DELAY=-1",
+            "spring.datasource.driver-class-name=org.h2.Driver",
+            "spring.jpa.hibernate.ddl-auto=none",
+        )
+        .withBean(
+            OauthServiceProvider::class.java,
+            { OauthServiceProvider(listOf(TestOauthProvider())) },
+        )
+        .withBean(
+            OauthStateManager::class.java,
+            {
+              OauthStateManager(
+                  signingSecret = "0123456789abcdef0123456789abcdef",
+                  store = InMemoryOauthStateStore(),
+              )
+            },
+        )
+        .run { context ->
+          assertTrue(context.startupFailure == null)
+          assertIs<JpaOauthRelayCodeStore>(context.getBean(OauthRelayCodeStore::class.java))
+        }
+  }
+
+  @Test
+  fun `entity store with custom table name should fallback to legacy jdbc store`() {
+    entityStoreContextRunner
+        .withPropertyValues(
+            "atomic.app.oauth.redirect.enabled=true",
+            "atomic.app.oauth.redirect.allowed-redirect-uri-prefixes=https://app.example.com/oauth",
+            "atomic.app.oauth.redirect.store.type=entity",
+            "atomic.app.oauth.redirect.store.entity.table-name=custom_oauth_relay_code",
+            "spring.datasource.url=jdbc:h2:mem:oauthRelayJdbcFallback;DB_CLOSE_DELAY=-1",
+            "spring.datasource.driver-class-name=org.h2.Driver",
+            "spring.jpa.hibernate.ddl-auto=none",
+        )
+        .withBean(
+            OauthServiceProvider::class.java,
+            { OauthServiceProvider(listOf(TestOauthProvider())) },
+        )
+        .withBean(
+            OauthStateManager::class.java,
+            {
+              OauthStateManager(
+                  signingSecret = "0123456789abcdef0123456789abcdef",
+                  store = InMemoryOauthStateStore(),
+              )
+            },
+        )
+        .run { context ->
+          assertTrue(context.startupFailure == null)
+          assertIs<EntityOauthRelayCodeStore>(context.getBean(OauthRelayCodeStore::class.java))
+        }
+  }
+
   private class TestOauthProvider : OauthProvider {
     override val providerName: OauthProviderName = OauthProviderName.GOOGLE
 
@@ -454,4 +533,6 @@ class AtomicAppOauthRedirectAutoConfigurationContextTest {
 
     override fun pop(relayCode: String, now: Instant): OauthRelayPayload? = null
   }
+
+  @AutoConfigurationPackage private class EntityStoreContextBootstrap
 }

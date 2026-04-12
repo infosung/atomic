@@ -8,6 +8,12 @@ import org.yaml.snakeyaml.Yaml
 object WorkflowContractFixtures {
   fun readWorkflow(path: String): String = Files.readString(findRepoRoot().resolve(path))
 
+  fun readPublishModules(path: String): List<String> {
+    val workflow = readWorkflow(path)
+    val modulesBlock = workflow.substringAfter("MODULES=(").substringBefore(")")
+    return modulesBlock.lineSequence().map { it.trim() }.filter { it.isNotBlank() }.toList()
+  }
+
   fun readCiVerifyJob(path: String): CiWorkflowVerifyJob {
     val root =
         Yaml(LoaderOptions()).load<Map<String, Any?>>(readWorkflow(path))

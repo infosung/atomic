@@ -10,17 +10,39 @@ class ServiceVersionSqlAssetResourceContractTest {
     officialVendors().forEach { vendor ->
       val sql = loadSql(vendor)
 
-      assertTrue(
-          sql.contains("CREATE TABLE IF NOT EXISTS service_version"),
-          "missing table DDL for $vendor")
+      when (vendor) {
+        "oracle" -> {
+          assertTrue(sql.contains("CREATE TABLE service_version"), "missing table DDL for $vendor")
+          assertTrue(
+              !sql.contains("CREATE TABLE IF NOT EXISTS service_version"),
+              "oracle table DDL should avoid version-sensitive IF NOT EXISTS syntax",
+          )
+          assertTrue(
+              sql.contains("CREATE INDEX idx_service_version_service_platform_required_update"),
+              "missing required-update index for $vendor",
+          )
+          assertTrue(
+              !sql.contains(
+                  "CREATE INDEX IF NOT EXISTS idx_service_version_service_platform_required_update"),
+              "oracle index DDL should avoid version-sensitive IF NOT EXISTS syntax",
+          )
+        }
+
+        else -> {
+          assertTrue(
+              sql.contains("CREATE TABLE IF NOT EXISTS service_version"),
+              "missing table DDL for $vendor",
+          )
+          assertTrue(
+              sql.contains("idx_service_version_service_platform_required_update"),
+              "missing required-update index for $vendor",
+          )
+        }
+      }
       assertTrue(sql.contains("main_version"), "missing main_version for $vendor")
       assertTrue(sql.contains("minor_version"), "missing minor_version for $vendor")
       assertTrue(sql.contains("patch_number"), "missing patch_number for $vendor")
       assertTrue(sql.contains("store_available"), "missing store_available for $vendor")
-      assertTrue(
-          sql.contains("idx_service_version_service_platform_required_update"),
-          "missing required-update index for $vendor",
-      )
       assertTrue(
           sql.contains("uq_service_version_service_platform_semver"),
           "missing unique constraint for $vendor")

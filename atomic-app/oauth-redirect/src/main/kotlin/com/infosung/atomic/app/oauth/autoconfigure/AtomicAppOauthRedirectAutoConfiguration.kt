@@ -33,6 +33,7 @@ import org.springframework.context.annotation.Import
 )
 @EnableConfigurationProperties(AtomicAppOauthRedirectProperties::class)
 @Import(
+    AtomicAppOauthRedirectPersistenceAutoConfiguration::class,
     AtomicAppOauthRedirectRelayAutoConfiguration::class,
     AtomicAppOauthRedirectCoreAutoConfiguration::class,
     AtomicAppOauthRedirectWebAutoConfiguration::class,

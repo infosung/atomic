@@ -123,10 +123,10 @@ Current `.github/workflows/publish-maven-central.yml` publishes:
 - `atomic-spring-oauth2`
 - `atomic-heartbeat`
 - `atomic-starter`
-- `atomic-app`
 - `atomic-app:app-version`
 - `atomic-app:oauth-redirect`
 - `atomic-app:storage-api`
+- `atomic-app`
 
 ### Multi-module local setup
 
@@ -485,7 +485,11 @@ Prerequisites:
 - official DB support in this line means `postgresql`, `mysql`, `mariadb`, and `oracle`.
 - `h2` is shipped as test-compatibility only. Use it for library or host-app tests, not as an official production target in this line.
 - runtime schema preflight for `service_version` no longer assumes PostgreSQL catalog queries. It uses JDBC metadata, so equivalent schemas on other JDBC/JPA-compatible databases remain possible, but anything outside the official list should still be self-validated in host CI before production rollout.
-- `atomic-app:oauth-redirect` intentionally stays on a JDBC-backed entity store path for now because `atomic.app.oauth.redirect.store.entity.table-name` is a public runtime contract. Moving that path to JPA would require freezing table naming instead of keeping host-configurable table names.
+- `atomic-app:oauth-redirect` uses a JPA-backed entity store by default when `store.type=entity` and the default table `atomic_oauth_relay_code` is used.
+- if you configure a custom `atomic.app.oauth.redirect.store.entity.table-name`, the module preserves that public runtime contract by falling back to the legacy JDBC-backed entity store.
+- Oracle compatibility is verified in a dedicated focused workflow: `.github/workflows/oracle-compatibility.yml`.
+- the same focused Oracle checks are re-run in `.github/workflows/publish-maven-central.yml` before release publication.
+- repository automation verifies Oracle on the Oracle Free 23 line. If you operate another Oracle line, keep equivalent host-side CI validation before rollout.
 - Login API should consume relay payload using `ConsumeOauthRelayCodeUseCase.consume(relayCode)`.
 - Supported relay seams are the exported build/issue/consume use-case beans plus the exported `OauthRelayCodeStore` seam.
 
@@ -554,6 +558,7 @@ OAuth relay option (without token in callback query):
 - `store.type=entity` table name allows only letters, numbers, and underscores.
 - cache/entity stores validate expiration on consume (`pop`) and remove consumed relay data.
 - for cache backends, configure backend TTL/eviction to avoid stale expired keys accumulating.
+- `store.type=entity` with default table uses the JPA-backed relay store; a custom `table-name` switches to the legacy JDBC-backed store.
 - for entity store, run periodic cleanup (for example `DELETE FROM atomic_oauth_relay_code WHERE expires_at <= NOW()`) for unconsumed expired rows.
 - callback/state validation errors are wrapped as `HttpStatusException(400)` in the app oauth redirect web adapter.
 - upstream provider I/O errors are mapped to `HttpStatusException(500)` by the app oauth redirect web adapter.

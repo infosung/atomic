@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS image (
+CREATE TABLE image (
   id VARCHAR2(255 CHAR) PRIMARY KEY,
   bucket VARCHAR2(255 CHAR) NOT NULL,
   service_name VARCHAR2(255 CHAR) NOT NULL,
@@ -21,11 +21,11 @@ CREATE TABLE IF NOT EXISTS image (
   created_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_image_service_storage
+CREATE INDEX idx_image_service_storage
   ON image (service_name, storage_service);
 
-CREATE INDEX IF NOT EXISTS idx_image_status_created_at
+CREATE INDEX idx_image_status_created_at
   ON image (status, created_at);
 
-CREATE INDEX IF NOT EXISTS idx_image_status_claim_created_at
+CREATE INDEX idx_image_status_claim_created_at
   ON image (status, delete_recovery_claim_token, created_at);

@@ -10,17 +10,40 @@ class OauthRelaySqlAssetResourceContractTest {
     officialVendors().forEach { vendor ->
       val sql = loadSql(vendor)
 
-      assertTrue(
-          sql.contains("CREATE TABLE IF NOT EXISTS atomic_oauth_relay_code"),
-          "missing oauth relay table DDL for $vendor",
-      )
+      when (vendor) {
+        "oracle" -> {
+          assertTrue(
+              sql.contains("CREATE TABLE atomic_oauth_relay_code"),
+              "missing oauth relay table DDL for $vendor",
+          )
+          assertTrue(
+              !sql.contains("CREATE TABLE IF NOT EXISTS atomic_oauth_relay_code"),
+              "oracle table DDL should avoid version-sensitive IF NOT EXISTS syntax",
+          )
+          assertTrue(
+              sql.contains("CREATE INDEX idx_atomic_oauth_relay_code_expires_at"),
+              "missing expires_at index for $vendor",
+          )
+          assertTrue(
+              !sql.contains("CREATE INDEX IF NOT EXISTS idx_atomic_oauth_relay_code_expires_at"),
+              "oracle index DDL should avoid version-sensitive IF NOT EXISTS syntax",
+          )
+        }
+
+        else -> {
+          assertTrue(
+              sql.contains("CREATE TABLE IF NOT EXISTS atomic_oauth_relay_code"),
+              "missing oauth relay table DDL for $vendor",
+          )
+          assertTrue(
+              sql.contains("idx_atomic_oauth_relay_code_expires_at"),
+              "missing expires_at index for $vendor",
+          )
+        }
+      }
       assertTrue(sql.contains("relay_code"), "missing relay_code for $vendor")
       assertTrue(sql.contains("payload_json"), "missing payload_json for $vendor")
       assertTrue(sql.contains("expires_at"), "missing expires_at for $vendor")
-      assertTrue(
-          sql.contains("idx_atomic_oauth_relay_code_expires_at"),
-          "missing expires_at index for $vendor",
-      )
     }
   }
 

@@ -309,4 +309,4 @@ Provider registration note:
 
 | Property | Default | Required When | Description |
 |---|---|---|---|
-| `atomic.app.oauth.redirect.store.entity.table-name` | `atomic_oauth_relay_code` | store type `ENTITY` | Relay table name (`[A-Za-z0-9_]+`). |
+| `atomic.app.oauth.redirect.store.entity.table-name` | `atomic_oauth_relay_code` | store type `ENTITY` | Relay table name (`[A-Za-z0-9_]+`). Default table keeps the JPA-backed store; a custom table name falls back to the legacy JDBC-backed store. |

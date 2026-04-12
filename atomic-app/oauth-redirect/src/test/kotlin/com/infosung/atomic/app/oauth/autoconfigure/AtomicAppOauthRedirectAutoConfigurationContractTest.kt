@@ -47,6 +47,7 @@ class AtomicAppOauthRedirectAutoConfigurationContractTest {
 
     assertEquals(
         setOf(
+            AtomicAppOauthRedirectPersistenceAutoConfiguration::class,
             AtomicAppOauthRedirectRelayAutoConfiguration::class,
             AtomicAppOauthRedirectCoreAutoConfiguration::class,
             AtomicAppOauthRedirectWebAutoConfiguration::class,

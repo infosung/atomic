@@ -546,6 +546,8 @@ App exception seam direction:
   - `created_at` (timestamp)
 - cache/entity stores validate expiration on consume (`pop`) and remove consumed relay data.
 - for cache backends, configure backend TTL/eviction policy to avoid stale expired keys accumulating.
+- default `store.type=entity` + default table `atomic_oauth_relay_code` uses the JPA-backed relay store.
+- custom `atomic.app.oauth.redirect.store.entity.table-name` preserves the public runtime contract by switching to the legacy JDBC-backed relay store.
 - for entity store, run periodic cleanup (for example `DELETE FROM atomic_oauth_relay_code WHERE expires_at <= NOW()`) to remove unconsumed expired rows.
 - `in-memory.cleanup-interval <= 0` disables periodic expired-entry cleanup.
 
@@ -601,7 +603,12 @@ Support scope in this line:
 JPA direction in this line:
 
 - `atomic-app:version` and `atomic-app:storage-api` keep the JPA-centered path. DB variance is handled at the SQL asset and JDBC metadata boundary.
-- `atomic-app:oauth-redirect` intentionally stays on the JDBC entity-store path for now because `atomic.app.oauth.redirect.store.entity.table-name` is a public runtime contract. Converting that path to JPA would effectively freeze table naming instead of keeping it host-configurable.
+- `atomic-app:oauth-redirect` uses a JPA-backed entity store by default when the shipped table contract `atomic_oauth_relay_code` is used.
+- if you configure a custom `atomic.app.oauth.redirect.store.entity.table-name`, the module preserves that public runtime contract by falling back to the legacy JDBC entity-store path.
+- Oracle compatibility is verified with a dedicated focused workflow: `.github/workflows/oracle-compatibility.yml`.
+- the same focused Oracle checks are re-run in `.github/workflows/publish-maven-central.yml` before release publication.
+- repository automation verifies Oracle on the Oracle Free 23 line. If you operate another Oracle line, keep equivalent host-side CI validation before rollout.
+- if `atomic.app.oauth.redirect.store.fail-fast=false`, missing relay-store dependencies can fall back to the in-memory relay store; that fallback is process-local per instance and is not multi-instance safe.
 
 The SQL below is the PostgreSQL reference snippet for the shipped contract, including the recovery-claim columns and supporting indexes used in the current line.
 
