@@ -23,7 +23,7 @@ Dependency notation:
 Quick decision:
 - If you are still pre-production, validate behavior first with this document.
 - For production or multi-instance deployment, continue with [advanced-playbook](advanced-playbook.md).
-- If you are upgrading an existing host, also review the latest [Release Migration Guide: v0.0.5 -> v0.1.0](../migration/v0.0.5-to-v0.1.0.md).
+- If you are upgrading an existing host, also review the latest [Release Migration Guide: v0.0.5 -> v0.1.1](../migration/v0.0.5-to-v0.1.1.md).
 
 ---
 

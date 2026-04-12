@@ -14,7 +14,7 @@
 Recommended entry docs:
 - Start with minimal setup: [Atomic Quick Start](quick-start.md)
 - Move to production criteria: [Advanced Operations Playbook](advanced-playbook.md)
-- Release upgrade impact: [Release Migration Guide: v0.0.5 -> v0.1.0](../migration/v0.0.5-to-v0.1.0.md)
+- Release upgrade impact: [Release Migration Guide: v0.0.5 -> v0.1.1](../migration/v0.0.5-to-v0.1.1.md)
 
 ## What Atomic Solves
 

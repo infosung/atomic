@@ -17,7 +17,7 @@ Atomic is a Kotlin/Spring library suite for backend services.
 
 1. Minimal adoption: [Atomic Quick Start](docs/usage/quick-start.md)
 2. Production transition: [Advanced Operations Playbook](docs/usage/advanced-playbook.md)
-3. Upgrade from `v0.0.5`: [Release Migration Guide](docs/migration/v0.0.5-to-v0.1.0.md)
+3. Upgrade from `v0.0.5`: [Release Migration Guide](docs/migration/v0.0.5-to-v0.1.1.md)
 4. Module-level details: see `Detailed Guides` below
 
 ## Feature-First Onboarding

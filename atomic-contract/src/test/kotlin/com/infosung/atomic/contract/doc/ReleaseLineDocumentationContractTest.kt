@@ -35,8 +35,8 @@ class ReleaseLineDocumentationContractTest {
   }
 
   @Test
-  fun `v0_0_5 to v0_1_0 migration guide should document db scope and oauth redirect persistence behavior`() {
-    val markdown = DocumentationContractFixtures.read("docs/migration/v0.0.5-to-v0.1.0.md")
+  fun `v0_0_5 to v0_1_1 migration guide should document db scope and oauth redirect persistence behavior`() {
+    val markdown = DocumentationContractFixtures.read("docs/migration/v0.0.5-to-v0.1.1.md")
 
     listOf("`postgresql`", "`mysql`", "`mariadb`", "`oracle`", "`h2`").forEach { marker ->
       assertTrue(markdown.contains(marker), "migration guide should mention $marker")
