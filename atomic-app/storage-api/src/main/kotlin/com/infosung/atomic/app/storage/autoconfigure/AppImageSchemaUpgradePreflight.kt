@@ -1,5 +1,7 @@
 package com.infosung.atomic.app.storage.autoconfigure
 
+import com.infosung.atomic.contract.database.JdbcTableColumnMetadata
+import com.infosung.atomic.contract.database.JdbcTableMetadataLoader
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.SmartInitializingSingleton
 import org.springframework.jdbc.core.JdbcTemplate
@@ -33,27 +35,13 @@ class AppImageSchemaUpgradePreflight(
   }
 
   private fun loadColumns(tableName: String): Map<String, ColumnShape> {
-    val rows =
-        jdbcTemplate.query(
-            """
-            SELECT column_name, data_type, character_maximum_length
-            FROM information_schema.columns
-            WHERE table_schema = current_schema()
-              AND table_name = ?
-            """
-                .trimIndent(),
-            { rs, _ ->
-              ColumnShape(
-                  name = rs.getString("column_name"),
-                  dataType = rs.getString("data_type"),
-                  characterMaximumLength =
-                      rs.getObject("character_maximum_length")?.let { (it as Number).toInt() },
-              )
-            },
-            tableName,
-        )
+    val dataSource =
+        requireNotNull(jdbcTemplate.dataSource) {
+          "AppImageSchemaUpgradePreflight requires a DataSource-backed JdbcTemplate."
+        }
+    val columns = JdbcTableMetadataLoader(dataSource).loadColumns(tableName = tableName)
 
-    if (rows.isEmpty()) {
+    if (columns.isEmpty()) {
       val message =
           "Schema upgrade preflight failed: required table '$tableName' was not found in current schema. " +
               "Apply the shipped SQL asset or your equivalent migration before enabling atomic.app.image."
@@ -61,16 +49,17 @@ class AppImageSchemaUpgradePreflight(
       throw IllegalStateException(message)
     }
 
-    rows.forEach { column ->
+    columns.values.forEach { column ->
       log.debug(
-          "Loaded image schema column for upgrade preflight: table={}, column={}, dataType={}, characterMaximumLength={}",
+          "Loaded image schema column for upgrade preflight: table={}, column={}, jdbcType={}, typeName={}, columnSize={}",
           tableName,
           column.name,
-          column.dataType,
-          column.characterMaximumLength,
+          column.jdbcType,
+          column.typeName,
+          column.columnSize,
       )
     }
-    return rows.associateBy { it.name }
+    return columns
   }
 
   private fun validateExternallySizedColumn(
@@ -86,13 +75,14 @@ class AppImageSchemaUpgradePreflight(
       throw IllegalStateException(message)
     }
 
-    if (column.isText() || column.isCharacterVaryingAtLeast(MIN_EXTERNAL_LENGTH)) {
+    if (column.isTextLike() || column.isVariableCharacterAtLeast(MIN_EXTERNAL_LENGTH)) {
       log.debug(
-          "Image schema column passed width preflight: table={}, column={}, dataType={}, characterMaximumLength={}",
+          "Image schema column passed width preflight: table={}, column={}, jdbcType={}, typeName={}, columnSize={}",
           TABLE_NAME,
           column.name,
-          column.dataType,
-          column.characterMaximumLength,
+          column.jdbcType,
+          column.typeName,
+          column.columnSize,
       )
       return
     }
@@ -112,11 +102,12 @@ class AppImageSchemaUpgradePreflight(
     val column = columns[columnName]
     if (column != null) {
       log.debug(
-          "Image schema column passed presence preflight: table={}, column={}, dataType={}, characterMaximumLength={}",
+          "Image schema column passed presence preflight: table={}, column={}, jdbcType={}, typeName={}, columnSize={}",
           TABLE_NAME,
           column.name,
-          column.dataType,
-          column.characterMaximumLength,
+          column.jdbcType,
+          column.typeName,
+          column.columnSize,
       )
       return
     }
@@ -128,32 +119,10 @@ class AppImageSchemaUpgradePreflight(
     throw IllegalStateException(message)
   }
 
-  private data class ColumnShape(
-      val name: String,
-      val dataType: String,
-      val characterMaximumLength: Int?,
-  ) {
-    fun isText(): Boolean = dataType.equals("text", ignoreCase = true)
-
-    fun isCharacterVaryingAtLeast(minLength: Int): Boolean {
-      return dataType.equals("character varying", ignoreCase = true) &&
-          (characterMaximumLength ?: 0) >= minLength
-    }
-
-    fun render(): String {
-      val renderedType =
-          when {
-            dataType.equals("character varying", ignoreCase = true) -> "VARCHAR"
-            dataType.equals("text", ignoreCase = true) -> "TEXT"
-            else -> dataType.uppercase()
-          }
-      return if (characterMaximumLength == null) renderedType
-      else "$renderedType($characterMaximumLength)"
-    }
-  }
-
   private companion object {
     const val TABLE_NAME: String = "image"
     const val MIN_EXTERNAL_LENGTH: Int = 1024
   }
 }
+
+private typealias ColumnShape = JdbcTableColumnMetadata

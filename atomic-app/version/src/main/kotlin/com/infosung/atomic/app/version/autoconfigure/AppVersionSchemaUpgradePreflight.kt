@@ -1,5 +1,6 @@
 package com.infosung.atomic.app.version.autoconfigure
 
+import com.infosung.atomic.contract.database.JdbcTableMetadataLoader
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.SmartInitializingSingleton
 import org.springframework.jdbc.core.JdbcTemplate
@@ -21,27 +22,13 @@ class AppVersionSchemaUpgradePreflight(
   }
 
   private fun loadColumns(tableName: String): Map<String, VersionSchemaColumnShape> {
-    val rows =
-        jdbcTemplate.query(
-            """
-            SELECT column_name, data_type, character_maximum_length
-            FROM information_schema.columns
-            WHERE table_schema = current_schema()
-              AND table_name = ?
-            """
-                .trimIndent(),
-            { rs, _ ->
-              VersionSchemaColumnShape(
-                  name = rs.getString("column_name"),
-                  dataType = rs.getString("data_type"),
-                  characterMaximumLength =
-                      rs.getObject("character_maximum_length")?.let { (it as Number).toInt() },
-              )
-            },
-            tableName,
-        )
+    val dataSource =
+        requireNotNull(jdbcTemplate.dataSource) {
+          "AppVersionSchemaUpgradePreflight requires a DataSource-backed JdbcTemplate."
+        }
+    val columns = JdbcTableMetadataLoader(dataSource).loadColumns(tableName = tableName)
 
-    if (rows.isEmpty()) {
+    if (columns.isEmpty()) {
       val message =
           "Schema upgrade preflight failed: required table '$tableName' was not found in current schema. " +
               "Apply the shipped SQL asset or your equivalent migration before enabling atomic.app.version."
@@ -49,16 +36,17 @@ class AppVersionSchemaUpgradePreflight(
       throw IllegalStateException(message)
     }
 
-    rows.forEach { column ->
+    columns.values.forEach { column ->
       log.debug(
-          "Loaded service_version schema column for upgrade preflight: table={}, column={}, dataType={}, characterMaximumLength={}",
+          "Loaded service_version schema column for upgrade preflight: table={}, column={}, jdbcType={}, typeName={}, columnSize={}",
           tableName,
           column.name,
-          column.dataType,
-          column.characterMaximumLength,
+          column.jdbcType,
+          column.typeName,
+          column.columnSize,
       )
     }
-    return rows.associateBy { it.name }
+    return columns
   }
 
   private companion object {

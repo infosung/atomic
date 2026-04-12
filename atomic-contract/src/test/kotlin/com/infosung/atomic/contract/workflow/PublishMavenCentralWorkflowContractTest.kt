@@ -37,6 +37,7 @@ class PublishMavenCentralWorkflowContractTest {
             "atomic-event-log:parquet",
             "atomic-event-log:duckdb",
             "atomic-event-log:spring-web",
+            "atomic-event-log:ingest-api",
             "atomic-contract",
             "atomic-storage",
             "atomic-spring-web",

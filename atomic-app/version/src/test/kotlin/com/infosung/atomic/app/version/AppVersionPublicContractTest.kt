@@ -24,6 +24,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.type.SqlTypes
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
@@ -92,7 +94,7 @@ class AppVersionPublicContractTest {
     assertEquals("service", serviceField.getAnnotation(Column::class.java).name)
     assertEquals(255, serviceField.getAnnotation(Column::class.java).length)
     assertEquals("store_url", storeUrlField.getAnnotation(Column::class.java).name)
-    assertEquals("TEXT", storeUrlField.getAnnotation(Column::class.java).columnDefinition)
+    assertEquals(SqlTypes.LONGVARCHAR, storeUrlField.getAnnotation(JdbcTypeCode::class.java).value)
   }
 
   @Test

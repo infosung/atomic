@@ -12,24 +12,30 @@ Use `atomic.starter` to reduce boilerplate bean registration.
 
 ## Dependency Pattern
 
-Published artifact examples (`v0.0.5`):
+Published artifact examples (`v0.1.0`):
 
 ```kotlin
 dependencies {
-  implementation("com.infosung:atomic.contract:0.0.5")
-  implementation("com.infosung:atomic.storage:0.0.5")
-  implementation("com.infosung:atomic.spring.web:0.0.5")
-  implementation("com.infosung:atomic.spring.security:0.0.5")
-  implementation("com.infosung:atomic.spring.idempotency:0.0.5")
-  implementation("com.infosung:atomic.spring.oauth2:0.0.5")
-  implementation("com.infosung:atomic.heartbeat:0.0.5")
-  implementation("com.infosung:atomic.starter:0.0.5")
-  implementation("com.infosung:atomic.app:0.0.5")
+  implementation("com.infosung:atomic.contract:0.1.0")
+  implementation("com.infosung:atomic.storage:0.1.0")
+  implementation("com.infosung:atomic.spring.web:0.1.0")
+  implementation("com.infosung:atomic.spring.security:0.1.0")
+  implementation("com.infosung:atomic.spring.idempotency:0.1.0")
+  implementation("com.infosung:atomic.spring.oauth2:0.1.0")
+  implementation("com.infosung:atomic.heartbeat:0.1.0")
+  implementation("com.infosung:atomic.starter:0.1.0")
+  implementation("com.infosung:atomic.app:0.1.0")
 }
 ```
 
 Current `.github/workflows/publish-maven-central.yml` publishes:
 
+- `atomic-event-log`
+- `atomic-event-log:parquet`
+- `atomic-event-log:iceberg`
+- `atomic-event-log:duckdb`
+- `atomic-event-log:spring-web`
+- `atomic-event-log:ingest-api`
 - `atomic-contract`
 - `atomic-storage`
 - `atomic-spring-web`
@@ -62,6 +68,10 @@ dependencies {
   implementation(project(":atomic-heartbeat"))
 }
 ```
+
+Event-log note:
+
+- event-log modules are published separately and do not require `atomic.starter`
 
 `atomic.app` notes:
 

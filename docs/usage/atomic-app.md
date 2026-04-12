@@ -33,7 +33,7 @@ Internally, `atomic.app` is a bundle of:
 - `atomic.app.storage.api` requires storage beans, so starter-based setups usually add both.
 - `atomic.app.oauth.redirect` usually pairs with `atomic.starter` + `atomic.spring.oauth2`.
 
-Published artifact set (`v0.0.5`):
+Published artifact set (`v0.1.0`):
 
 - `atomic-contract`
 - `atomic-storage`
@@ -75,9 +75,9 @@ Published-artifact narrow-module selection:
 
 ```kotlin
 dependencies {
-  implementation("com.infosung:atomic.app.version:0.0.5")
-  implementation("com.infosung:atomic.app.storage.api:0.0.5")
-  implementation("com.infosung:atomic.app.oauth.redirect:0.0.5")
+  implementation("com.infosung:atomic.app.version:0.1.0")
+  implementation("com.infosung:atomic.app.storage.api:0.1.0")
+  implementation("com.infosung:atomic.app.oauth.redirect:0.1.0")
 }
 ```
 
@@ -574,15 +574,28 @@ Startup summary:
     - intentional UX tradeoff; cookie reuse after success remains possible
 - treat the startup summary as deployment signal, not optional noise. It is the fastest way to catch local-only relay/state choices before traffic reaches the callback path.
 
-## DDL Examples (PostgreSQL)
+## DDL Examples
 
-The authoritative PostgreSQL starting-point assets now ship in module resources:
+The authoritative starting-point assets now ship in module resources for:
 
-- `atomic-app/version`: `META-INF/atomic/sql/postgresql/service_version.sql`
-- `atomic-app/storage-api`: `META-INF/atomic/sql/postgresql/image.sql`
-- `atomic-app/oauth-redirect`: `META-INF/atomic/sql/postgresql/atomic_oauth_relay_code.sql`
+- `postgresql`
+- `mysql`
+- `mariadb`
 
-For `service_version` and `image`, these assets now match explicit JPA table/column mappings in code. The SQL below mirrors the shipped assets, including the recovery-claim columns and supporting indexes used in the current line.
+Paths:
+
+- `atomic-app/version`: `META-INF/atomic/sql/{vendor}/service_version.sql`
+- `atomic-app/storage-api`: `META-INF/atomic/sql/{vendor}/image.sql`
+- `atomic-app/oauth-redirect`: `META-INF/atomic/sql/{vendor}/atomic_oauth_relay_code.sql`
+
+For `service_version` and `image`, these assets now match explicit JPA table/column mappings in code. Startup preflight no longer depends on PostgreSQL-specific catalog SQL; it uses JDBC metadata instead.
+
+Support scope in this line:
+
+- official SQL assets and automated DB verification: `postgresql`, `mysql`, `mariadb`
+- best-effort runtime compatibility: other JDBC/JPA-compatible relational databases with equivalent schema, validated by your own CI before production rollout
+
+The SQL below is the PostgreSQL reference snippet for the shipped contract, including the recovery-claim columns and supporting indexes used in the current line.
 
 - Identifier-like columns (`service`, `platform`, `bucket`, `service_name`, `storage_service`, `storage_type`) keep a bounded `VARCHAR(255)` contract.
 - Columns affected by external lengths (`store_url`, `file_name`, `thumbnail_file_name`, `url`, `thumbnail_url`) are shipped as `TEXT`.
