@@ -101,9 +101,9 @@ class ServiceVersionSqlAssetVendorCompatibilityTest {
                 .trimIndent(),
             String::class.java,
         )
-    assertTrue(indexes.contains("idx_service_version_service_platform_version"))
     assertTrue(indexes.contains("idx_service_version_service_platform_required_update"))
     assertTrue(indexes.contains("uq_service_version_service_platform_semver"))
+    assertTrue(!indexes.contains("idx_service_version_service_platform_version"))
 
     assertThrows<DataAccessException> {
       jdbcTemplate.update(

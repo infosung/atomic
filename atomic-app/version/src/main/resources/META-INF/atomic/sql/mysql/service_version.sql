@@ -12,13 +12,6 @@ CREATE TABLE IF NOT EXISTS service_version (
   PRIMARY KEY (id),
   CONSTRAINT uq_service_version_service_platform_semver
     UNIQUE (service, platform, main_version, minor_version, patch_number),
-  KEY idx_service_version_service_platform_version (
-    service,
-    platform,
-    main_version,
-    minor_version,
-    patch_number
-  ),
   KEY idx_service_version_service_platform_required_update (
     service,
     platform,

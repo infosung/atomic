@@ -18,15 +18,18 @@ class ServiceVersionSqlAssetResourceContractTest {
       assertTrue(sql.contains("patch_number"), "missing patch_number for $vendor")
       assertTrue(sql.contains("store_available"), "missing store_available for $vendor")
       assertTrue(
-          sql.contains("idx_service_version_service_platform_version"),
-          "missing version index for $vendor")
-      assertTrue(
           sql.contains("idx_service_version_service_platform_required_update"),
           "missing required-update index for $vendor",
       )
       assertTrue(
           sql.contains("uq_service_version_service_platform_semver"),
           "missing unique constraint for $vendor")
+      if (vendor == "postgresql") {
+        assertTrue(
+            sql.contains("idx_service_version_service_platform_version"),
+            "missing version index for $vendor",
+        )
+      }
     }
   }
 

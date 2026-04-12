@@ -40,15 +40,21 @@ class JdbcTableMetadataLoader(
       schema: String?,
       tableName: String,
   ): ResolvedTable? {
+    val lowerCaseTableName = tableName.lowercase()
+    val upperCaseTableName = tableName.uppercase()
+    val preferredCaseTableName =
+        when {
+          metadata.storesLowerCaseIdentifiers() -> lowerCaseTableName
+          metadata.storesUpperCaseIdentifiers() -> upperCaseTableName
+          else -> null
+        }
     val tableNameCandidates =
-        listOf(
+        listOfNotNull(
                 tableName,
-                if (metadata.storesLowerCaseIdentifiers()) tableName.lowercase() else null,
-                if (metadata.storesUpperCaseIdentifiers()) tableName.uppercase() else null,
-                tableName.lowercase(),
-                tableName.uppercase(),
+                preferredCaseTableName,
+                lowerCaseTableName,
+                upperCaseTableName,
             )
-            .filterNotNull()
             .distinct()
     val scopeCandidates =
         listOf(
