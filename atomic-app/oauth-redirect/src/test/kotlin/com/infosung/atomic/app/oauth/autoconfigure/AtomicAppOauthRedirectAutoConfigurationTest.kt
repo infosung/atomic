@@ -6,6 +6,8 @@ import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
 import com.infosung.atomic.app.oauth.adapter.out.relay.store.EntityOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.adapter.out.relay.store.InMemoryOauthRelayCodeStore
+import com.infosung.atomic.app.oauth.adapter.out.relay.store.JpaOauthRelayCodeStore
+import com.infosung.atomic.app.oauth.adapter.out.relay.store.OauthRelayCodeRepository
 import com.infosung.atomic.oauth.api.OauthServiceProvider
 import com.infosung.atomic.oauth.state.InMemoryOauthStateStore
 import com.infosung.atomic.oauth.state.OauthStateManager
@@ -146,6 +148,7 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
           timeProviderProvider = provider(),
           objectMapperProvider = provider(),
           cacheManagerProvider = provider(),
+          oauthRelayCodeRepositoryProvider = provider(),
           dataSourceProvider = provider(),
           transactionManagerProvider = provider(),
       )
@@ -179,6 +182,7 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
             timeProviderProvider = provider(),
             objectMapperProvider = provider(),
             cacheManagerProvider = provider(),
+            oauthRelayCodeRepositoryProvider = provider(),
             dataSourceProvider = provider(),
             transactionManagerProvider = provider(),
         )
@@ -288,6 +292,7 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
                   timeProviderProvider = provider(),
                   objectMapperProvider = provider(ObjectMapper::class.java, ObjectMapper()),
                   cacheManagerProvider = provider(),
+                  oauthRelayCodeRepositoryProvider = provider(),
                   dataSourceProvider = provider(),
                   transactionManagerProvider = provider(),
               )
@@ -325,6 +330,7 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
                     override fun getCacheNames(): MutableCollection<String> = mutableListOf()
                   },
               ),
+          oauthRelayCodeRepositoryProvider = provider(),
           dataSourceProvider = provider(),
           transactionManagerProvider = provider(),
       )
@@ -347,6 +353,45 @@ class AtomicAppOauthRedirectAutoConfigurationTest {
                 provider(
                     org.springframework.cache.CacheManager::class.java,
                     ConcurrentMapCacheManager("atomicOauthRelayCode"),
+                ),
+            oauthRelayCodeRepositoryProvider =
+                provider(
+                    OauthRelayCodeRepository::class.java,
+                    mock(OauthRelayCodeRepository::class.java),
+                ),
+            dataSourceProvider = provider(DataSource::class.java, mock(DataSource::class.java)),
+            transactionManagerProvider =
+                provider(
+                    PlatformTransactionManager::class.java,
+                    mock(PlatformTransactionManager::class.java),
+                ),
+        )
+
+    assertIs<JpaOauthRelayCodeStore>(store)
+  }
+
+  @Test
+  fun `entity type should fallback to legacy jdbc store when custom table name is configured`() {
+    val properties =
+        configuredProperties().apply {
+          store.type = AtomicAppOauthRedirectProperties.StoreType.ENTITY
+          store.entity.tableName = "custom_oauth_relay_code"
+        }
+
+    val store =
+        relayAutoConfiguration.oauthRelayCodeStore(
+            properties = properties,
+            timeProviderProvider = provider(),
+            objectMapperProvider = provider(ObjectMapper::class.java, ObjectMapper()),
+            cacheManagerProvider =
+                provider(
+                    org.springframework.cache.CacheManager::class.java,
+                    ConcurrentMapCacheManager("atomicOauthRelayCode"),
+                ),
+            oauthRelayCodeRepositoryProvider =
+                provider(
+                    OauthRelayCodeRepository::class.java,
+                    mock(OauthRelayCodeRepository::class.java),
                 ),
             dataSourceProvider = provider(DataSource::class.java, mock(DataSource::class.java)),
             transactionManagerProvider =

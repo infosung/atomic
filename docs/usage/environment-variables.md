@@ -247,6 +247,30 @@ Provider registration note:
 | `atomic.heartbeat.dedup.leader.jdbc.lock-name` | `default` | leader backend `JDBC` | Lock row name (non-blank). |
 | `atomic.heartbeat.dedup.leader.jdbc.auto-create-table` | `false` | leader backend `JDBC` | Runtime auto-create lock table toggle. |
 
+## `atomic.event.log.ingest.api` (`atomic.event.log.ingest`)
+
+Composition note:
+- `atomic.event.log`, `atomic.event.log.parquet`, `atomic.event.log.iceberg`,
+  `atomic.event.log.duckdb`, and `atomic.event.log.spring.web` do not expose Spring
+  `@ConfigurationProperties` in `0.1.0`.
+- the only event-log property namespace in this release line is the official ingest API module.
+- Parquet export cadence, spool choice, DuckDB query execution, and Iceberg catalog wiring remain
+  host-owned constructor wiring concerns.
+
+| Property | Default | Required When | Description |
+|---|---|---|---|
+| `atomic.event.log.ingest.enabled` | `false` | optional | Enables the official HTTP ingest API auto-configuration. |
+| `atomic.event.log.ingest.endpoint-path` | `/api/v1/event-logs:batch` | ingest enabled | Spring MVC endpoint path for the collector API. |
+| `atomic.event.log.ingest.collector-id-header-name` | empty | optional | Header name used by the default context resolver to extract `collectorId`. |
+| `atomic.event.log.ingest.mode` | `ASYNC` | ingest enabled | Processing mode: `ASYNC` or `SYNC`. |
+| `atomic.event.log.ingest.async.lane-count` | `4` | mode `ASYNC` | Number of in-memory queue lanes; values greater than `1` enable hash partitioning by `serviceId`. |
+| `atomic.event.log.ingest.async.max-buffered-requests-per-lane` | `1024` | mode `ASYNC` | Maximum queued request count per lane. |
+| `atomic.event.log.ingest.async.max-buffered-bytes-per-lane` | `16777216` | mode `ASYNC` | Maximum estimated queued bytes per lane. |
+| `atomic.event.log.ingest.async.enqueue-timeout` | `10ms` | mode `ASYNC` | How long enqueue waits for lane capacity before returning queue overflow. |
+| `atomic.event.log.ingest.async.worker-poll-delay` | `100ms` | mode `ASYNC` | Delay between background drain cycles. |
+| `atomic.event.log.ingest.async.worker-poll-limit` | `256` | mode `ASYNC` | Maximum batch count drained per lane in one worker cycle. |
+| `atomic.event.log.ingest.async.shutdown-drain-timeout` | `30s` | mode `ASYNC` | Maximum graceful-shutdown drain window for queued batches. |
+
 ## `atomic.app.version` (`atomic.app.version`)
 
 | Property | Default | Required When | Description |
@@ -309,4 +333,4 @@ Provider registration note:
 
 | Property | Default | Required When | Description |
 |---|---|---|---|
-| `atomic.app.oauth.redirect.store.entity.table-name` | `atomic_oauth_relay_code` | store type `ENTITY` | Relay table name (`[A-Za-z0-9_]+`). |
+| `atomic.app.oauth.redirect.store.entity.table-name` | `atomic_oauth_relay_code` | store type `ENTITY` | Relay table name (`[A-Za-z0-9_]+`). Default table keeps the JPA-backed store; a custom table name falls back to the legacy JDBC-backed store. |

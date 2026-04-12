@@ -4,6 +4,8 @@ import com.infosung.atomic.app.storage.adapter.out.persistence.AppImageEntityTxS
 import com.infosung.atomic.app.storage.adapter.out.persistence.ImageEntity
 import com.infosung.atomic.app.storage.adapter.out.persistence.ImageRepository
 import com.infosung.atomic.app.storage.domain.StoredImage
+import com.infosung.atomic.contract.database.JdbcTableIndexMetadataLoader
+import com.infosung.atomic.contract.database.JdbcTableMetadataLoader
 import java.time.LocalDateTime
 import java.util.UUID
 import kotlin.test.Test
@@ -65,20 +67,11 @@ class AppImageMigrationAssetContractTest {
   @Test
   fun `official image sql asset should create documented index`() {
     val indexes =
-        jdbcTemplate.queryForList(
-            """
-            SELECT indexname
-            FROM pg_indexes
-            WHERE schemaname = 'public'
-              AND tablename = 'image'
-            """
-                .trimIndent(),
-            String::class.java,
-        )
+        JdbcTableIndexMetadataLoader(requireNotNull(jdbcTemplate.dataSource)).loadIndexes("image")
 
-    assertTrue(indexes.contains("idx_image_service_storage"))
-    assertTrue(indexes.contains("idx_image_status_created_at"))
-    assertTrue(indexes.contains("idx_image_status_claim_created_at"))
+    assertTrue(indexes.containsKey("idx_image_service_storage"))
+    assertTrue(indexes.containsKey("idx_image_status_created_at"))
+    assertTrue(indexes.containsKey("idx_image_status_claim_created_at"))
   }
 
   @Test
@@ -176,19 +169,10 @@ class AppImageMigrationAssetContractTest {
   @Test
   fun `official image sql asset should support delete pending claim columns`() {
     val columns =
-        jdbcTemplate.queryForList(
-            """
-            SELECT column_name
-            FROM information_schema.columns
-            WHERE table_schema = 'public'
-              AND table_name = 'image'
-            """
-                .trimIndent(),
-            String::class.java,
-        )
+        JdbcTableMetadataLoader(requireNotNull(jdbcTemplate.dataSource)).loadColumns("image")
 
-    assertTrue(columns.contains("delete_recovery_claim_token"))
-    assertTrue(columns.contains("delete_recovery_claimed_at"))
+    assertTrue(columns.containsKey("delete_recovery_claim_token"))
+    assertTrue(columns.containsKey("delete_recovery_claimed_at"))
   }
 
   @Test

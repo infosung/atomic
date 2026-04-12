@@ -3,6 +3,7 @@ package com.infosung.atomic.app.version
 import com.infosung.atomic.app.version.adapter.out.persistence.ServiceVersionEntity
 import com.infosung.atomic.app.version.adapter.out.persistence.ServiceVersionRepository
 import com.infosung.atomic.app.version.application.port.`in`.CheckAppVersionUseCase
+import com.infosung.atomic.contract.database.JdbcTableIndexMetadataLoader
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -79,36 +80,20 @@ class AppVersionMigrationAssetContractTest {
   @Test
   fun `official service version sql asset should create documented index`() {
     val indexes =
-        jdbcTemplate.queryForList(
-            """
-            SELECT indexname
-            FROM pg_indexes
-            WHERE schemaname = 'public'
-              AND tablename = 'service_version'
-            """
-                .trimIndent(),
-            String::class.java,
-        )
+        JdbcTableIndexMetadataLoader(requireNotNull(jdbcTemplate.dataSource))
+            .loadIndexes("service_version")
 
-    assertTrue(indexes.contains("idx_service_version_service_platform_version"))
-    assertTrue(indexes.contains("idx_service_version_service_platform_required_update"))
+    assertTrue(indexes.containsKey("idx_service_version_service_platform_version"))
+    assertTrue(indexes.containsKey("idx_service_version_service_platform_required_update"))
   }
 
   @Test
   fun `official service version sql asset should create documented unique constraint`() {
-    val constraints =
-        jdbcTemplate.queryForList(
-            """
-            SELECT conname
-            FROM pg_constraint
-            WHERE conrelid = 'service_version'::regclass
-              AND contype = 'u'
-            """
-                .trimIndent(),
-            String::class.java,
-        )
+    val indexes =
+        JdbcTableIndexMetadataLoader(requireNotNull(jdbcTemplate.dataSource))
+            .loadIndexes("service_version")
 
-    assertTrue(constraints.contains("uq_service_version_service_platform_semver"))
+    assertTrue(indexes["uq_service_version_service_platform_semver"]?.unique == true)
   }
 
   @Test

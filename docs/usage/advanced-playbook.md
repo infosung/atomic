@@ -304,6 +304,7 @@ class AppExceptionHandler(
 - [ ] Multi-instance verification complete for idempotency/heartbeat
 - [ ] `DELETE_PENDING` recovery ownership and alerts are defined when image API is enabled
 - [ ] OAuth redirect store/state policy matches deployment model (`single-node/local` vs `multi-instance/production`)
+- [ ] If you rely on official Oracle support, run `.github/workflows/oracle-compatibility.yml` or the equivalent focused Oracle gate before release
 - [ ] Synchronous image-processing latency is acceptable for the intended workload envelope
 - [ ] Logging policy verified: `ApiLogAspect`/`RestClientErrorHandler` do not emit raw body dumps; keep `ServiceLogger` TRACE off in production
 - [ ] No secret/key/token values remain in repository config

@@ -31,8 +31,8 @@ dependencies {
 Current `.github/workflows/publish-maven-central.yml` publishes:
 
 - `atomic-event-log`
-- `atomic-event-log:parquet`
 - `atomic-event-log:iceberg`
+- `atomic-event-log:parquet`
 - `atomic-event-log:duckdb`
 - `atomic-event-log:spring-web`
 - `atomic-event-log:ingest-api`
@@ -44,10 +44,10 @@ Current `.github/workflows/publish-maven-central.yml` publishes:
 - `atomic-spring-oauth2`
 - `atomic-heartbeat`
 - `atomic-starter`
-- `atomic-app`
 - `atomic-app:app-version`
 - `atomic-app:oauth-redirect`
 - `atomic-app:storage-api`
+- `atomic-app`
 
 Local multi-module usage is still valid when you need source-level customization.
 

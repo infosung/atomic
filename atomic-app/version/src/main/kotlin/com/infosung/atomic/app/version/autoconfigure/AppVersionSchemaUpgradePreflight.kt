@@ -26,11 +26,27 @@ class AppVersionSchemaUpgradePreflight(
         requireNotNull(jdbcTemplate.dataSource) {
           "AppVersionSchemaUpgradePreflight requires a DataSource-backed JdbcTemplate."
         }
+    val metadataContext =
+        dataSource.connection.use { connection ->
+          PreflightMetadataContext(
+              productName = connection.metaData.databaseProductName,
+              catalog = connection.catalog,
+              schema = connection.schema,
+          )
+        }
+    log.info(
+        "Running service_version schema upgrade preflight: databaseProduct={}, catalog={}, schema={}, table={}",
+        metadataContext.productName,
+        metadataContext.catalog,
+        metadataContext.schema,
+        tableName,
+    )
     val columns = JdbcTableMetadataLoader(dataSource).loadColumns(tableName = tableName)
 
     if (columns.isEmpty()) {
       val message =
-          "Schema upgrade preflight failed: required table '$tableName' was not found in current schema. " +
+          "Schema upgrade preflight failed: required table '$tableName' was not found " +
+              "(databaseProduct=${metadataContext.productName}, catalog=${metadataContext.catalog}, schema=${metadataContext.schema}). " +
               "Apply the shipped SQL asset or your equivalent migration before enabling atomic.app.version."
       log.error(message)
       throw IllegalStateException(message)
@@ -52,4 +68,10 @@ class AppVersionSchemaUpgradePreflight(
   private companion object {
     const val TABLE_NAME: String = "service_version"
   }
+
+  private data class PreflightMetadataContext(
+      val productName: String?,
+      val catalog: String?,
+      val schema: String?,
+  )
 }

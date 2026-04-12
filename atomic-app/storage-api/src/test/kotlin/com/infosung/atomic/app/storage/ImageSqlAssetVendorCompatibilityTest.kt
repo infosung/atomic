@@ -1,5 +1,7 @@
 package com.infosung.atomic.app.storage
 
+import com.infosung.atomic.contract.database.JdbcTableIndexMetadataLoader
+import com.infosung.atomic.contract.database.JdbcTableMetadataLoader
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -11,6 +13,7 @@ import org.testcontainers.containers.MariaDBContainer
 import org.testcontainers.containers.MySQLContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
+import org.testcontainers.oracle.OracleContainer
 
 @Testcontainers(disabledWithoutDocker = true)
 class ImageSqlAssetVendorCompatibilityTest {
@@ -42,12 +45,26 @@ class ImageSqlAssetVendorCompatibilityTest {
     )
   }
 
+  @Test
+  fun `oracle asset should apply and support long image fields`() {
+    verifyImageSqlAsset(
+        vendor = "oracle",
+        dataSource =
+            DriverManagerDataSource().apply {
+              setDriverClassName(oracle.driverClassName)
+              url = oracle.jdbcUrl
+              username = oracle.username
+              password = oracle.password
+            },
+    )
+  }
+
   private fun verifyImageSqlAsset(
       vendor: String,
       dataSource: DriverManagerDataSource,
   ) {
     val jdbcTemplate = JdbcTemplate(dataSource)
-    jdbcTemplate.execute("DROP TABLE IF EXISTS image")
+    dropTableQuietly(jdbcTemplate, "image")
     ResourceDatabasePopulator(
             false,
             false,
@@ -113,34 +130,21 @@ class ImageSqlAssetVendorCompatibilityTest {
         ),
     )
 
-    val columns =
-        jdbcTemplate.queryForList(
-            """
-            SELECT column_name
-            FROM information_schema.columns
-            WHERE table_schema = DATABASE()
-              AND table_name = 'image'
-            """
-                .trimIndent(),
-            String::class.java,
-        )
-    assertTrue(columns.contains("delete_recovery_claim_token"))
-    assertTrue(columns.contains("delete_recovery_claimed_at"))
+    val columns = JdbcTableMetadataLoader(dataSource).loadColumns("image")
+    assertTrue(columns.containsKey("delete_recovery_claim_token"))
+    assertTrue(columns.containsKey("delete_recovery_claimed_at"))
 
-    val indexes =
-        jdbcTemplate.queryForList(
-            """
-            SELECT index_name
-            FROM information_schema.statistics
-            WHERE table_schema = DATABASE()
-              AND table_name = 'image'
-            """
-                .trimIndent(),
-            String::class.java,
-        )
-    assertTrue(indexes.contains("idx_image_service_storage"))
-    assertTrue(indexes.contains("idx_image_status_created_at"))
-    assertTrue(indexes.contains("idx_image_status_claim_created_at"))
+    val indexes = JdbcTableIndexMetadataLoader(dataSource).loadIndexes("image")
+    assertTrue(indexes.containsKey("idx_image_service_storage"))
+    assertTrue(indexes.containsKey("idx_image_status_created_at"))
+    assertTrue(indexes.containsKey("idx_image_status_claim_created_at"))
+  }
+
+  private fun dropTableQuietly(
+      jdbcTemplate: JdbcTemplate,
+      tableName: String,
+  ) {
+    runCatching { jdbcTemplate.execute("DROP TABLE $tableName") }
   }
 
   companion object {
@@ -149,5 +153,9 @@ class ImageSqlAssetVendorCompatibilityTest {
     @Container
     @JvmStatic
     private val mariadb: MariaDBContainer<*> = MariaDBContainer("mariadb:11.4")
+
+    @Container
+    @JvmStatic
+    private val oracle: OracleContainer = OracleContainer("gvenzl/oracle-free:23-slim-faststart")
   }
 }

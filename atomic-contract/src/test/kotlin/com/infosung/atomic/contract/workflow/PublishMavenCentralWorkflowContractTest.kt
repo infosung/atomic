@@ -51,9 +51,8 @@ class PublishMavenCentralWorkflowContractTest {
             "atomic-app:storage-api",
             "atomic-app",
         )
-    val modulesBlock = workflow.substringAfter("MODULES=(").substringBefore(")")
     val actualModules =
-        modulesBlock.lineSequence().map { it.trim() }.filter { it.isNotBlank() }.toList()
+        WorkflowContractFixtures.readPublishModules(".github/workflows/publish-maven-central.yml")
 
     assertTrue(
         actualModules == expectedModules,
@@ -101,6 +100,30 @@ class PublishMavenCentralWorkflowContractTest {
     assertTrue(
         workflow.contains("maven-central-"),
         "publish workflow should serialize publish jobs per release tag",
+    )
+  }
+
+  @Test
+  fun `publish workflow verify job should include oracle focused release gate verification`() {
+    assertTrue(
+        workflow.contains("Verify Oracle compatibility release gate"),
+        "publish workflow should keep an explicit Oracle-focused release gate step",
+    )
+    assertTrue(
+        workflow.contains("JdbcTableMetadataLoaderVendorCompatibilityTest"),
+        "publish workflow should verify JDBC metadata compatibility in the release gate",
+    )
+    assertTrue(
+        workflow.contains("AppVersionOracleCompatibilityContractTest"),
+        "publish workflow should verify app-version Oracle compatibility in the release gate",
+    )
+    assertTrue(
+        workflow.contains("AppImageOracleCompatibilityContractTest"),
+        "publish workflow should verify storage-api Oracle compatibility in the release gate",
+    )
+    assertTrue(
+        workflow.contains("JpaOauthRelayCodeStoreOracleCompatibilityTest"),
+        "publish workflow should verify oauth-redirect Oracle compatibility in the release gate",
     )
   }
 }

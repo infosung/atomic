@@ -24,7 +24,7 @@ open class EntityOauthRelayCodeStoreAdapter(
     tableName: String,
 ) : OauthRelayCodeStore {
   private val log = LoggerFactory.getLogger(this::class.java)
-  private val safeTableName = validateTableName(tableName)
+  private val safeTableName = OauthRelayCodeTableNamePolicy.validateOrThrow(tableName)
 
   override fun save(
       relayCode: String,
@@ -84,14 +84,6 @@ open class EntityOauthRelayCodeStoreAdapter(
 
       objectMapper.readValue(selected.payloadJson, OauthRelayPayload::class.java)
     }
-  }
-
-  private fun validateTableName(raw: String): String {
-    val candidate = raw.trim()
-    require(candidate.matches(Regex("[A-Za-z0-9_]+"))) {
-      "atomic.app.oauth.redirect.store.entity.table-name must contain only letters, numbers, and underscores."
-    }
-    return candidate
   }
 
   private data class SelectedRelay(

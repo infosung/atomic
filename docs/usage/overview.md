@@ -44,7 +44,7 @@ Use only the modules you need.
 - `atomic.spring.oauth2`: OAuth provider integration (Google/Kakao/Apple), redirect flow and id token/userinfo identity resolution
 - `atomic.heartbeat`: periodic heartbeat ping orchestration with optional DB/Redis dependency checks and dedup policy
 - `atomic.event.log`: common event log ingestion core
-- `atomic.event.log.parquet`: bounded Parquet export and spool/store integration
+- `atomic.event.log.parquet`: bounded Parquet export coordination and spool/store integration
 - `atomic.event.log.iceberg`: Iceberg publication strategy and commit/table contracts
 - `atomic.event.log.duckdb`: DuckDB query helper layer for event-log analysis
 - `atomic.event.log.spring.web`: bridge from `atomic.spring.web` API logs into event-log envelopes
@@ -57,6 +57,11 @@ If your first goal is event-log collection rather than app APIs, start in this o
 3. `atomic.event.log.ingest.api` or `atomic.event.log.spring.web`
 4. `atomic.event.log.iceberg` and `atomic.event.log.duckdb` only when you need them
 
+Recommended event-log reading order:
+- collector/server composition: [atomic.event.log Guide](atomic-event-log.md)
+- client envelope and batching: [atomic.event.log Client Guide](atomic-event-log-client.md)
+- export, Iceberg, and DuckDB: [atomic.event.log Lakehouse Guide](atomic-event-log-lakehouse.md)
+
 ## 2. Dependencies
 
 Published artifact examples (`v0.1.0`):
@@ -64,8 +69,8 @@ Published artifact examples (`v0.1.0`):
 ```kotlin
 dependencies {
   implementation("com.infosung:atomic.event.log:0.1.0")
-  implementation("com.infosung:atomic.event.log.parquet:0.1.0")
   implementation("com.infosung:atomic.event.log.iceberg:0.1.0")
+  implementation("com.infosung:atomic.event.log.parquet:0.1.0")
   implementation("com.infosung:atomic.event.log.duckdb:0.1.0")
   implementation("com.infosung:atomic.event.log.spring.web:0.1.0")
   implementation("com.infosung:atomic.event.log.ingest.api:0.1.0")
@@ -87,8 +92,8 @@ dependencies {
 Current `.github/workflows/publish-maven-central.yml` publishes:
 
 - `atomic-event-log`
-- `atomic-event-log:parquet`
 - `atomic-event-log:iceberg`
+- `atomic-event-log:parquet`
 - `atomic-event-log:duckdb`
 - `atomic-event-log:spring-web`
 - `atomic-event-log:ingest-api`
@@ -100,18 +105,18 @@ Current `.github/workflows/publish-maven-central.yml` publishes:
 - `atomic-spring-oauth2`
 - `atomic-heartbeat`
 - `atomic-starter`
-- `atomic-app`
 - `atomic-app:app-version`
 - `atomic-app:oauth-redirect`
 - `atomic-app:storage-api`
+- `atomic-app`
 
 Local multi-module adoption is still available when you need source-level customization:
 
 ```kotlin
 dependencies {
   implementation(project(":atomic-event-log"))
-  implementation(project(":atomic-event-log:parquet"))
   implementation(project(":atomic-event-log:iceberg"))
+  implementation(project(":atomic-event-log:parquet"))
   implementation(project(":atomic-event-log:duckdb"))
   implementation(project(":atomic-event-log:spring-web"))
   implementation(project(":atomic-event-log:ingest-api"))

@@ -81,6 +81,7 @@ thumbnailator = "0.4.21"
 awsSdk = "2.31.70"
 testcontainers = "1.20.6"
 duckdbJdbc = "1.3.2.0"
+oracleJdbc = "21.18.0.0"
 
 springboot = "4.0.3"
 
@@ -128,10 +129,12 @@ testcontainers-junit-jupiter = { module = "org.testcontainers:junit-jupiter", ve
 testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
 testcontainers-mysql = { module = "org.testcontainers:mysql", version.ref = "testcontainers" }
 testcontainers-mariadb = { module = "org.testcontainers:mariadb", version.ref = "testcontainers" }
+testcontainers-oracle-free = { module = "org.testcontainers:oracle-free", version.ref = "testcontainers" }
 postgresql = { module = "org.postgresql:postgresql" }
 h2 = { module = "com.h2database:h2" }
 mysql = { module = "com.mysql:mysql-connector-j" }
 mariadb = { module = "org.mariadb.jdbc:mariadb-java-client" }
+oracle-jdbc = { module = "com.oracle.database.jdbc:ojdbc11", version.ref = "oracleJdbc" }
 duckdb-jdbc = { module = "org.duckdb:duckdb_jdbc", version.ref = "duckdbJdbc" }
 snakeyaml = { module = "org.yaml:snakeyaml" }
 

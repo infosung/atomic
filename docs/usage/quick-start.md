@@ -51,6 +51,11 @@ dependencies {
 }
 ```
 
+Use these guides together:
+- collector/server composition: [atomic.event.log Guide](atomic-event-log.md)
+- client envelope and batching: [atomic.event.log Client Guide](atomic-event-log-client.md)
+- export, Iceberg, and DuckDB: [atomic.event.log Lakehouse Guide](atomic-event-log-lakehouse.md)
+
 Published artifact equivalent:
 
 ```kotlin

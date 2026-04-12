@@ -32,9 +32,12 @@ dependencies {
   testImplementation(libs.testcontainers.junit.jupiter)
   testImplementation(libs.testcontainers.mysql)
   testImplementation(libs.testcontainers.mariadb)
+  testImplementation(libs.testcontainers.oracle.free)
   testImplementation(libs.mysql)
   testImplementation(libs.mariadb)
   testImplementation(platform(libs.jupiter.bom))
+  testRuntimeOnly(libs.h2)
+  testRuntimeOnly(libs.oracle.jdbc)
   testRuntimeOnly(libs.jupiter.launcher)
   testRuntimeOnly(libs.jupiter)
 }

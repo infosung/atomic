@@ -3,7 +3,10 @@ package com.infosung.atomic.app.oauth.autoconfigure
 import com.infosung.atomic.app.oauth.adapter.out.relay.store.CacheOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.adapter.out.relay.store.EntityOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.adapter.out.relay.store.InMemoryOauthRelayCodeStore
+import com.infosung.atomic.app.oauth.adapter.out.relay.store.JpaOauthRelayCodeStore
+import com.infosung.atomic.app.oauth.adapter.out.relay.store.OauthRelayCodeRepository
 import com.infosung.atomic.app.oauth.adapter.out.relay.store.OauthRelayCodeStore
+import com.infosung.atomic.app.oauth.adapter.out.relay.store.OauthRelayCodeTableNamePolicy
 import com.infosung.atomic.app.oauth.application.port.`in`.ConsumeOauthRelayCodeUseCase
 import com.infosung.atomic.app.oauth.application.port.`in`.IssueOauthRelayCodeUseCase
 import com.infosung.atomic.app.oauth.application.port.out.StoreOauthRelayCodePort
@@ -40,6 +43,7 @@ class AtomicAppOauthRedirectRelayAutoConfiguration {
       timeProviderProvider: ObjectProvider<TimeProvider>,
       objectMapperProvider: ObjectProvider<ObjectMapper>,
       cacheManagerProvider: ObjectProvider<CacheManager>,
+      oauthRelayCodeRepositoryProvider: ObjectProvider<OauthRelayCodeRepository>,
       dataSourceProvider: ObjectProvider<DataSource>,
       transactionManagerProvider: ObjectProvider<PlatformTransactionManager>,
   ): OauthRelayCodeStore {
@@ -117,7 +121,25 @@ class AtomicAppOauthRedirectRelayAutoConfiguration {
         val dataSource = dataSourceProvider.getIfAvailable()
         val transactionManager = transactionManagerProvider.getIfAvailable()
         val objectMapper = objectMapperProvider.getIfAvailable()
-        if (dataSource == null || transactionManager == null || objectMapper == null) {
+        val sanitizedTableName =
+            OauthRelayCodeTableNamePolicy.validateOrThrow(properties.store.entity.tableName)
+        val oauthRelayCodeRepository = oauthRelayCodeRepositoryProvider.getIfAvailable()
+        if (transactionManager != null &&
+            objectMapper != null &&
+            sanitizedTableName == OauthRelayCodeTableNamePolicy.DEFAULT_TABLE_NAME &&
+            oauthRelayCodeRepository != null) {
+          log.info(
+              "Using JPA-backed oauth relay store: tableName={}, failFast={}",
+              sanitizedTableName,
+              properties.store.failFast,
+          )
+          JpaOauthRelayCodeStore(
+              oauthRelayCodeRepository = oauthRelayCodeRepository,
+              transactionTemplate = TransactionTemplate(transactionManager),
+              objectMapper = objectMapper,
+              timeProvider = timeProvider,
+          )
+        } else if (dataSource == null || transactionManager == null || objectMapper == null) {
           fallbackOrThrow(
               properties = properties,
               timeProvider = timeProvider,
@@ -125,10 +147,26 @@ class AtomicAppOauthRedirectRelayAutoConfiguration {
                   "atomic.app.oauth.redirect.store.type=entity requires DataSource, PlatformTransactionManager, and ObjectMapper beans.",
           )
         } else {
+          if (sanitizedTableName != OauthRelayCodeTableNamePolicy.DEFAULT_TABLE_NAME) {
+            log.warn(
+                "Configured custom oauth relay table-name disables JPA-backed entity store. Falling back to legacy JDBC entity store: tableName={}",
+                sanitizedTableName,
+            )
+          } else if (oauthRelayCodeRepository == null) {
+            log.info(
+                "JPA repository is not available for oauth relay entity store. Falling back to legacy JDBC entity store: tableName={}",
+                sanitizedTableName,
+            )
+          }
+          log.info(
+              "Using legacy JDBC-backed oauth relay store: tableName={}, failFast={}",
+              sanitizedTableName,
+              properties.store.failFast,
+          )
           EntityOauthRelayCodeStore(
               jdbcOperations = JdbcTemplate(dataSource),
               transactionTemplate = TransactionTemplate(transactionManager),
-              tableName = properties.store.entity.tableName,
+              tableName = sanitizedTableName,
               objectMapper = objectMapper,
               timeProvider = timeProvider,
           )

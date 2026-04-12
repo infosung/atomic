@@ -163,6 +163,14 @@ jobs:
       - name: Verify
         run: ./gradlew --no-configuration-cache spotlessCheck test
 
+      - name: Verify Oracle compatibility release gate
+        run: |
+          ./gradlew --no-configuration-cache \
+            :atomic-contract:test --tests '*JdbcTableMetadataLoaderVendorCompatibilityTest' \
+            :atomic-app:app-version:test --tests '*AppVersionOracleCompatibilityContractTest' \
+            :atomic-app:storage-api:test --tests '*AppImageOracleCompatibilityContractTest' \
+            :atomic-app:oauth-redirect:test --tests '*JpaOauthRelayCodeStoreOracleCompatibilityTest'
+
   publish:
     runs-on: ubuntu-latest
     needs:

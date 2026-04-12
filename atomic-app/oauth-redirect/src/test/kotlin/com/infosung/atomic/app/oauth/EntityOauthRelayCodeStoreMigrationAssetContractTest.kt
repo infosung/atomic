@@ -2,6 +2,7 @@ package com.infosung.atomic.app.oauth
 
 import com.infosung.atomic.app.oauth.adapter.out.relay.store.EntityOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.domain.OauthRelayPayload
+import com.infosung.atomic.contract.database.JdbcTableIndexMetadataLoader
 import com.infosung.atomic.contract.time.TimeProvider
 import com.infosung.atomic.oauth.api.OauthProviderName
 import java.time.Clock
@@ -62,19 +63,9 @@ class EntityOauthRelayCodeStoreMigrationAssetContractTest {
     assertEquals(OauthProviderName.GOOGLE, popped.provider)
     assertEquals("access-token", popped.accessToken)
 
-    val indexes =
-        jdbcTemplate.queryForList(
-            """
-            SELECT indexname
-            FROM pg_indexes
-            WHERE schemaname = 'public'
-              AND tablename = 'atomic_oauth_relay_code'
-            """
-                .trimIndent(),
-            String::class.java,
-        )
+    val indexes = JdbcTableIndexMetadataLoader(dataSource).loadIndexes("atomic_oauth_relay_code")
 
-    assertTrue(indexes.contains("idx_atomic_oauth_relay_code_expires_at"))
+    assertTrue(indexes.containsKey("idx_atomic_oauth_relay_code_expires_at"))
   }
 
   private fun newDataSource(): DriverManagerDataSource {
