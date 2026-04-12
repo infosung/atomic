@@ -7,7 +7,7 @@ import org.springframework.core.io.ClassPathResource
 class OauthRelaySqlAssetResourceContractTest {
   @Test
   fun `official oauth relay sql assets should exist and define documented table and index`() {
-    supportedVendors().forEach { vendor ->
+    officialVendors().forEach { vendor ->
       val sql = loadSql(vendor)
 
       assertTrue(
@@ -24,11 +24,20 @@ class OauthRelaySqlAssetResourceContractTest {
     }
   }
 
+  @Test
+  fun `h2 oauth relay sql asset should exist for test compatibility`() {
+    val sql = loadSql("h2")
+
+    assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS atomic_oauth_relay_code"))
+    assertTrue(sql.contains("relay_code"))
+    assertTrue(sql.contains("payload_json"))
+  }
+
   private fun loadSql(vendor: String): String =
       ClassPathResource("META-INF/atomic/sql/$vendor/atomic_oauth_relay_code.sql")
           .inputStream
           .bufferedReader()
           .use { it.readText() }
 
-  private fun supportedVendors(): List<String> = listOf("postgresql", "mysql", "mariadb")
+  private fun officialVendors(): List<String> = listOf("postgresql", "mysql", "mariadb", "oracle")
 }

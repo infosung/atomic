@@ -581,6 +581,8 @@ The authoritative starting-point assets now ship in module resources for:
 - `postgresql`
 - `mysql`
 - `mariadb`
+- `oracle`
+- `h2` for test compatibility only
 
 Paths:
 
@@ -592,8 +594,14 @@ For `service_version` and `image`, these assets now match explicit JPA table/col
 
 Support scope in this line:
 
-- official SQL assets and automated DB verification: `postgresql`, `mysql`, `mariadb`
+- official SQL assets and automated DB verification: `postgresql`, `mysql`, `mariadb`, `oracle`
+- test-compatibility assets and validation: `h2`
 - best-effort runtime compatibility: other JDBC/JPA-compatible relational databases with equivalent schema, validated by your own CI before production rollout
+
+JPA direction in this line:
+
+- `atomic-app:version` and `atomic-app:storage-api` keep the JPA-centered path. DB variance is handled at the SQL asset and JDBC metadata boundary.
+- `atomic-app:oauth-redirect` intentionally stays on the JDBC entity-store path for now because `atomic.app.oauth.redirect.store.entity.table-name` is a public runtime contract. Converting that path to JPA would effectively freeze table naming instead of keeping it host-configurable.
 
 The SQL below is the PostgreSQL reference snippet for the shipped contract, including the recovery-claim columns and supporting indexes used in the current line.
 

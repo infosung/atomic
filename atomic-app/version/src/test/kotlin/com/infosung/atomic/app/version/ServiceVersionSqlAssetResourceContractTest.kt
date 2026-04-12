@@ -7,7 +7,7 @@ import org.springframework.core.io.ClassPathResource
 class ServiceVersionSqlAssetResourceContractTest {
   @Test
   fun `official service version sql assets should exist for supported relational vendors`() {
-    supportedVendors().forEach { vendor ->
+    officialVendors().forEach { vendor ->
       val sql = loadSql(vendor)
 
       assertTrue(
@@ -35,14 +35,48 @@ class ServiceVersionSqlAssetResourceContractTest {
 
   @Test
   fun `official service version sql assets should widen store url and keep identifiers bounded`() {
-    supportedVendors().forEach { vendor ->
+    officialVendors().forEach { vendor ->
       val sql = loadSql(vendor)
 
-      assertTrue(
-          sql.contains("platform VARCHAR(255) NOT NULL"), "missing platform width for $vendor")
-      assertTrue(sql.contains("service VARCHAR(255) NOT NULL"), "missing service width for $vendor")
-      assertTrue(sql.contains("store_url TEXT NULL"), "missing widened store_url for $vendor")
+      when (vendor) {
+        "oracle" -> {
+          assertTrue(
+              sql.contains("platform VARCHAR2(255 CHAR) NOT NULL"),
+              "missing platform width for $vendor",
+          )
+          assertTrue(
+              sql.contains("service VARCHAR2(255 CHAR) NOT NULL"),
+              "missing service width for $vendor",
+          )
+          assertTrue(sql.contains("store_url CLOB NULL"), "missing widened store_url for $vendor")
+        }
+
+        else -> {
+          assertTrue(
+              sql.contains("platform VARCHAR(255) NOT NULL"),
+              "missing platform width for $vendor",
+          )
+          assertTrue(
+              sql.contains("service VARCHAR(255) NOT NULL"),
+              "missing service width for $vendor",
+          )
+          assertTrue(
+              sql.contains("store_url TEXT NULL"),
+              "missing widened store_url for $vendor",
+          )
+        }
+      }
     }
+  }
+
+  @Test
+  fun `h2 service version sql asset should exist for test compatibility`() {
+    val sql = loadSql("h2")
+
+    assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS service_version"))
+    assertTrue(sql.contains("store_available"))
+    assertTrue(sql.contains("platform VARCHAR(255) NOT NULL"))
+    assertTrue(sql.contains("service VARCHAR(255) NOT NULL"))
   }
 
   private fun loadSql(vendor: String): String =
@@ -51,5 +85,5 @@ class ServiceVersionSqlAssetResourceContractTest {
           .bufferedReader()
           .use { it.readText() }
 
-  private fun supportedVendors(): List<String> = listOf("postgresql", "mysql", "mariadb")
+  private fun officialVendors(): List<String> = listOf("postgresql", "mysql", "mariadb", "oracle")
 }

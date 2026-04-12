@@ -2,6 +2,7 @@ package com.infosung.atomic.app.oauth
 
 import com.infosung.atomic.app.oauth.adapter.out.relay.store.EntityOauthRelayCodeStore
 import com.infosung.atomic.app.oauth.domain.OauthRelayPayload
+import com.infosung.atomic.contract.database.JdbcTableIndexMetadataLoader
 import com.infosung.atomic.contract.time.TimeProvider
 import com.infosung.atomic.oauth.api.OauthProviderName
 import java.time.Clock
@@ -21,6 +22,7 @@ import org.testcontainers.containers.MariaDBContainer
 import org.testcontainers.containers.MySQLContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
+import org.testcontainers.oracle.OracleContainer
 import tools.jackson.module.kotlin.jacksonObjectMapper
 
 @Testcontainers(disabledWithoutDocker = true)
@@ -53,12 +55,26 @@ class OauthRelaySqlAssetVendorCompatibilityTest {
     )
   }
 
+  @Test
+  fun `oracle asset should support entity relay code store`() {
+    verifyOauthRelayAsset(
+        vendor = "oracle",
+        dataSource =
+            DriverManagerDataSource().apply {
+              setDriverClassName(oracle.driverClassName)
+              url = oracle.jdbcUrl
+              username = oracle.username
+              password = oracle.password
+            },
+    )
+  }
+
   private fun verifyOauthRelayAsset(
       vendor: String,
       dataSource: DriverManagerDataSource,
   ) {
     val jdbcTemplate = JdbcTemplate(dataSource)
-    jdbcTemplate.execute("DROP TABLE IF EXISTS atomic_oauth_relay_code")
+    dropTableQuietly(jdbcTemplate, "atomic_oauth_relay_code")
     ResourceDatabasePopulator(
             false,
             false,
@@ -93,18 +109,15 @@ class OauthRelaySqlAssetVendorCompatibilityTest {
     assertEquals(OauthProviderName.GOOGLE, popped.provider)
     assertEquals("access-token", popped.accessToken)
 
-    val indexes =
-        jdbcTemplate.queryForList(
-            """
-            SELECT index_name
-            FROM information_schema.statistics
-            WHERE table_schema = DATABASE()
-              AND table_name = 'atomic_oauth_relay_code'
-            """
-                .trimIndent(),
-            String::class.java,
-        )
-    assertTrue(indexes.contains("idx_atomic_oauth_relay_code_expires_at"))
+    val indexes = JdbcTableIndexMetadataLoader(dataSource).loadIndexes("atomic_oauth_relay_code")
+    assertTrue(indexes.containsKey("idx_atomic_oauth_relay_code_expires_at"))
+  }
+
+  private fun dropTableQuietly(
+      jdbcTemplate: JdbcTemplate,
+      tableName: String,
+  ) {
+    runCatching { jdbcTemplate.execute("DROP TABLE $tableName") }
   }
 
   companion object {
@@ -113,5 +126,9 @@ class OauthRelaySqlAssetVendorCompatibilityTest {
     @Container
     @JvmStatic
     private val mariadb: MariaDBContainer<*> = MariaDBContainer("mariadb:11.4")
+
+    @Container
+    @JvmStatic
+    private val oracle: OracleContainer = OracleContainer("gvenzl/oracle-free:23-slim-faststart")
   }
 }

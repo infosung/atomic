@@ -477,13 +477,15 @@ Prerequisites:
 - if your service uses only in-memory/cache relay and has no datasource, disable JDBC auto-config or provide datasource config.
   - example: `spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration`
 - if `store.type=entity` (default), prepare relay table (`atomic_oauth_relay_code` or configured table-name) before rollout.
-- official starting-point SQL assets ship for `postgresql`, `mysql`, and `mariadb` in module resources:
+- official starting-point SQL assets ship for `postgresql`, `mysql`, `mariadb`, and `oracle` in module resources:
   - `atomic-app/version`: `META-INF/atomic/sql/{vendor}/service_version.sql`
   - `atomic-app/storage-api`: `META-INF/atomic/sql/{vendor}/image.sql`
   - `atomic-app/oauth-redirect`: `META-INF/atomic/sql/{vendor}/atomic_oauth_relay_code.sql`
 - `service_version` and `image` physical table/column names are fixed in code to match those shipped SQL assets.
-- official DB support in this line means `postgresql`, `mysql`, and `mariadb`.
-- runtime schema preflight no longer assumes PostgreSQL catalog queries. It uses JDBC metadata, so other JDBC/JPA-compatible relational databases may work with equivalent schema, but that path is best-effort and should be self-validated in host CI before production rollout.
+- official DB support in this line means `postgresql`, `mysql`, `mariadb`, and `oracle`.
+- `h2` is shipped as test-compatibility only. Use it for library or host-app tests, not as an official production target in this line.
+- runtime schema preflight for `service_version` no longer assumes PostgreSQL catalog queries. It uses JDBC metadata, so equivalent schemas on other JDBC/JPA-compatible databases remain possible, but anything outside the official list should still be self-validated in host CI before production rollout.
+- `atomic-app:oauth-redirect` intentionally stays on a JDBC-backed entity store path for now because `atomic.app.oauth.redirect.store.entity.table-name` is a public runtime contract. Moving that path to JPA would require freezing table naming instead of keeping host-configurable table names.
 - Login API should consume relay payload using `ConsumeOauthRelayCodeUseCase.consume(relayCode)`.
 - Supported relay seams are the exported build/issue/consume use-case beans plus the exported `OauthRelayCodeStore` seam.
 

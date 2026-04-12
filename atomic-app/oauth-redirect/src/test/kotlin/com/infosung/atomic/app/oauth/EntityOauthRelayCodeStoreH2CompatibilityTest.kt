@@ -18,21 +18,23 @@ import org.springframework.jdbc.datasource.DataSourceTransactionManager
 import org.springframework.jdbc.datasource.DriverManagerDataSource
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator
 import org.springframework.transaction.support.TransactionTemplate
-import org.testcontainers.containers.PostgreSQLContainer
-import org.testcontainers.junit.jupiter.Container
-import org.testcontainers.junit.jupiter.Testcontainers
 import tools.jackson.module.kotlin.jacksonObjectMapper
 
-@Testcontainers(disabledWithoutDocker = true)
-class EntityOauthRelayCodeStoreMigrationAssetContractTest {
+class EntityOauthRelayCodeStoreH2CompatibilityTest {
   @Test
-  fun `official oauth relay sql asset should support entity relay code store`() {
-    val dataSource = newDataSource()
+  fun `h2 asset should support entity relay code store`() {
+    val dataSource =
+        DriverManagerDataSource().apply {
+          setDriverClassName("org.h2.Driver")
+          url = "jdbc:h2:mem:oauth_relay_h2;DB_CLOSE_DELAY=-1"
+          username = "sa"
+          password = ""
+        }
     ResourceDatabasePopulator(
             false,
             false,
             "UTF-8",
-            ClassPathResource("META-INF/atomic/sql/postgresql/atomic_oauth_relay_code.sql"),
+            ClassPathResource("META-INF/atomic/sql/h2/atomic_oauth_relay_code.sql"),
         )
         .execute(dataSource)
 
@@ -64,22 +66,6 @@ class EntityOauthRelayCodeStoreMigrationAssetContractTest {
     assertEquals("access-token", popped.accessToken)
 
     val indexes = JdbcTableIndexMetadataLoader(dataSource).loadIndexes("atomic_oauth_relay_code")
-
     assertTrue(indexes.containsKey("idx_atomic_oauth_relay_code_expires_at"))
-  }
-
-  private fun newDataSource(): DriverManagerDataSource {
-    return DriverManagerDataSource().apply {
-      setDriverClassName(postgres.driverClassName)
-      url = postgres.jdbcUrl
-      username = postgres.username
-      password = postgres.password
-    }
-  }
-
-  companion object {
-    @Container
-    @JvmStatic
-    private val postgres: PostgreSQLContainer<*> = PostgreSQLContainer("postgres:16-alpine")
   }
 }

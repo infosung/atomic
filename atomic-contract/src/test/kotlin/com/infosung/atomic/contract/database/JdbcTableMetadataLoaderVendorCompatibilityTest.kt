@@ -11,6 +11,7 @@ import org.testcontainers.containers.MariaDBContainer
 import org.testcontainers.containers.MySQLContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
+import org.testcontainers.oracle.OracleContainer
 
 @Testcontainers(disabledWithoutDocker = true)
 class JdbcTableMetadataLoaderVendorCompatibilityTest {
@@ -38,6 +39,34 @@ class JdbcTableMetadataLoaderVendorCompatibilityTest {
               url = mariadb.jdbcUrl
               username = mariadb.username
               password = mariadb.password
+            },
+    )
+  }
+
+  @Test
+  fun `loader should resolve service version metadata on oracle`() {
+    verifyServiceVersionMetadata(
+        vendor = "oracle",
+        dataSource =
+            DriverManagerDataSource().apply {
+              setDriverClassName(oracle.driverClassName)
+              url = oracle.jdbcUrl
+              username = oracle.username
+              password = oracle.password
+            },
+    )
+  }
+
+  @Test
+  fun `loader should resolve service version metadata on h2`() {
+    verifyServiceVersionMetadata(
+        vendor = "h2",
+        dataSource =
+            DriverManagerDataSource().apply {
+              setDriverClassName("org.h2.Driver")
+              url = "jdbc:h2:mem:jdbc_table_metadata_loader;DB_CLOSE_DELAY=-1"
+              username = "sa"
+              password = ""
             },
     )
   }
@@ -78,5 +107,9 @@ class JdbcTableMetadataLoaderVendorCompatibilityTest {
     @Container
     @JvmStatic
     private val mariadb: MariaDBContainer<*> = MariaDBContainer("mariadb:11.4")
+
+    @Container
+    @JvmStatic
+    private val oracle: OracleContainer = OracleContainer("gvenzl/oracle-free:23-slim-faststart")
   }
 }

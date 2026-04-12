@@ -1,5 +1,6 @@
 package com.infosung.atomic.app.version
 
+import com.infosung.atomic.contract.database.JdbcTableIndexMetadataLoader
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -13,6 +14,7 @@ import org.testcontainers.containers.MariaDBContainer
 import org.testcontainers.containers.MySQLContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
+import org.testcontainers.oracle.OracleContainer
 
 @Testcontainers(disabledWithoutDocker = true)
 class ServiceVersionSqlAssetVendorCompatibilityTest {
@@ -44,12 +46,26 @@ class ServiceVersionSqlAssetVendorCompatibilityTest {
     )
   }
 
+  @Test
+  fun `oracle asset should apply and enforce documented service version constraints`() {
+    verifyServiceVersionSqlAsset(
+        vendor = "oracle",
+        dataSource =
+            DriverManagerDataSource().apply {
+              setDriverClassName(oracle.driverClassName)
+              url = oracle.jdbcUrl
+              username = oracle.username
+              password = oracle.password
+            },
+    )
+  }
+
   private fun verifyServiceVersionSqlAsset(
       vendor: String,
       dataSource: DriverManagerDataSource,
   ) {
     val jdbcTemplate = JdbcTemplate(dataSource)
-    jdbcTemplate.execute("DROP TABLE IF EXISTS service_version")
+    dropTableQuietly(jdbcTemplate, "service_version")
     ResourceDatabasePopulator(
             false,
             false,
@@ -90,20 +106,10 @@ class ServiceVersionSqlAssetVendorCompatibilityTest {
         )
     assertEquals(1, count)
 
-    val indexes =
-        jdbcTemplate.queryForList(
-            """
-            SELECT index_name
-            FROM information_schema.statistics
-            WHERE table_schema = DATABASE()
-              AND table_name = 'service_version'
-            """
-                .trimIndent(),
-            String::class.java,
-        )
-    assertTrue(indexes.contains("idx_service_version_service_platform_required_update"))
-    assertTrue(indexes.contains("uq_service_version_service_platform_semver"))
-    assertTrue(!indexes.contains("idx_service_version_service_platform_version"))
+    val indexes = JdbcTableIndexMetadataLoader(dataSource).loadIndexes("service_version")
+    assertTrue(indexes.containsKey("idx_service_version_service_platform_required_update"))
+    assertTrue(indexes.containsKey("uq_service_version_service_platform_semver"))
+    assertTrue(!indexes.containsKey("idx_service_version_service_platform_version"))
 
     assertThrows<DataAccessException> {
       jdbcTemplate.update(
@@ -132,11 +138,22 @@ class ServiceVersionSqlAssetVendorCompatibilityTest {
     }
   }
 
+  private fun dropTableQuietly(
+      jdbcTemplate: JdbcTemplate,
+      tableName: String,
+  ) {
+    runCatching { jdbcTemplate.execute("DROP TABLE $tableName") }
+  }
+
   companion object {
     @Container @JvmStatic private val mysql: MySQLContainer<*> = MySQLContainer("mysql:8.4")
 
     @Container
     @JvmStatic
     private val mariadb: MariaDBContainer<*> = MariaDBContainer("mariadb:11.4")
+
+    @Container
+    @JvmStatic
+    private val oracle: OracleContainer = OracleContainer("gvenzl/oracle-free:23-slim-faststart")
   }
 }

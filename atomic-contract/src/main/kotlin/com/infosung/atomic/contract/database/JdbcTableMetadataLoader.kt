@@ -1,16 +1,18 @@
 package com.infosung.atomic.contract.database
 
-import java.sql.DatabaseMetaData
 import javax.sql.DataSource
 
 /** Loads table column metadata without assuming one vendor-specific catalog query. */
 class JdbcTableMetadataLoader(
     private val dataSource: DataSource,
 ) {
+  private val resolvedTableLocator = JdbcResolvedTableLocator()
+
   fun loadColumns(tableName: String): Map<String, JdbcTableColumnMetadata> {
     dataSource.connection.use { connection ->
       val metadata = connection.metaData
-      val resolvedTable = resolveTable(metadata, connection.catalog, connection.schema, tableName)
+      val resolvedTable =
+          resolvedTableLocator.resolve(metadata, connection.catalog, connection.schema, tableName)
       if (resolvedTable == null) {
         return emptyMap()
       }
@@ -32,67 +34,5 @@ class JdbcTableMetadataLoader(
             return columns
           }
     }
-  }
-
-  private fun resolveTable(
-      metadata: DatabaseMetaData,
-      catalog: String?,
-      schema: String?,
-      tableName: String,
-  ): ResolvedTable? {
-    val lowerCaseTableName = tableName.lowercase()
-    val upperCaseTableName = tableName.uppercase()
-    val preferredCaseTableName =
-        when {
-          metadata.storesLowerCaseIdentifiers() -> lowerCaseTableName
-          metadata.storesUpperCaseIdentifiers() -> upperCaseTableName
-          else -> null
-        }
-    val tableNameCandidates =
-        listOfNotNull(
-                tableName,
-                preferredCaseTableName,
-                lowerCaseTableName,
-                upperCaseTableName,
-            )
-            .distinct()
-    val scopeCandidates =
-        listOf(
-                Scope(catalog = catalog, schema = schema),
-                Scope(catalog = catalog, schema = null),
-                Scope(catalog = null, schema = schema),
-                Scope(catalog = null, schema = null),
-            )
-            .distinct()
-
-    for (candidateTableName in tableNameCandidates) {
-      for (scope in scopeCandidates) {
-        metadata.getTables(scope.catalog, scope.schema, candidateTableName, TABLE_TYPES).use { rs ->
-          if (rs.next()) {
-            return ResolvedTable(
-                catalog = rs.getString("TABLE_CAT"),
-                schema = rs.getString("TABLE_SCHEM"),
-                name = rs.getString("TABLE_NAME"),
-            )
-          }
-        }
-      }
-    }
-    return null
-  }
-
-  private data class Scope(
-      val catalog: String?,
-      val schema: String?,
-  )
-
-  private data class ResolvedTable(
-      val catalog: String?,
-      val schema: String?,
-      val name: String,
-  )
-
-  private companion object {
-    val TABLE_TYPES: Array<String> = arrayOf("TABLE")
   }
 }
