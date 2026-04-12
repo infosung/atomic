@@ -44,7 +44,7 @@ Use only the modules you need.
 - `atomic.spring.oauth2`: OAuth provider integration (Google/Kakao/Apple), redirect flow and id token/userinfo identity resolution
 - `atomic.heartbeat`: periodic heartbeat ping orchestration with optional DB/Redis dependency checks and dedup policy
 - `atomic.event.log`: common event log ingestion core
-- `atomic.event.log.parquet`: bounded Parquet export and spool/store integration
+- `atomic.event.log.parquet`: bounded Parquet export coordination and spool/store integration
 - `atomic.event.log.iceberg`: Iceberg publication strategy and commit/table contracts
 - `atomic.event.log.duckdb`: DuckDB query helper layer for event-log analysis
 - `atomic.event.log.spring.web`: bridge from `atomic.spring.web` API logs into event-log envelopes
@@ -56,6 +56,11 @@ If your first goal is event-log collection rather than app APIs, start in this o
 2. `atomic.event.log.parquet`
 3. `atomic.event.log.ingest.api` or `atomic.event.log.spring.web`
 4. `atomic.event.log.iceberg` and `atomic.event.log.duckdb` only when you need them
+
+Recommended event-log reading order:
+- collector/server composition: [atomic.event.log Guide](atomic-event-log.md)
+- client envelope and batching: [atomic.event.log Client Guide](atomic-event-log-client.md)
+- export, Iceberg, and DuckDB: [atomic.event.log Lakehouse Guide](atomic-event-log-lakehouse.md)
 
 ## 2. Dependencies
 

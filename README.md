@@ -57,7 +57,7 @@ Relationship summary:
 
 - `atomic.event.log`: transport-agnostic common event log ingestion core module
 - `atomic.event.log.iceberg`: Iceberg table and commit contract for multi-service event log lakehouse flows
-- `atomic.event.log.parquet`: durable spool, partition, and staged Parquet export module
+- `atomic.event.log.parquet`: durable spool, partition, and staged Parquet export coordination module
 - `atomic.event.log.duckdb`: DuckDB SQL/query helper module for event log lakehouse analysis
 - `atomic.event.log.spring.web`: adapter from `atomic.spring.web` API logs into the common event log envelope
 - `atomic.event.log.ingest.api`: official Spring MVC ingest API module with async memory-queue intake
@@ -157,7 +157,7 @@ dependencies {
 | Feature | Required dependency | Activation properties | App-side required components |
 |---|---|---|---|
 | Common event log ingestion core | `atomic.event.log` (+ `atomic.contract`) | none | call `EventLogIngestionService`, provide `EventLogStore`, and attach transport/storage adapters outside the core module |
-| Multi-service event log lakehouse pipeline | `atomic.event.log` + `atomic.event.log.iceberg` + `atomic.event.log.parquet` + `atomic.event.log.duckdb` (+ `atomic.contract`) | none | append validated records through `SpoolBackedEventLogStore`, export bounded Parquet files, commit them via `EventLogIcebergCatalog`, and query through `EventLogDuckDbSqlRenderer` |
+| Multi-service event log lakehouse pipeline | `atomic.event.log` + `atomic.event.log.iceberg` + `atomic.event.log.parquet` + `atomic.event.log.duckdb` (+ `atomic.contract`) | none | append validated records through `SpoolBackedEventLogStore`, coordinate Parquet publication through a host-provided `EventLogParquetFileRepository`, commit files via `EventLogIcebergCatalog`, and query through `EventLogDuckDbSqlRenderer` |
 | Official HTTP event-log ingest API | `atomic.event.log.ingest.api` + `atomic.event.log` (+ `atomic.event.log.parquet` for export) | `atomic.event.log.ingest.enabled=true` | provide `EventLogStore` or custom `IngestEventLogUseCase`; choose `ASYNC` memory queue or explicit `SYNC` mode |
 | atomic.spring.web to common event log adapter | `atomic.event.log.spring.web` + `atomic.spring.web` + `atomic.event.log` | none | register `AtomicSpringWebEventLogSaver` as the `LogSaver` implementation and keep your existing `ApiLogAspect` capture layer |
 | Contract utilities (`TimeProvider`, `TraceIdGenerator`) | `atomic.contract` (starter optional) | none | In starter-based flow these are auto-configured; for direct usage, `atomic.contract` alone is enough |
@@ -638,6 +638,7 @@ This README now consolidates those points into one starter-first onboarding path
 - [atomic.starter Guide](docs/usage/atomic-starter.md)
 - [atomic.contract Guide](docs/usage/atomic-contract.md)
 - [atomic.event.log Guide](docs/usage/atomic-event-log.md)
+- [atomic.event.log Client Guide](docs/usage/atomic-event-log-client.md)
 - [atomic.event.log Lakehouse Guide](docs/usage/atomic-event-log-lakehouse.md)
 - [atomic.app Guide](docs/usage/atomic-app.md)
 - [atomic.storage Guide](docs/usage/atomic-storage.md)
