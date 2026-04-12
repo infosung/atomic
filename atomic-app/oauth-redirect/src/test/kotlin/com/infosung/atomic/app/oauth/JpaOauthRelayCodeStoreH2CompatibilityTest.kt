@@ -36,6 +36,7 @@ import tools.jackson.module.kotlin.jacksonObjectMapper
 @Import(JpaOauthRelayCodeStoreH2CompatibilityTest.TestConfiguration::class)
 class JpaOauthRelayCodeStoreH2CompatibilityTest {
   @Autowired private lateinit var store: OauthRelayCodeStore
+  @Autowired private lateinit var repository: OauthRelayCodeRepository
 
   @Test
   fun `jpa relay code store should save and pop on h2`() {
@@ -55,6 +56,39 @@ class JpaOauthRelayCodeStoreH2CompatibilityTest {
     assertNotNull(popped)
     assertEquals(OauthProviderName.GOOGLE, popped.provider)
     assertEquals("access-token", popped.accessToken)
+  }
+
+  @Test
+  fun `jpa relay code store should overwrite existing relay code without duplicate row`() {
+    store.save(
+        relayCode = "relay-1",
+        payload =
+            OauthRelayPayload(
+                provider = OauthProviderName.GOOGLE,
+                accessToken = "access-token-1",
+                nonce = "nonce-1",
+            ),
+        expiresAt = Instant.parse("2026-03-14T00:05:00Z"),
+    )
+    store.save(
+        relayCode = "relay-1",
+        payload =
+            OauthRelayPayload(
+                provider = OauthProviderName.KAKAO,
+                accessToken = "access-token-2",
+                nonce = "nonce-2",
+            ),
+        expiresAt = Instant.parse("2026-03-14T00:10:00Z"),
+    )
+
+    assertEquals(1, repository.count())
+
+    val popped = store.pop("relay-1", Instant.parse("2026-03-14T00:01:00Z"))
+
+    assertNotNull(popped)
+    assertEquals(OauthProviderName.KAKAO, popped.provider)
+    assertEquals("access-token-2", popped.accessToken)
+    assertEquals("nonce-2", popped.nonce)
   }
 
   @SpringBootConfiguration

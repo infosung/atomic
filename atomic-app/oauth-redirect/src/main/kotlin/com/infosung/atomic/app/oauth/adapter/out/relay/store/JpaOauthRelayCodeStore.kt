@@ -26,7 +26,6 @@ internal class JpaOauthRelayCodeStore(
     val now = timeProvider.nowInstant()
 
     transactionTemplate.executeWithoutResult {
-      oauthRelayCodeRepository.deleteById(relayCode)
       oauthRelayCodeRepository.saveAndFlush(
           OauthRelayCodeEntity(
               relayCode = relayCode,
