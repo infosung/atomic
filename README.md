@@ -82,28 +82,28 @@ Relationship summary:
 
 ## Dependency Setup
 
-### Published Artifact Examples (`v0.1.0`)
+### Published Artifact Examples (`v0.1.1`)
 
 ```kotlin
 dependencies {
-  implementation("com.infosung:atomic.event.log:0.1.0")
-  implementation("com.infosung:atomic.event.log.iceberg:0.1.0")
-  implementation("com.infosung:atomic.event.log.parquet:0.1.0")
-  implementation("com.infosung:atomic.event.log.duckdb:0.1.0")
-  implementation("com.infosung:atomic.event.log.spring.web:0.1.0")
-  implementation("com.infosung:atomic.event.log.ingest.api:0.1.0")
-  implementation("com.infosung:atomic.contract:0.1.0")
-  implementation("com.infosung:atomic.storage:0.1.0")
-  implementation("com.infosung:atomic.spring.web:0.1.0")
-  implementation("com.infosung:atomic.spring.security:0.1.0")
-  implementation("com.infosung:atomic.spring.idempotency:0.1.0")
-  implementation("com.infosung:atomic.spring.oauth2:0.1.0")
-  implementation("com.infosung:atomic.heartbeat:0.1.0")
-  implementation("com.infosung:atomic.starter:0.1.0")
-  implementation("com.infosung:atomic.app.version:0.1.0")
-  implementation("com.infosung:atomic.app.storage.api:0.1.0")
-  implementation("com.infosung:atomic.app.oauth.redirect:0.1.0")
-  implementation("com.infosung:atomic.app:0.1.0")
+  implementation("com.infosung:atomic.event.log:0.1.1")
+  implementation("com.infosung:atomic.event.log.iceberg:0.1.1")
+  implementation("com.infosung:atomic.event.log.parquet:0.1.1")
+  implementation("com.infosung:atomic.event.log.duckdb:0.1.1")
+  implementation("com.infosung:atomic.event.log.spring.web:0.1.1")
+  implementation("com.infosung:atomic.event.log.ingest.api:0.1.1")
+  implementation("com.infosung:atomic.contract:0.1.1")
+  implementation("com.infosung:atomic.storage:0.1.1")
+  implementation("com.infosung:atomic.spring.web:0.1.1")
+  implementation("com.infosung:atomic.spring.security:0.1.1")
+  implementation("com.infosung:atomic.spring.idempotency:0.1.1")
+  implementation("com.infosung:atomic.spring.oauth2:0.1.1")
+  implementation("com.infosung:atomic.heartbeat:0.1.1")
+  implementation("com.infosung:atomic.starter:0.1.1")
+  implementation("com.infosung:atomic.app.version:0.1.1")
+  implementation("com.infosung:atomic.app.storage.api:0.1.1")
+  implementation("com.infosung:atomic.app.oauth.redirect:0.1.1")
+  implementation("com.infosung:atomic.app:0.1.1")
 }
 ```
 

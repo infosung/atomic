@@ -1,6 +1,6 @@
 # atomic.event.log Lakehouse Guide
 
-This guide explains how the event-log storage side is intended to be composed in `0.1.0`.
+This guide explains how the event-log storage side is intended to be composed in `0.1.1`.
 
 The current stack supports three operational modes:
 
@@ -138,7 +138,7 @@ Important limitation:
 - if your rollout requires request-time append semantics, use `SYNC` with a file-backed store/spool
   and document the throughput tradeoff explicitly
 
-In the current `0.1.0` collector line, `InMemoryEventLogSpool` is the lighter default recommendation
+In the current `0.1.1` collector line, `InMemoryEventLogSpool` is the lighter default recommendation
 for general intake servers. `FileEventLogSpool` remains an explicit host choice, not the default
 collector recommendation.
 
