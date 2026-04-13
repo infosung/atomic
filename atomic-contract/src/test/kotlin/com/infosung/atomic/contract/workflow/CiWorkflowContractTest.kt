@@ -108,9 +108,13 @@ class CiWorkflowContractTest {
         verifyJob.steps.any {
           it.name == "Verify compatibility tests" &&
               it.ifExpression == "matrix.label != 'baseline'" &&
-              it.run == "./gradlew test -Datomic.contract.skipSecureSpringBootBaseline=true"
+              it.run == "./gradlew test"
         },
         "ci workflow should verify compatibility tests for every non-baseline matrix lane while preserving the secure catalog baseline contract for committed sources",
+    )
+    assertTrue(
+        workflow.contains("ATOMIC_CONTRACT_SKIP_SECURE_SPRING_BOOT_BASELINE: \"true\""),
+        "ci workflow should pass the secure baseline skip flag through the test process environment for non-baseline lanes",
     )
     assertFalse(
         workflow.contains("resolve-verify-matrix:"),
