@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch'))
     outputs:
       should_publish: ${{ steps.resolve.outputs.should_publish }}
       version: ${{ steps.resolve.outputs.version }}
@@ -33,11 +33,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Guard main branch on manual run
+      - name: Guard manual release ref
         if: github.event_name == 'workflow_dispatch'
         run: |
-          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
-            echo "workflow_dispatch must run on refs/heads/main. current=${GITHUB_REF}"
+          if [[ "${GITHUB_REF}" != "refs/heads/main" && ! "${GITHUB_REF}" =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "workflow_dispatch must run on refs/heads/main or a semver release tag. current=${GITHUB_REF}"
             exit 1
           fi
 
@@ -55,12 +55,6 @@ jobs:
 
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             if git ls-remote --exit-code --tags origin "refs/tags/${EXPECTED_TAG}" >/dev/null 2>&1; then
-              CURRENT_HEAD=$(git rev-parse HEAD)
-              TAG_COMMIT=$(git rev-list -n 1 "${EXPECTED_TAG}")
-              if [ "${CURRENT_HEAD}" != "${TAG_COMMIT}" ]; then
-                echo "Manual publish requires HEAD to match ${EXPECTED_TAG}: head=${CURRENT_HEAD}, tag=${TAG_COMMIT}"
-                exit 1
-              fi
               SHOULD_PUBLISH=true
             else
               echo "Tag ${EXPECTED_TAG} not found on origin. Refusing manual publish."

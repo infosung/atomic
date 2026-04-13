@@ -65,16 +65,21 @@ class PublishMavenCentralWorkflowContractTest {
     assertTrue(workflow.contains("workflow_run:"), "workflow_run trigger must remain")
     assertTrue(workflow.contains("workflow_dispatch:"), "workflow_dispatch trigger must remain")
     assertTrue(
+        workflow.contains(
+            "github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch'"),
+        "publish workflow should accept both push-triggered and manually recovered tag-and-release runs",
+    )
+    assertTrue(
         workflow.contains("github.event.workflow_run.head_sha"),
         "workflow_run source SHA guard must remain",
     )
     assertTrue(
-        workflow.contains("workflow_dispatch must run on refs/heads/main"),
-        "manual main branch guard must remain",
+        workflow.contains("workflow_dispatch must run on refs/heads/main or a semver release tag"),
+        "manual publish should allow either main or the semver release tag ref",
     )
     assertTrue(
         workflow.contains("Manual publish requires HEAD to match"),
-        "manual publish should verify that current HEAD matches the release tag commit",
+        "manual publish should still verify the tag checkout during the guarded release steps",
     )
     assertTrue(
         workflow.contains("SNAPSHOT version cannot be published to Maven Central"),
