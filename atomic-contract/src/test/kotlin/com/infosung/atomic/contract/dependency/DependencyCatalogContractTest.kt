@@ -5,15 +5,22 @@ import kotlin.test.Test
 import kotlin.test.assertTrue
 
 class DependencyCatalogContractTest {
+  private companion object {
+    const val SKIP_SECURE_BASELINE_CHECK_PROPERTY = "atomic.contract.skipSecureSpringBootBaseline"
+
+    val secureSpringBootLinePattern =
+        Regex("""^\s*springboot\s*=\s*"4\.0\.(\d+)"\s*$""", RegexOption.MULTILINE)
+  }
+
   @Test
   fun `spring boot catalog version should stay on the fixed 4_0_x patch line`() {
+    if (System.getProperty(SKIP_SECURE_BASELINE_CHECK_PROPERTY) == "true") {
+      return
+    }
+
     val catalog = DocumentationContractFixtures.read("gradle/libs.versions.toml")
     val patchVersion =
-        Regex("""^springboot = "4\.0\.(\d+)"$""", RegexOption.MULTILINE)
-            .find(catalog)
-            ?.groupValues
-            ?.get(1)
-            ?.toIntOrNull()
+        secureSpringBootLinePattern.find(catalog)?.groupValues?.get(1)?.toIntOrNull()
             ?: error("Failed to read springboot version from gradle/libs.versions.toml")
 
     assertTrue(
