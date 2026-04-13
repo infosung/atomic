@@ -31,6 +31,8 @@ jobs:
       - name: Resolve version and tag decision
         id: resolve
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           NEW_VERSION=$(grep -E '^projectVersion = ' gradle/libs.versions.toml | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/')
           if [ -z "${NEW_VERSION}" ]; then
@@ -43,7 +45,10 @@ jobs:
             exit 1
           fi
 
+          TAG="v${NEW_VERSION}"
           SHOULD_TAG=true
+          SHOULD_CREATE_RELEASE=true
+          TAG_EXISTS=false
           if [ "${{ github.event_name }}" = "push" ] && git rev-parse HEAD^ >/dev/null 2>&1; then
             OLD_VERSION=$(git show HEAD^:gradle/libs.versions.toml 2>/dev/null | grep -E '^projectVersion = ' | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/' || true)
             if [ -n "${OLD_VERSION}" ] && [ "${OLD_VERSION}" = "${NEW_VERSION}" ]; then
@@ -52,33 +57,40 @@ jobs:
             fi
           fi
 
-          if git ls-remote --exit-code --tags origin "refs/tags/v${NEW_VERSION}" >/dev/null 2>&1; then
+          if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+            TAG_EXISTS=true
             SHOULD_TAG=false
-            echo "Tag already exists: v${NEW_VERSION}; skipping"
+            echo "Tag already exists: ${TAG}; skipping"
+          fi
+
+          if [ "${TAG_EXISTS}" = "true" ] && gh release view "${TAG}" >/dev/null 2>&1; then
+            SHOULD_CREATE_RELEASE=false
+            echo "GitHub release already exists: ${TAG}; skipping release create"
           fi
 
           echo "version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "should_tag=${SHOULD_TAG}" >> "$GITHUB_OUTPUT"
+          echo "should_create_release=${SHOULD_CREATE_RELEASE}" >> "$GITHUB_OUTPUT"
 
       - name: Create and push tag
         if: steps.resolve.outputs.should_tag == 'true'
         run: |
-          TAG="v${{ steps.resolve.outputs.version }}"
+          TAG="${{ steps.resolve.outputs.tag }}"
           git tag "${TAG}"
           git push origin "${TAG}"
 
       - name: Create GitHub Release
-        if: steps.resolve.outputs.should_tag == 'true'
+        if: steps.resolve.outputs.should_create_release == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="v${{ steps.resolve.outputs.version }}"
-          NOTES_FILE="docs/release-notes/${{ steps.resolve.outputs.version }}.md"
+          TAG="${{ steps.resolve.outputs.tag }}"
+          NOTES_FILE="docs/release-notes/${TAG}.md"
           if [ ! -f "${NOTES_FILE}" ]; then
             echo "Missing release notes file: ${NOTES_FILE}"
             exit 1
           fi
           gh release create "${TAG}" \
-            --target "${GITHUB_SHA}" \
             --title "${TAG}" \
             --notes-file "${NOTES_FILE}"
