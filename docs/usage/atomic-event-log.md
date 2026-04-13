@@ -1,6 +1,6 @@
 # atomic.event.log Guide
 
-This guide explains how `0.1.1` should be used to compose an event-log collector server.
+This guide explains how `0.1.2` should be used to compose an event-log collector server.
 
 Important scope note:
 - `atomic.event.log` is a library stack, not a standalone executable collector.
@@ -107,9 +107,9 @@ Published artifact example:
 
 ```kotlin
 dependencies {
-  implementation("com.infosung:atomic.event.log:0.1.1")
-  implementation("com.infosung:atomic.event.log.parquet:0.1.1")
-  implementation("com.infosung:atomic.event.log.ingest.api:0.1.1")
+  implementation("com.infosung:atomic.event.log:0.1.2")
+  implementation("com.infosung:atomic.event.log.parquet:0.1.2")
+  implementation("com.infosung:atomic.event.log.ingest.api:0.1.2")
 }
 ```
 
@@ -117,7 +117,7 @@ If you already use `atomic.spring.web` and want to forward existing API logs int
 collector pipeline, add:
 
 ```kotlin
-implementation("com.infosung:atomic.event.log.spring.web:0.1.1")
+implementation("com.infosung:atomic.event.log.spring.web:0.1.2")
 ```
 
 Important:
@@ -181,7 +181,7 @@ class EventLogCollectorConfiguration {
 ### Parquet export wiring
 
 `atomic.event.log.parquet` ships the export coordinator and key/partition policy, but it does not
-ship a concrete `EventLogParquetFileRepository` implementation in `0.1.1`.
+ship a concrete `EventLogParquetFileRepository` implementation in `0.1.2`.
 
 That means the host must still implement:
 
@@ -364,7 +364,7 @@ Each batch belongs to one `serviceId`, and downstream storage is partitioned by 
 That lets one collector server handle logs from multiple products without mixing their lakehouse
 paths.
 
-## 11. Recommended Default for `0.1.1`
+## 11. Recommended Default for `0.1.2`
 
 For a new collector host, the safest starting point is:
 
@@ -381,5 +381,5 @@ For a new collector host, the safest starting point is:
 - `ASYNC` queue data is memory-only until the background worker processes it.
 - abrupt process termination can lose not-yet-processed queued batches.
 - Parquet export is not automatic just because ingest works; the host must own scheduler cadence.
-- `EventLogParquetFileRepository` is still a host seam in `0.1.1`.
+- `EventLogParquetFileRepository` is still a host seam in `0.1.2`.
 - if export falls behind, ingestion may still succeed while downstream analysis becomes stale.

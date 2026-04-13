@@ -13,17 +13,18 @@ This guide focuses only on getting a working flow quickly.
 
 Dependency notation:
 - Gradle snippets below assume a local multi-module setup (`project(":...")`).
-- Published artifact equivalents for `v0.1.1` are:
-  - version-only: `implementation("com.infosung:atomic.app.version:0.1.1")`
-  - image API: `implementation("com.infosung:atomic.starter:0.1.1")`, `implementation("com.infosung:atomic.app.storage.api:0.1.1")`, `implementation("com.infosung:atomic.storage:0.1.1")`
-  - oauth redirect relay API: `implementation("com.infosung:atomic.starter:0.1.1")`, `implementation("com.infosung:atomic.app.oauth.redirect:0.1.1")`, `implementation("com.infosung:atomic.spring.oauth2:0.1.1")`
-  - event-log ingest API: `implementation("com.infosung:atomic.event.log:0.1.1")`, `implementation("com.infosung:atomic.event.log.parquet:0.1.1")`, `implementation("com.infosung:atomic.event.log.ingest.api:0.1.1")`
-  - convenience bundle: `implementation("com.infosung:atomic.app:0.1.1")`
+- Published artifact equivalents for `v0.1.2` are:
+  - version-only: `implementation("com.infosung:atomic.app.version:0.1.2")`
+  - image API: `implementation("com.infosung:atomic.starter:0.1.2")`, `implementation("com.infosung:atomic.app.storage.api:0.1.2")`, `implementation("com.infosung:atomic.storage:0.1.2")`
+  - oauth redirect relay API: `implementation("com.infosung:atomic.starter:0.1.2")`, `implementation("com.infosung:atomic.app.oauth.redirect:0.1.2")`, `implementation("com.infosung:atomic.spring.oauth2:0.1.2")`
+  - event-log ingest API: `implementation("com.infosung:atomic.event.log:0.1.2")`, `implementation("com.infosung:atomic.event.log.parquet:0.1.2")`, `implementation("com.infosung:atomic.event.log.ingest.api:0.1.2")`
+  - convenience bundle: `implementation("com.infosung:atomic.app:0.1.2")`
 
 Quick decision:
 - If you are still pre-production, validate behavior first with this document.
 - For production or multi-instance deployment, continue with [advanced-playbook](advanced-playbook.md).
-- If you are upgrading an existing host, also review the latest [Release Migration Guide: v0.0.5 -> v0.1.1](../migration/v0.0.5-to-v0.1.1.md).
+- If you are upgrading an existing `0.1.x` host, review [Release Migration Guide: `v0.1.1` -> `v0.1.2`](../migration/v0.1.1-to-v0.1.2.md).
+- If you are coming from the pre-`0.1.x` line, also review [Release Migration Guide: `v0.0.5` -> `v0.1.1`](../migration/v0.0.5-to-v0.1.1.md).
 
 ---
 
@@ -60,9 +61,9 @@ Published artifact equivalent:
 
 ```kotlin
 dependencies {
-  implementation("com.infosung:atomic.event.log:0.1.1")
-  implementation("com.infosung:atomic.event.log.parquet:0.1.1")
-  implementation("com.infosung:atomic.event.log.ingest.api:0.1.1")
+  implementation("com.infosung:atomic.event.log:0.1.2")
+  implementation("com.infosung:atomic.event.log.parquet:0.1.2")
+  implementation("com.infosung:atomic.event.log.ingest.api:0.1.2")
 }
 ```
 
@@ -71,32 +72,32 @@ Published artifact equivalents for the same three tracks:
 ```kotlin
 // A. version-only
 dependencies {
-  implementation("com.infosung:atomic.app.version:0.1.1")
+  implementation("com.infosung:atomic.app.version:0.1.2")
 }
 ```
 
 ```kotlin
 // B. image API
 dependencies {
-  implementation("com.infosung:atomic.starter:0.1.1")
-  implementation("com.infosung:atomic.app.storage.api:0.1.1")
-  implementation("com.infosung:atomic.storage:0.1.1")
+  implementation("com.infosung:atomic.starter:0.1.2")
+  implementation("com.infosung:atomic.app.storage.api:0.1.2")
+  implementation("com.infosung:atomic.storage:0.1.2")
 }
 ```
 
 ```kotlin
 // C. oauth redirect relay API
 dependencies {
-  implementation("com.infosung:atomic.starter:0.1.1")
-  implementation("com.infosung:atomic.app.oauth.redirect:0.1.1")
-  implementation("com.infosung:atomic.spring.oauth2:0.1.1")
+  implementation("com.infosung:atomic.starter:0.1.2")
+  implementation("com.infosung:atomic.app.oauth.redirect:0.1.2")
+  implementation("com.infosung:atomic.spring.oauth2:0.1.2")
 }
 ```
 
 ```kotlin
 // Convenience bundle
 dependencies {
-  implementation("com.infosung:atomic.app:0.1.1")
+  implementation("com.infosung:atomic.app:0.1.2")
 }
 ```
 
