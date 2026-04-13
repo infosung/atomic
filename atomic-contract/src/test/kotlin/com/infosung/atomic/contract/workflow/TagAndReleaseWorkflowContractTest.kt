@@ -26,8 +26,12 @@ class TagAndReleaseWorkflowContractTest {
         "unchanged projectVersion should skip retagging",
     )
     assertTrue(
-        workflow.contains("Tag already exists: v"),
+        workflow.contains("Tag already exists:"),
         "existing tags should skip duplicate tagging",
+    )
+    assertTrue(
+        workflow.contains("GitHub release already exists:"),
+        "existing GitHub releases should skip duplicate release creation",
     )
   }
 
@@ -36,8 +40,8 @@ class TagAndReleaseWorkflowContractTest {
     assertTrue(workflow.contains("git tag"), "release workflow should create the git tag")
     assertTrue(workflow.contains("git push origin"), "release workflow should push the release tag")
     assertTrue(
-        workflow.contains("docs/release-notes/\${{ steps.resolve.outputs.version }}.md"),
-        "release workflow should require a versioned release notes file",
+        workflow.contains("docs/release-notes/\${TAG}.md"),
+        "release workflow should require the tagged release notes file",
     )
     assertTrue(
         workflow.contains("gh release create"),
@@ -46,6 +50,14 @@ class TagAndReleaseWorkflowContractTest {
     assertTrue(
         workflow.contains("--notes-file"),
         "release workflow should publish the curated release notes file instead of generated notes",
+    )
+    assertTrue(
+        workflow.contains("gh release view"),
+        "release workflow should detect when the GitHub release already exists",
+    )
+    assertTrue(
+        workflow.contains("should_create_release"),
+        "release workflow should recover by creating a release even when the git tag already exists",
     )
   }
 }
