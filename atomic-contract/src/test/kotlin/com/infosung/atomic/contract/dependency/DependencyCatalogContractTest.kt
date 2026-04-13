@@ -10,7 +10,7 @@ class DependencyCatalogContractTest {
     const val SKIP_SECURE_BASELINE_CHECK_ENV = "ATOMIC_CONTRACT_SKIP_SECURE_SPRING_BOOT_BASELINE"
 
     val secureSpringBootLinePattern =
-        Regex("""^\s*springboot\s*=\s*"4\.0\.(\d+)"\s*$""", RegexOption.MULTILINE)
+        Regex("""^\s*springboot\s*=\s*"4\.0\.(\d+)"""", RegexOption.MULTILINE)
   }
 
   @Test
