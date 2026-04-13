@@ -16,7 +16,7 @@ Enable only the feature packs you use.
 ## Prerequisites
 
 - Spring MVC app
-- Tested with Java `25`, Kotlin `2.3.10`, Spring Boot `4.0.3`
+- Tested with Java `25`, Kotlin `2.3.10`, Spring Boot `4.0.5`
 - `atomic.contract` dependency
 
 ## Quick Start (First Day)

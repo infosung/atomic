@@ -7,7 +7,7 @@ This guide focuses only on getting a working flow quickly.
 | Item | Minimum |
 |---|---|
 | App type | Spring Boot Web application |
-| Tested baseline | Java `25`, Kotlin `2.3.10`, Spring Boot `4.0.3` |
+| Tested baseline | Java `25`, Kotlin `2.3.10`, Spring Boot `4.0.5` |
 | Database | Required for `version` and `image` tracks. The `oauth redirect` track needs DB only when you keep the default entity relay store. |
 | Module dependencies | Use the track table below as-is. |
 

@@ -14,20 +14,8 @@ class CiWorkflowContractTest {
   fun `ci workflow should keep existing compatibility lanes and add previous latest stable lanes`() {
     val lanes = verifyJob.include
     assertTrue(
-        lanes.any { it.springboot == "4.0.3" && it.kotlin == "2.3.10" && it.label == "baseline" },
-        "ci workflow should keep the baseline Spring Boot lane",
-    )
-    assertTrue(
-        lanes.any { it.springboot == "4.0.2" && it.kotlin == "2.3.10" && it.label == "compat" },
-        "ci workflow should keep the first Spring Boot compatibility lane",
-    )
-    assertTrue(
-        lanes.any { it.springboot == "4.0.1" && it.kotlin == "2.3.10" && it.label == "compat" },
-        "ci workflow should keep the second Spring Boot compatibility lane",
-    )
-    assertTrue(
-        lanes.any { it.springboot == "4.0.3" && it.kotlin == "2.3.0" && it.label == "compat" },
-        "ci workflow should keep the Kotlin compatibility lane",
+        lanes.any { it.springboot == "4.0.5" && it.kotlin == "2.3.10" && it.label == "baseline" },
+        "ci workflow should keep the secure baseline Spring Boot lane",
     )
     assertTrue(
         lanes.any {
@@ -37,17 +25,39 @@ class CiWorkflowContractTest {
     )
     assertTrue(
         lanes.any {
+          it.springboot == "4.0.3" && it.kotlin == "2.3.10" && it.label == "legacy-compat"
+        },
+        "ci workflow should keep the first legacy Spring Boot compatibility lane",
+    )
+    assertTrue(
+        lanes.any {
+          it.springboot == "4.0.2" && it.kotlin == "2.3.10" && it.label == "legacy-compat"
+        },
+        "ci workflow should keep the second legacy Spring Boot compatibility lane",
+    )
+    assertTrue(
+        lanes.any {
+          it.springboot == "4.0.1" && it.kotlin == "2.3.10" && it.label == "legacy-compat"
+        },
+        "ci workflow should keep the third legacy Spring Boot compatibility lane",
+    )
+    assertTrue(
+        lanes.any {
           it.springboot == "4.0.5" && it.kotlin == "2.3.10" && it.label == "latest-boot"
         },
         "ci workflow should keep the latest stable Spring Boot lane",
     )
     assertTrue(
-        lanes.any { it.kotlin == "2.3.10" },
+        lanes.any { it.springboot == "4.0.5" && it.kotlin == "2.3.0" && it.label == "compat" },
+        "ci workflow should keep the Kotlin compatibility lane on the secure Spring Boot baseline",
+    )
+    assertTrue(
+        lanes.any { it.kotlin == "2.3.10" && it.springboot == "4.0.5" },
         "ci workflow should keep the current catalog Kotlin lane",
     )
     assertTrue(
         lanes.any {
-          it.springboot == "4.0.3" && it.kotlin == "2.3.20" && it.label == "latest-kotlin"
+          it.springboot == "4.0.5" && it.kotlin == "2.3.20" && it.label == "latest-kotlin"
         },
         "ci workflow should keep the latest stable Kotlin lane",
     )
@@ -69,6 +79,10 @@ class CiWorkflowContractTest {
     assertTrue(
         "compat" in labels,
         "ci workflow should keep the compatibility verification lanes",
+    )
+    assertTrue(
+        "legacy-compat" in labels,
+        "ci workflow should keep the legacy compatibility verification lanes",
     )
     assertTrue(
         "previous-stable-boot" in labels,

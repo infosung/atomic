@@ -44,6 +44,33 @@ class ReleaseLineDocumentationContractTest {
     assertTrue(markdown.contains("JPA-backed"))
     assertTrue(markdown.contains("legacy JDBC"))
     assertTrue(markdown.contains("oracle-compatibility.yml"))
+    assertTrue(markdown.contains("Spring Boot `4.0.5`"))
+    assertTrue(markdown.contains("Spring Boot `4.0.3`"))
+    assertTrue(markdown.contains("CVE-2026-22732"))
+    assertTrue(markdown.contains("CVE-2026-22735"))
+    assertTrue(markdown.contains("release notes"))
+  }
+
+  @Test
+  fun `v0_1_1 release notes should summarize compatibility and migration-significant changes`() {
+    val markdown = DocumentationContractFixtures.read("docs/release-notes/v0.1.1.md")
+
+    listOf(
+            "Spring Boot `4.0.5`",
+            "Spring Boot `4.0.3`",
+            "CVE-2026-22732",
+            "CVE-2026-22735",
+            "atomic.event.log.ingest.api",
+            "JPA-backed",
+            "`postgresql`",
+            "`mysql`",
+            "`mariadb`",
+            "`oracle`",
+            "`h2`",
+        )
+        .forEach { marker ->
+          assertTrue(markdown.contains(marker), "release notes should mention $marker")
+        }
   }
 
   private fun readBulletListAfter(path: String, anchor: String): List<String> {

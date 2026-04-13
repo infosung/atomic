@@ -37,7 +37,7 @@ If you are upgrading an existing customization from the previous line, also revi
 
 ## Prerequisites
 
-- Project tested baseline: Java `25`, Kotlin `2.3.10`, Spring Boot `4.0.3`
+- Project tested baseline: Java `25`, Kotlin `2.3.10`, Spring Boot `4.0.5`
 - `atomic.storage` itself is Spring-agnostic (you can use it without Spring Boot)
 - one S3-compatible backend (AWS S3, Cloudflare R2, MinIO, etc.)
 - valid bucket, endpoint/region, and credentials

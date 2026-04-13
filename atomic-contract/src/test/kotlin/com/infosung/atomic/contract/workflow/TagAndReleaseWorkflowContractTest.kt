@@ -36,8 +36,16 @@ class TagAndReleaseWorkflowContractTest {
     assertTrue(workflow.contains("git tag"), "release workflow should create the git tag")
     assertTrue(workflow.contains("git push origin"), "release workflow should push the release tag")
     assertTrue(
+        workflow.contains("docs/release-notes/\${{ steps.resolve.outputs.version }}.md"),
+        "release workflow should require a versioned release notes file",
+    )
+    assertTrue(
         workflow.contains("gh release create"),
         "release workflow should create a GitHub release from the tag",
+    )
+    assertTrue(
+        workflow.contains("--notes-file"),
+        "release workflow should publish the curated release notes file instead of generated notes",
     )
   }
 }
