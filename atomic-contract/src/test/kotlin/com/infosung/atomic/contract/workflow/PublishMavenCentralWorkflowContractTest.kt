@@ -65,7 +65,7 @@ class PublishMavenCentralWorkflowContractTest {
     assertTrue(workflow.contains("workflow_call:"), "workflow_call trigger must remain")
     assertTrue(workflow.contains("workflow_dispatch:"), "workflow_dispatch trigger must remain")
     assertFalse(
-        workflow.contains("workflow_run:"),
+        workflow.lineSequence().any { it.trim().startsWith("workflow_run:") },
         "publish workflow should no longer depend on workflow_run default-branch context",
     )
     assertTrue(

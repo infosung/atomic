@@ -84,7 +84,7 @@ class TagAndReleaseWorkflowContractTest {
         "release workflow should pass the resolved release tag to the reusable publish workflow",
     )
     assertTrue(
-        workflow.contains("secrets: inherit"),
+        workflow.lineSequence().any { it.trim().startsWith("secrets: inherit") },
         "release workflow should forward publish credentials to the reusable workflow",
     )
   }
