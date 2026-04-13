@@ -4,7 +4,7 @@
 
 ## Before You Start
 
-- Release-validation baseline: Java `25`, Kotlin `2.3.10`, Spring Boot `4.0.3`
+- Release-validation baseline: Java `25`, Kotlin `2.3.10`, Spring Boot `4.0.5`
 - Other runtime combinations are possible, but they are not part of the current release-line
   guarantee unless your team validates them in its own CI before rollout.
 - Use `atomic.starter` to enable conditional auto-configuration.
@@ -14,7 +14,9 @@
 Recommended entry docs:
 - Start with minimal setup: [Atomic Quick Start](quick-start.md)
 - Move to production criteria: [Advanced Operations Playbook](advanced-playbook.md)
-- Release upgrade impact: [Release Migration Guide: v0.0.5 -> v0.1.1](../migration/v0.0.5-to-v0.1.1.md)
+- Current release summary: [Release Notes: `v0.1.2`](../release-notes/v0.1.2.md)
+- Current patch upgrade: [Release Migration Guide: `v0.1.1` -> `v0.1.2`](../migration/v0.1.1-to-v0.1.2.md)
+- First `0.1.x` adoption: [Release Migration Guide: `v0.0.5` -> `v0.1.1`](../migration/v0.0.5-to-v0.1.1.md)
 
 ## What Atomic Solves
 
@@ -64,28 +66,28 @@ Recommended event-log reading order:
 
 ## 2. Dependencies
 
-Published artifact examples (`v0.1.1`):
+Published artifact examples (`v0.1.2`):
 
 ```kotlin
 dependencies {
-  implementation("com.infosung:atomic.event.log:0.1.1")
-  implementation("com.infosung:atomic.event.log.iceberg:0.1.1")
-  implementation("com.infosung:atomic.event.log.parquet:0.1.1")
-  implementation("com.infosung:atomic.event.log.duckdb:0.1.1")
-  implementation("com.infosung:atomic.event.log.spring.web:0.1.1")
-  implementation("com.infosung:atomic.event.log.ingest.api:0.1.1")
-  implementation("com.infosung:atomic.contract:0.1.1")
-  implementation("com.infosung:atomic.storage:0.1.1")
-  implementation("com.infosung:atomic.spring.web:0.1.1")
-  implementation("com.infosung:atomic.spring.security:0.1.1")
-  implementation("com.infosung:atomic.spring.idempotency:0.1.1")
-  implementation("com.infosung:atomic.spring.oauth2:0.1.1")
-  implementation("com.infosung:atomic.heartbeat:0.1.1")
-  implementation("com.infosung:atomic.starter:0.1.1")
-  implementation("com.infosung:atomic.app.version:0.1.1")
-  implementation("com.infosung:atomic.app.storage.api:0.1.1")
-  implementation("com.infosung:atomic.app.oauth.redirect:0.1.1")
-  implementation("com.infosung:atomic.app:0.1.1")
+  implementation("com.infosung:atomic.event.log:0.1.2")
+  implementation("com.infosung:atomic.event.log.iceberg:0.1.2")
+  implementation("com.infosung:atomic.event.log.parquet:0.1.2")
+  implementation("com.infosung:atomic.event.log.duckdb:0.1.2")
+  implementation("com.infosung:atomic.event.log.spring.web:0.1.2")
+  implementation("com.infosung:atomic.event.log.ingest.api:0.1.2")
+  implementation("com.infosung:atomic.contract:0.1.2")
+  implementation("com.infosung:atomic.storage:0.1.2")
+  implementation("com.infosung:atomic.spring.web:0.1.2")
+  implementation("com.infosung:atomic.spring.security:0.1.2")
+  implementation("com.infosung:atomic.spring.idempotency:0.1.2")
+  implementation("com.infosung:atomic.spring.oauth2:0.1.2")
+  implementation("com.infosung:atomic.heartbeat:0.1.2")
+  implementation("com.infosung:atomic.starter:0.1.2")
+  implementation("com.infosung:atomic.app.version:0.1.2")
+  implementation("com.infosung:atomic.app.storage.api:0.1.2")
+  implementation("com.infosung:atomic.app.oauth.redirect:0.1.2")
+  implementation("com.infosung:atomic.app:0.1.2")
 }
 ```
 

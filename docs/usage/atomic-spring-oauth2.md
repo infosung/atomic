@@ -21,7 +21,7 @@ It provides:
 ## Prerequisites
 
 - Spring Boot app with component scan/config setup
-- Tested with Java `25`, Kotlin `2.3.10`, Spring Boot `4.0.3`
+- Tested with Java `25`, Kotlin `2.3.10`, Spring Boot `4.0.5`
 - Provider console configured redirect URI per provider
 
 ## Core Concepts You Must Distinguish

@@ -12,27 +12,27 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # 2026-04-10 verified against gradle/libs.versions.toml and official release pages:
-          # Spring Boot 4.0.5 latest stable, 4.0.4 previous patch, Kotlin 2.3.20 latest stable.
-          - springboot: "4.0.3"
+          # 2026-04-13 release-line verification:
+          # baseline stays on the current secure tested line, while legacy lanes remain for source compatibility only.
+          - springboot: "4.0.5"
             kotlin: "2.3.10"
             label: "baseline"
-          - springboot: "4.0.2"
-            kotlin: "2.3.10"
-            label: "compat"
-          - springboot: "4.0.1"
-            kotlin: "2.3.10"
-            label: "compat"
-          - springboot: "4.0.3"
-            kotlin: "2.3.0"
-            label: "compat"
           - springboot: "4.0.4"
             kotlin: "2.3.10"
             label: "previous-stable-boot"
-          - springboot: "4.0.5"
-            kotlin: "2.3.10"
-            label: "latest-boot"
           - springboot: "4.0.3"
+            kotlin: "2.3.10"
+            label: "legacy-compat"
+          - springboot: "4.0.2"
+            kotlin: "2.3.10"
+            label: "legacy-compat"
+          - springboot: "4.0.1"
+            kotlin: "2.3.10"
+            label: "legacy-compat"
+          - springboot: "4.0.5"
+            kotlin: "2.3.0"
+            label: "compat"
+          - springboot: "4.0.5"
             kotlin: "2.3.20"
             label: "latest-kotlin"
           - springboot: "4.0.5"
@@ -44,16 +44,16 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "25"
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v5
 
       - name: Apply matrix versions
         run: |
@@ -67,3 +67,5 @@ jobs:
       - name: Verify compatibility tests
         if: matrix.label != 'baseline'
         run: ./gradlew test
+        env:
+          ATOMIC_CONTRACT_SKIP_SECURE_SPRING_BOOT_BASELINE: "true"

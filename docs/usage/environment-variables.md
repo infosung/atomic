@@ -252,7 +252,7 @@ Provider registration note:
 Composition note:
 - `atomic.event.log`, `atomic.event.log.parquet`, `atomic.event.log.iceberg`,
   `atomic.event.log.duckdb`, and `atomic.event.log.spring.web` do not expose Spring
-  `@ConfigurationProperties` in `0.1.1`.
+  `@ConfigurationProperties` in `0.1.2`.
 - the only event-log property namespace in this release line is the official ingest API module.
 - Parquet export cadence, spool choice, DuckDB query execution, and Iceberg catalog wiring remain
   host-owned constructor wiring concerns.
