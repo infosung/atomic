@@ -7,12 +7,20 @@ on:
     paths:
       - "gradle/libs.versions.toml"
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Optional existing SemVer tag to recover a missing GitHub release, for example v0.1.2"
+        required: false
+        type: string
 
 jobs:
   tag:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      should_publish_chain: ${{ steps.resolve.outputs.should_publish_chain }}
 
     steps:
       - name: Checkout
@@ -34,44 +42,74 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          NEW_VERSION=$(grep -E '^projectVersion = ' gradle/libs.versions.toml | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/')
-          if [ -z "${NEW_VERSION}" ]; then
-            echo "Failed to resolve projectVersion"
-            exit 1
-          fi
+          MANUAL_RELEASE_TAG="${{ inputs.release_tag }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${MANUAL_RELEASE_TAG}" ]; then
+            if ! [[ "${MANUAL_RELEASE_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "release_tag input must be SemVer, for example v0.1.2: ${MANUAL_RELEASE_TAG}"
+              exit 1
+            fi
 
-          if ! [[ "${NEW_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "projectVersion must be SemVer x.y.z for release tagging: ${NEW_VERSION}"
-            exit 1
-          fi
+            TAG="${MANUAL_RELEASE_TAG}"
+            VERSION="${TAG#v}"
+            SHOULD_TAG=false
+            SHOULD_CREATE_RELEASE=true
 
-          TAG="v${NEW_VERSION}"
-          SHOULD_TAG=true
-          SHOULD_CREATE_RELEASE=true
-          TAG_EXISTS=false
-          if [ "${{ github.event_name }}" = "push" ] && git rev-parse HEAD^ >/dev/null 2>&1; then
-            OLD_VERSION=$(git show HEAD^:gradle/libs.versions.toml 2>/dev/null | grep -E '^projectVersion = ' | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/' || true)
-            if [ -n "${OLD_VERSION}" ] && [ "${OLD_VERSION}" = "${NEW_VERSION}" ]; then
+            if ! git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+              echo "release_tag recovery input must already exist on origin: ${TAG}"
+              exit 1
+            fi
+
+            if gh release view "${TAG}" >/dev/null 2>&1; then
+              SHOULD_CREATE_RELEASE=false
+              echo "GitHub release already exists: ${TAG}; skipping release create"
+            fi
+          else
+            NEW_VERSION=$(grep -E '^projectVersion = ' gradle/libs.versions.toml | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/')
+            if [ -z "${NEW_VERSION}" ]; then
+              echo "Failed to resolve projectVersion"
+              exit 1
+            fi
+
+            if ! [[ "${NEW_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "projectVersion must be SemVer x.y.z for release tagging: ${NEW_VERSION}"
+              exit 1
+            fi
+
+            TAG="v${NEW_VERSION}"
+            VERSION="${NEW_VERSION}"
+            SHOULD_TAG=true
+            SHOULD_CREATE_RELEASE=true
+            TAG_EXISTS=false
+            if [ "${{ github.event_name }}" = "push" ] && git rev-parse HEAD^ >/dev/null 2>&1; then
+              OLD_VERSION=$(git show HEAD^:gradle/libs.versions.toml 2>/dev/null | grep -E '^projectVersion = ' | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/' || true)
+              if [ -n "${OLD_VERSION}" ] && [ "${OLD_VERSION}" = "${NEW_VERSION}" ]; then
+                SHOULD_TAG=false
+                echo "projectVersion unchanged (${NEW_VERSION}); skipping tag"
+              fi
+            fi
+
+            if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+              TAG_EXISTS=true
               SHOULD_TAG=false
-              echo "projectVersion unchanged (${NEW_VERSION}); skipping tag"
+              echo "Tag already exists: ${TAG}; skipping"
+            fi
+
+            if [ "${TAG_EXISTS}" = "true" ] && gh release view "${TAG}" >/dev/null 2>&1; then
+              SHOULD_CREATE_RELEASE=false
+              echo "GitHub release already exists: ${TAG}; skipping release create"
             fi
           fi
 
-          if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
-            TAG_EXISTS=true
-            SHOULD_TAG=false
-            echo "Tag already exists: ${TAG}; skipping"
+          SHOULD_PUBLISH_CHAIN=false
+          if [ "${SHOULD_TAG}" = "true" ] || [ "${SHOULD_CREATE_RELEASE}" = "true" ]; then
+            SHOULD_PUBLISH_CHAIN=true
           fi
 
-          if [ "${TAG_EXISTS}" = "true" ] && gh release view "${TAG}" >/dev/null 2>&1; then
-            SHOULD_CREATE_RELEASE=false
-            echo "GitHub release already exists: ${TAG}; skipping release create"
-          fi
-
-          echo "version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "should_tag=${SHOULD_TAG}" >> "$GITHUB_OUTPUT"
           echo "should_create_release=${SHOULD_CREATE_RELEASE}" >> "$GITHUB_OUTPUT"
+          echo "should_publish_chain=${SHOULD_PUBLISH_CHAIN}" >> "$GITHUB_OUTPUT"
 
       - name: Create and push tag
         if: steps.resolve.outputs.should_tag == 'true'
@@ -94,3 +132,11 @@ jobs:
           gh release create "${TAG}" \
             --title "${TAG}" \
             --notes-file "${NOTES_FILE}"
+
+  publish:
+    needs: tag
+    if: needs.tag.outputs.should_publish_chain == 'true'
+    uses: ./.github/workflows/publish-maven-central.yml
+    with:
+      release_tag: ${{ needs.tag.outputs.tag }}
+    secrets: inherit

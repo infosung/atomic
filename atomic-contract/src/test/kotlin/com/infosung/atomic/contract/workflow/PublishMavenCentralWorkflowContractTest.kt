@@ -61,20 +61,28 @@ class PublishMavenCentralWorkflowContractTest {
   }
 
   @Test
-  fun `publish workflow should keep release context guards for workflow run and manual rerun`() {
-    assertTrue(workflow.contains("workflow_run:"), "workflow_run trigger must remain")
+  fun `publish workflow should keep release context guards for reusable flow and manual rerun`() {
+    assertTrue(workflow.contains("workflow_call:"), "workflow_call trigger must remain")
     assertTrue(workflow.contains("workflow_dispatch:"), "workflow_dispatch trigger must remain")
-    assertTrue(
-        workflow.contains("github.event.workflow_run.head_sha"),
-        "workflow_run source SHA guard must remain",
+    assertFalse(
+        workflow.lineSequence().any { it.trim().startsWith("workflow_run:") },
+        "publish workflow should no longer depend on workflow_run default-branch context",
     )
     assertTrue(
-        workflow.contains("workflow_dispatch must run on refs/heads/main"),
-        "manual main branch guard must remain",
+        workflow.contains("release_tag:"),
+        "publish workflow should require an explicit release_tag input",
     )
     assertTrue(
-        workflow.contains("Manual publish requires HEAD to match"),
-        "manual publish should verify that current HEAD matches the release tag commit",
+        workflow.contains("release_tag input must be SemVer"),
+        "publish workflow should validate the explicit release tag format",
+    )
+    assertTrue(
+        workflow.contains("GitHub release does not exist"),
+        "publish workflow should require the GitHub release to exist before publishing",
+    )
+    assertTrue(
+        workflow.contains("Release version does not match requested tag"),
+        "publish workflow should verify that the checked out project version matches the requested tag",
     )
     assertTrue(
         workflow.contains("SNAPSHOT version cannot be published to Maven Central"),
@@ -86,7 +94,7 @@ class PublishMavenCentralWorkflowContractTest {
     )
     assertTrue(
         workflow.contains("Tag commit mismatch"),
-        "publish workflow should keep tag to source SHA verification",
+        "publish workflow should keep tag checkout verification",
     )
     assertTrue(
         workflow.contains("is not contained in origin/main"),
