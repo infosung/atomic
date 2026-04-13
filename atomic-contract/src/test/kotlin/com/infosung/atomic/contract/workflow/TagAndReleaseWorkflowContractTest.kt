@@ -18,6 +18,18 @@ class TagAndReleaseWorkflowContractTest {
         "manual main branch guard must remain",
     )
     assertTrue(
+        workflow.contains("release_tag:"),
+        "manual release workflow should support an explicit recovery tag input",
+    )
+    assertTrue(
+        workflow.contains("release_tag input must be SemVer"),
+        "manual recovery tag input should be validated as SemVer",
+    )
+    assertTrue(
+        workflow.contains("release_tag recovery input must already exist on origin"),
+        "manual recovery tag input should require an existing remote tag",
+    )
+    assertTrue(
         workflow.contains("projectVersion must be SemVer x.y.z for release tagging"),
         "release tagging should keep the semver guard",
     )
@@ -58,6 +70,22 @@ class TagAndReleaseWorkflowContractTest {
     assertTrue(
         workflow.contains("should_create_release"),
         "release workflow should recover by creating a release even when the git tag already exists",
+    )
+    assertTrue(
+        workflow.contains("should_publish_chain"),
+        "release workflow should decide explicitly whether the publish chain should run",
+    )
+    assertTrue(
+        workflow.contains("uses: ./.github/workflows/publish-maven-central.yml"),
+        "release workflow should call the reusable Maven Central publish workflow directly",
+    )
+    assertTrue(
+        workflow.contains("release_tag: \${{ needs.tag.outputs.tag }}"),
+        "release workflow should pass the resolved release tag to the reusable publish workflow",
+    )
+    assertTrue(
+        workflow.contains("secrets: inherit"),
+        "release workflow should forward publish credentials to the reusable workflow",
     )
   }
 }

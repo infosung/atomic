@@ -1,82 +1,59 @@
 name: Publish Maven Central
 
 on:
-  workflow_run:
-    workflows:
-      - Tag And Release
-    types:
-      - completed
+  workflow_call:
+    inputs:
+      release_tag:
+        required: true
+        type: string
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "SemVer release tag to publish, for example v0.1.2"
+        required: true
+        type: string
 
 jobs:
   resolve:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch'))
     outputs:
       should_publish: ${{ steps.resolve.outputs.should_publish }}
       version: ${{ steps.resolve.outputs.version }}
       tag: ${{ steps.resolve.outputs.tag }}
 
     steps:
-      - name: Checkout (workflow_run source SHA)
-        if: github.event_name == 'workflow_run'
+      - name: Checkout
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          ref: ${{ github.event.workflow_run.head_sha }}
-
-      - name: Checkout (default)
-        if: github.event_name != 'workflow_run'
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      - name: Guard manual release ref
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-          if [[ "${GITHUB_REF}" != "refs/heads/main" && ! "${GITHUB_REF}" =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "workflow_dispatch must run on refs/heads/main or a semver release tag. current=${GITHUB_REF}"
-            exit 1
-          fi
 
       - name: Resolve release context
         id: resolve
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          PROJECT_VERSION=$(grep -E '^projectVersion = ' gradle/libs.versions.toml | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/')
-          if [ -z "${PROJECT_VERSION}" ]; then
-            echo "Failed to resolve projectVersion from gradle/libs.versions.toml"
+          REQUESTED_TAG="${{ inputs.release_tag }}"
+          if ! [[ "${REQUESTED_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "release_tag input must be SemVer, for example v0.1.2: ${REQUESTED_TAG}"
             exit 1
           fi
-          EXPECTED_TAG="v${PROJECT_VERSION}"
-          SHOULD_PUBLISH=false
 
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            if git ls-remote --exit-code --tags origin "refs/tags/${EXPECTED_TAG}" >/dev/null 2>&1; then
-              SHOULD_PUBLISH=true
-            else
-              echo "Tag ${EXPECTED_TAG} not found on origin. Refusing manual publish."
-              exit 1
-            fi
-          else
-            if [ "${{ github.event.workflow_run.head_branch }}" = "main" ]; then
-              SOURCE_SHA="${{ github.event.workflow_run.head_sha }}"
-              TAG_AT_SHA=$(git tag --points-at "${SOURCE_SHA}" | grep -Fx "${EXPECTED_TAG}" || true)
-              if [ -n "${TAG_AT_SHA}" ] && git ls-remote --exit-code --tags origin "refs/tags/${EXPECTED_TAG}" >/dev/null 2>&1; then
-                SHOULD_PUBLISH=true
-              else
-                echo "No release tag ${EXPECTED_TAG} on source SHA ${SOURCE_SHA}; skipping publish."
-              fi
-            else
-              echo "workflow_run head branch is not main; skipping publish."
-            fi
+          if ! git ls-remote --exit-code --tags origin "refs/tags/${REQUESTED_TAG}" >/dev/null 2>&1; then
+            echo "Release tag does not exist on origin: ${REQUESTED_TAG}"
+            exit 1
           fi
 
-          echo "version=${PROJECT_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "tag=${EXPECTED_TAG}" >> "$GITHUB_OUTPUT"
-          echo "should_publish=${SHOULD_PUBLISH}" >> "$GITHUB_OUTPUT"
+          if ! gh release view "${REQUESTED_TAG}" >/dev/null 2>&1; then
+            echo "GitHub release does not exist: ${REQUESTED_TAG}"
+            exit 1
+          fi
+
+          echo "version=${REQUESTED_TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "tag=${REQUESTED_TAG}" >> "$GITHUB_OUTPUT"
+          echo "should_publish=true" >> "$GITHUB_OUTPUT"
 
   verify:
     runs-on: ubuntu-latest
@@ -86,15 +63,7 @@ jobs:
     if: needs.resolve.outputs.should_publish == 'true'
 
     steps:
-      - name: Checkout (workflow_run source SHA)
-        if: github.event_name == 'workflow_run'
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.workflow_run.head_sha }}
-
-      - name: Checkout (manual release tag)
-        if: github.event_name == 'workflow_dispatch'
+      - name: Checkout release tag
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
@@ -123,30 +92,26 @@ jobs:
             exit 1
           fi
 
+          REQUESTED_TAG="${{ needs.resolve.outputs.tag }}"
           EXPECTED_TAG="v${PROJECT_VERSION}"
+          if [ "${EXPECTED_TAG}" != "${REQUESTED_TAG}" ]; then
+            echo "Release version does not match requested tag: requested=${REQUESTED_TAG}, projectVersion=${PROJECT_VERSION}"
+            exit 1
+          fi
+
           if ! git ls-remote --exit-code --tags origin "refs/tags/${EXPECTED_TAG}" >/dev/null 2>&1; then
             echo "Release tag does not exist on origin: ${EXPECTED_TAG}"
             exit 1
           fi
 
-          if [ "${{ github.event_name }}" = "workflow_run" ]; then
-            TAG_COMMIT=$(git rev-list -n 1 "${EXPECTED_TAG}")
-            SOURCE_SHA="${{ github.event.workflow_run.head_sha }}"
-            if [ "${TAG_COMMIT}" != "${SOURCE_SHA}" ]; then
-              echo "Tag commit mismatch: ${EXPECTED_TAG} -> ${TAG_COMMIT}, workflow_run head_sha=${SOURCE_SHA}"
-              exit 1
-            fi
-          else
-            TAG_COMMIT=$(git rev-list -n 1 "${EXPECTED_TAG}")
-            CURRENT_HEAD=$(git rev-parse HEAD)
-            if [ "${TAG_COMMIT}" != "${CURRENT_HEAD}" ]; then
-              echo "Manual publish requires HEAD to match ${EXPECTED_TAG}: head=${CURRENT_HEAD}, tag=${TAG_COMMIT}"
-              exit 1
-            fi
+          TAG_COMMIT=$(git rev-list -n 1 "${EXPECTED_TAG}")
+          CURRENT_HEAD=$(git rev-parse HEAD)
+          if [ "${TAG_COMMIT}" != "${CURRENT_HEAD}" ]; then
+            echo "Tag commit mismatch: ${EXPECTED_TAG} -> ${TAG_COMMIT}, checkout HEAD=${CURRENT_HEAD}"
+            exit 1
           fi
 
           git fetch origin main
-          TAG_COMMIT=$(git rev-list -n 1 "${EXPECTED_TAG}")
           if ! git merge-base --is-ancestor "${TAG_COMMIT}" origin/main; then
             echo "Tag commit ${TAG_COMMIT} is not contained in origin/main"
             exit 1
@@ -178,15 +143,7 @@ jobs:
       cancel-in-progress: false
 
     steps:
-      - name: Checkout (workflow_run source SHA)
-        if: github.event_name == 'workflow_run'
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.workflow_run.head_sha }}
-
-      - name: Checkout (manual release tag)
-        if: github.event_name == 'workflow_dispatch'
+      - name: Checkout release tag
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
