@@ -4,7 +4,7 @@
 
 ## Before You Start
 
-- Release-validation baseline: Java `25`, Kotlin `2.3.10`, Spring Boot `4.0.3`
+- Release-validation baseline: Java `25`, Kotlin `2.3.10`, Spring Boot `4.0.5`
 - Other runtime combinations are possible, but they are not part of the current release-line
   guarantee unless your team validates them in its own CI before rollout.
 - Use `atomic.starter` to enable conditional auto-configuration.
@@ -14,6 +14,7 @@
 Recommended entry docs:
 - Start with minimal setup: [Atomic Quick Start](quick-start.md)
 - Move to production criteria: [Advanced Operations Playbook](advanced-playbook.md)
+- Current release summary: [Release Notes: `v0.1.1`](../release-notes/v0.1.1.md)
 - Release upgrade impact: [Release Migration Guide: v0.0.5 -> v0.1.1](../migration/v0.0.5-to-v0.1.1.md)
 
 ## What Atomic Solves

@@ -73,7 +73,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="v${{ steps.resolve.outputs.version }}"
+          NOTES_FILE="docs/release-notes/${{ steps.resolve.outputs.version }}.md"
+          if [ ! -f "${NOTES_FILE}" ]; then
+            echo "Missing release notes file: ${NOTES_FILE}"
+            exit 1
+          fi
           gh release create "${TAG}" \
             --target "${GITHUB_SHA}" \
             --title "${TAG}" \
-            --generate-notes
+            --notes-file "${NOTES_FILE}"
