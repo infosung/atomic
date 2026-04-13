@@ -69,4 +69,4 @@ jobs:
 
       - name: Verify compatibility tests
         if: matrix.label != 'baseline'
-        run: ./gradlew test
+        run: ./gradlew test -Datomic.contract.skipSecureSpringBootBaseline=true
