@@ -3,9 +3,18 @@ package com.infosung.atomic.spring.security.jwt
 import com.infosung.atomic.contract.exception.HttpInvalidTokenException
 import com.infosung.atomic.contract.exception.HttpTokenNotExpiredException
 import com.infosung.atomic.contract.time.TimeProvider
+import com.nimbusds.jose.JOSEObjectType
+import com.nimbusds.jose.JWSAlgorithm
+import com.nimbusds.jose.JWSHeader
+import com.nimbusds.jose.crypto.MACSigner
+import com.nimbusds.jwt.JWTClaimsSet
+import com.nimbusds.jwt.SignedJWT
+import java.nio.charset.StandardCharsets
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
+import java.util.Base64
+import java.util.Date
 import java.util.TimeZone
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -190,5 +199,133 @@ class JwtProviderTest {
     assertEquals(results[1].accessToken, results[2].accessToken)
     assertEquals(results[0].refreshToken, results[1].refreshToken)
     assertEquals(results[1].refreshToken, results[2].refreshToken)
+  }
+
+  @Test
+  fun `provider should accept previous access key token`() {
+    val rotatingProvider = rotatingProvider()
+    val token =
+        createToken(
+            id = "123",
+            subject = "USER",
+            key = "c".repeat(80),
+            keyId = "access-v1",
+            expiresAt = timeProvider.nowInstant().plusSeconds(60),
+        )
+
+    val claims = rotatingProvider.getAccessClaims(token)
+
+    assertEquals("123", claims.id)
+    assertEquals("USER", claims.subject)
+  }
+
+  @Test
+  fun `provider should accept previous refresh key token`() {
+    val rotatingProvider = rotatingProvider()
+    val token =
+        createToken(
+            id = "123",
+            subject = "USER",
+            key = "d".repeat(80),
+            keyId = "refresh-v1",
+            expiresAt = timeProvider.nowInstant().plusSeconds(600),
+        )
+
+    val claims = rotatingProvider.getRefreshClaims(token)
+
+    assertEquals("123", claims.id)
+    assertEquals("USER", claims.subject)
+  }
+
+  @Test
+  fun `expired claims should accept previous access key token`() {
+    val rotatingProvider = rotatingProvider()
+    val now = Instant.parse("2026-02-24T00:00:00Z")
+    timeProvider.configureClock(Clock.fixed(now, ZoneOffset.UTC))
+    val token =
+        createToken(
+            id = "123",
+            subject = "USER",
+            key = "c".repeat(80),
+            keyId = "access-v1",
+            expiresAt = now.plusSeconds(60),
+        )
+
+    timeProvider.configureClock(Clock.fixed(now.plusSeconds(61), ZoneOffset.UTC))
+    val claims = rotatingProvider.getExpiredClaims(token)
+
+    assertEquals("123", claims.id)
+    assertEquals("USER", claims.subject)
+  }
+
+  @Test
+  fun `provider should reject unknown kid`() {
+    val rotatingProvider = rotatingProvider()
+    val token =
+        createToken(
+            id = "123",
+            subject = "USER",
+            key = "c".repeat(80),
+            keyId = "unknown-kid",
+            expiresAt = timeProvider.nowInstant().plusSeconds(60),
+        )
+
+    assertFailsWith<HttpInvalidTokenException> { rotatingProvider.getAccessClaims(token) }
+  }
+
+  @Test
+  fun `provider should accept legacy token without kid`() {
+    val rotatingProvider = rotatingProvider()
+    val token =
+        createToken(
+            id = "123",
+            subject = "USER",
+            key = "c".repeat(80),
+            keyId = null,
+            expiresAt = timeProvider.nowInstant().plusSeconds(60),
+        )
+
+    val claims = rotatingProvider.getAccessClaims(token)
+
+    assertEquals("123", claims.id)
+    assertEquals("USER", claims.subject)
+  }
+
+  private fun rotatingProvider(): JwtProvider =
+      JwtProvider(
+          accessKey = "a".repeat(80),
+          refreshKey = "b".repeat(80),
+          accessKeyId = "access-v2",
+          refreshKeyId = "refresh-v2",
+          previousAccessKeys = mapOf("access-v1" to "c".repeat(80)),
+          previousRefreshKeys = mapOf("refresh-v1" to "d".repeat(80)),
+          accessExpiredSecond = 60,
+          refreshExpiredSecond = 600,
+          timeProvider = timeProvider,
+      )
+
+  private fun createToken(
+      id: String,
+      subject: String,
+      key: String,
+      keyId: String?,
+      expiresAt: Instant,
+  ): String {
+    val normalizedKey = Base64.getEncoder().encode(key.toByteArray(StandardCharsets.UTF_8))
+    val header =
+        JWSHeader.Builder(JWSAlgorithm.HS512)
+            .type(JOSEObjectType.JWT)
+            .apply { if (keyId != null) keyID(keyId) }
+            .build()
+    val claims =
+        JWTClaimsSet.Builder()
+            .jwtID(id)
+            .issuer("InfosungAtomic")
+            .subject(subject)
+            .issueTime(Date.from(timeProvider.nowInstant()))
+            .expirationTime(Date.from(expiresAt))
+            .claim("service_name", "InfosungAtomic")
+            .build()
+    return SignedJWT(header, claims).apply { sign(MACSigner(normalizedKey)) }.serialize()
   }
 }

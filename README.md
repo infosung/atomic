@@ -17,8 +17,8 @@ Atomic is a Kotlin/Spring library suite for backend services.
 
 1. Minimal adoption: [Atomic Quick Start](docs/usage/quick-start.md)
 2. Production transition: [Advanced Operations Playbook](docs/usage/advanced-playbook.md)
-3. Current release summary: [Release Notes](docs/release-notes/v0.1.2.md)
-4. Patch upgrade from `v0.1.1`: [Release Migration Guide](docs/migration/v0.1.1-to-v0.1.2.md)
+3. Current release summary: [Release Notes](docs/release-notes/v0.1.3.md)
+4. Patch upgrade from `v0.1.2`: [Release Migration Guide](docs/migration/v0.1.2-to-v0.1.3.md)
 5. First `0.1.x` adoption from `v0.0.5`: [Release Migration Guide](docs/migration/v0.0.5-to-v0.1.1.md)
 6. Module-level details: see `Detailed Guides` below
 
@@ -40,7 +40,8 @@ For starter-based path, add:
 
 1. `atomic-starter`
 2. `atomic.contract` (required when your app directly uses `BaseResponse` / `HttpStatusException`)
-3. only the feature modules you want (`storage`, `spring.web`, `spring.idempotency`, `spring.security`, `spring.oauth2`, `heartbeat`, `app.version`, `app.storage.api`, `app.oauth.redirect`, or the convenience bundle `app`)
+3. `atomic.crypto` when you need Spring-free cryptographic primitives or key-rotation helpers
+4. only the feature modules you want (`storage`, `spring.web`, `spring.idempotency`, `spring.security`, `spring.oauth2`, `heartbeat`, `app.version`, `app.storage.api`, `app.oauth.redirect`, or the convenience bundle `app`)
 
 Exception:
 - `atomic.app.version` can start without `atomic-starter` (see [Atomic Quick Start](docs/usage/quick-start.md)).
@@ -63,6 +64,7 @@ Relationship summary:
 - `atomic.event.log.duckdb`: DuckDB SQL/query helper module for event log lakehouse analysis
 - `atomic.event.log.spring.web`: adapter from `atomic.spring.web` API logs into the common event log envelope
 - `atomic.event.log.ingest.api`: official Spring MVC ingest API module with async memory-queue intake
+- `atomic.crypto`: Spring-free cryptographic primitives and key-rotation helpers
 - `atomic.starter`: common infra auto-config entrypoint
 - `atomic.app.version`: narrow app-level version API module
 - `atomic.app.storage.api`: narrow app-level image API module
@@ -84,28 +86,29 @@ Relationship summary:
 
 ## Dependency Setup
 
-### Published Artifact Examples (`v0.1.2`)
+### Published Artifact Examples (`v0.1.3`)
 
 ```kotlin
 dependencies {
-  implementation("com.infosung:atomic.event.log:0.1.2")
-  implementation("com.infosung:atomic.event.log.iceberg:0.1.2")
-  implementation("com.infosung:atomic.event.log.parquet:0.1.2")
-  implementation("com.infosung:atomic.event.log.duckdb:0.1.2")
-  implementation("com.infosung:atomic.event.log.spring.web:0.1.2")
-  implementation("com.infosung:atomic.event.log.ingest.api:0.1.2")
-  implementation("com.infosung:atomic.contract:0.1.2")
-  implementation("com.infosung:atomic.storage:0.1.2")
-  implementation("com.infosung:atomic.spring.web:0.1.2")
-  implementation("com.infosung:atomic.spring.security:0.1.2")
-  implementation("com.infosung:atomic.spring.idempotency:0.1.2")
-  implementation("com.infosung:atomic.spring.oauth2:0.1.2")
-  implementation("com.infosung:atomic.heartbeat:0.1.2")
-  implementation("com.infosung:atomic.starter:0.1.2")
-  implementation("com.infosung:atomic.app.version:0.1.2")
-  implementation("com.infosung:atomic.app.storage.api:0.1.2")
-  implementation("com.infosung:atomic.app.oauth.redirect:0.1.2")
-  implementation("com.infosung:atomic.app:0.1.2")
+  implementation("com.infosung:atomic.event.log:0.1.3")
+  implementation("com.infosung:atomic.event.log.iceberg:0.1.3")
+  implementation("com.infosung:atomic.event.log.parquet:0.1.3")
+  implementation("com.infosung:atomic.event.log.duckdb:0.1.3")
+  implementation("com.infosung:atomic.event.log.spring.web:0.1.3")
+  implementation("com.infosung:atomic.event.log.ingest.api:0.1.3")
+  implementation("com.infosung:atomic.contract:0.1.3")
+  implementation("com.infosung:atomic.crypto:0.1.3")
+  implementation("com.infosung:atomic.storage:0.1.3")
+  implementation("com.infosung:atomic.spring.web:0.1.3")
+  implementation("com.infosung:atomic.spring.security:0.1.3")
+  implementation("com.infosung:atomic.spring.idempotency:0.1.3")
+  implementation("com.infosung:atomic.spring.oauth2:0.1.3")
+  implementation("com.infosung:atomic.heartbeat:0.1.3")
+  implementation("com.infosung:atomic.starter:0.1.3")
+  implementation("com.infosung:atomic.app.version:0.1.3")
+  implementation("com.infosung:atomic.app.storage.api:0.1.3")
+  implementation("com.infosung:atomic.app.oauth.redirect:0.1.3")
+  implementation("com.infosung:atomic.app:0.1.3")
 }
 ```
 
@@ -118,6 +121,7 @@ Current `.github/workflows/publish-maven-central.yml` publishes:
 - `atomic-event-log:spring-web`
 - `atomic-event-log:ingest-api`
 - `atomic-contract`
+- `atomic-crypto`
 - `atomic-storage`
 - `atomic-spring-web`
 - `atomic-spring-security`
@@ -142,6 +146,7 @@ dependencies {
   implementation(project(":atomic-event-log:ingest-api"))
   implementation(project(":atomic-starter"))
   implementation(project(":atomic-contract"))
+  implementation(project(":atomic-crypto"))
 
   // add only modules you use
   implementation(project(":atomic-app"))
@@ -648,6 +653,7 @@ This README now consolidates those points into one starter-first onboarding path
 - [Usage Overview](docs/usage/overview.md)
 - [atomic.starter Guide](docs/usage/atomic-starter.md)
 - [atomic.contract Guide](docs/usage/atomic-contract.md)
+- [atomic.crypto Guide](docs/usage/atomic-crypto.md)
 - [atomic.event.log Guide](docs/usage/atomic-event-log.md)
 - [atomic.event.log Client Guide](docs/usage/atomic-event-log-client.md)
 - [atomic.event.log Lakehouse Guide](docs/usage/atomic-event-log-lakehouse.md)

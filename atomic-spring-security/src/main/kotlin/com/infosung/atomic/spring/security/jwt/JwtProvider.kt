@@ -32,35 +32,69 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
  * Generates access/refresh token pair and validates issuer/service claims.
  */
 class JwtProvider(
-    accessKey: String,
-    refreshKey: String,
+    private val accessKeys: JwtKeyRing,
+    private val refreshKeys: JwtKeyRing,
     algorithm: String = "HmacSHA512",
     serviceName: String = "InfosungAtomic",
     private val accessExpiredSecond: Long,
     private val refreshExpiredSecond: Long,
     private val timeProvider: TimeProvider = TimeProvider(),
 ) {
+  constructor(
+      accessKey: String,
+      refreshKey: String,
+      algorithm: String = "HmacSHA512",
+      serviceName: String = "InfosungAtomic",
+      accessExpiredSecond: Long,
+      refreshExpiredSecond: Long,
+      timeProvider: TimeProvider = TimeProvider(),
+      accessKeyId: String = DEFAULT_ACCESS_KEY_ID,
+      refreshKeyId: String = DEFAULT_REFRESH_KEY_ID,
+      previousAccessKeys: Map<String, String> = emptyMap(),
+      previousRefreshKeys: Map<String, String> = emptyMap(),
+  ) : this(
+      accessKeys =
+          JwtKeyRing(
+              active = JwtSigningKey(accessKeyId, accessKey),
+              previous = previousAccessKeys.map { (keyId, secret) -> JwtSigningKey(keyId, secret) },
+          ),
+      refreshKeys =
+          JwtKeyRing(
+              active = JwtSigningKey(refreshKeyId, refreshKey),
+              previous =
+                  previousRefreshKeys.map { (keyId, secret) -> JwtSigningKey(keyId, secret) },
+          ),
+      algorithm = algorithm,
+      serviceName = serviceName,
+      accessExpiredSecond = accessExpiredSecond,
+      refreshExpiredSecond = refreshExpiredSecond,
+      timeProvider = timeProvider,
+  )
+
   private data class JwtAlgorithmSpec(
       val jcaName: String,
       val jwsAlgorithm: JWSAlgorithm,
       val macAlgorithm: org.springframework.security.oauth2.jose.jws.MacAlgorithm,
   )
 
+  private data class JwtKeyMaterial(
+      val keyId: String,
+      val secretKey: SecretKey,
+  )
+
+  private data class JwtDecoderSet(
+      val byKeyId: Map<String, JwtDecoder>,
+      val fallback: List<JwtDecoder>,
+  )
+
   private val serviceName: String = serviceName.ifBlank { "InfosungAtomic" }
   private val issuer = this.serviceName
   private val algorithmSpec = resolveAlgorithmSpec(algorithm)
-
-  private val accessKeyBytes =
-      Base64.getEncoder().encode(accessKey.toByteArray(StandardCharsets.UTF_8))
-  private val refreshKeyBytes =
-      Base64.getEncoder().encode(refreshKey.toByteArray(StandardCharsets.UTF_8))
-
-  private val userAccessKey: SecretKey = SecretKeySpec(accessKeyBytes, algorithmSpec.jcaName)
-  private val userRefreshKey: SecretKey = SecretKeySpec(refreshKeyBytes, algorithmSpec.jcaName)
-
-  private val strictAccessDecoder: JwtDecoder = createDecoder(userAccessKey)
-  private val strictRefreshDecoder: JwtDecoder = createDecoder(userRefreshKey)
-  private val relaxedAccessDecoder: JwtDecoder = createDecoder(userAccessKey)
+  private val accessKeyMaterials = buildKeyMaterials(accessKeys)
+  private val refreshKeyMaterials = buildKeyMaterials(refreshKeys)
+  private val accessDecoderSet = buildDecoderSet(accessKeyMaterials)
+  private val refreshDecoderSet = buildDecoderSet(refreshKeyMaterials)
+  private val relaxedAccessDecoderSet = buildDecoderSet(accessKeyMaterials)
 
   private val log = LoggerFactory.getLogger(JwtProvider::class.java)
 
@@ -70,6 +104,13 @@ class JwtProvider(
         issuer,
         accessExpiredSecond,
         refreshExpiredSecond,
+    )
+    log.debug(
+        "JwtProvider key rotation configured: accessActiveKeyId={}, accessPreviousKeys={}, refreshActiveKeyId={}, refreshPreviousKeys={}",
+        accessKeys.active.keyId,
+        accessKeys.previous.size,
+        refreshKeys.active.keyId,
+        refreshKeys.previous.size,
     )
   }
 
@@ -92,28 +133,34 @@ class JwtProvider(
 
     return JwtDto(
         id = id,
-        accessToken = createJsonWebToken(id, subject, accessKeyBytes, now, accessExpiredInstant),
-        refreshToken = createJsonWebToken(id, subject, refreshKeyBytes, now, refreshExpiredInstant),
+        accessToken =
+            createJsonWebToken(
+                id = id,
+                subject = subject,
+                keyMaterial = accessKeyMaterials.first(),
+                issuedAtInstant = now,
+                expiredInstant = accessExpiredInstant,
+            ),
+        refreshToken =
+            createJsonWebToken(
+                id = id,
+                subject = subject,
+                keyMaterial = refreshKeyMaterials.first(),
+                issuedAtInstant = now,
+                expiredInstant = refreshExpiredInstant,
+            ),
         accessExpiredTime = accessExpiredInstant.toEpochMilli(),
         refreshExpiredTime = refreshExpiredInstant.toEpochMilli(),
     )
   }
 
-  /**
-   * Decodes and validates access-token claims.
-   *
-   * @throws HttpInvalidTokenException If token is malformed/expired/invalid.
-   */
+  /** Decodes and validates access-token claims. */
   fun getAccessClaims(jwt: String): Jwt =
-      getUserClaims(jwt, strictAccessDecoder, tokenType = "access", validateTimestamp = true)
+      getUserClaims(jwt, accessDecoderSet, tokenType = "access", validateTimestamp = true)
 
-  /**
-   * Decodes and validates refresh-token claims.
-   *
-   * @throws HttpInvalidTokenException If token is malformed/expired/invalid.
-   */
+  /** Decodes and validates refresh-token claims. */
   fun getRefreshClaims(jwt: String): Jwt =
-      getUserClaims(jwt, strictRefreshDecoder, tokenType = "refresh", validateTimestamp = true)
+      getUserClaims(jwt, refreshDecoderSet, tokenType = "refresh", validateTimestamp = true)
 
   /**
    * Decodes expired access-token claims without timestamp validator.
@@ -125,7 +172,7 @@ class JwtProvider(
     val claims =
         parseToken(
             jwt = jwt,
-            decoder = relaxedAccessDecoder,
+            decoderSet = relaxedAccessDecoderSet,
             tokenType = "access",
             validateTimestamp = false,
         )
@@ -141,14 +188,15 @@ class JwtProvider(
   private fun createJsonWebToken(
       id: String,
       subject: String,
-      keyBytes: ByteArray,
+      keyMaterial: JwtKeyMaterial,
       issuedAtInstant: Instant,
       expiredInstant: Instant,
   ): String {
     log.trace(
-        "Building signed JWT: userId={}, subject={}, algorithm={}, issuedAt={}, expireAt={}",
+        "Building signed JWT: userId={}, subject={}, keyId={}, algorithm={}, issuedAt={}, expireAt={}",
         id,
         subject,
+        keyMaterial.keyId,
         algorithmSpec.jwsAlgorithm.name,
         issuedAtInstant,
         expiredInstant,
@@ -163,10 +211,16 @@ class JwtProvider(
             .expirationTime(Date.from(expiredInstant))
             .claim("service_name", serviceName)
             .build()
-    val header = JWSHeader.Builder(algorithmSpec.jwsAlgorithm).type(JOSEObjectType.JWT).build()
+    val header =
+        JWSHeader.Builder(algorithmSpec.jwsAlgorithm)
+            .type(JOSEObjectType.JWT)
+            .keyID(keyMaterial.keyId)
+            .build()
 
     return try {
-      SignedJWT(header, claimsSet).apply { sign(MACSigner(keyBytes)) }.serialize()
+      SignedJWT(header, claimsSet)
+          .apply { sign(MACSigner(keyMaterial.secretKey.encoded)) }
+          .serialize()
     } catch (e: JOSEException) {
       throw HttpInvalidTokenException("Failed to sign token.", e)
     }
@@ -174,11 +228,11 @@ class JwtProvider(
 
   private fun getUserClaims(
       jwt: String,
-      decoder: JwtDecoder,
+      decoderSet: JwtDecoderSet,
       tokenType: String,
       validateTimestamp: Boolean,
   ): Jwt {
-    val claims = parseToken(jwt, decoder, tokenType, validateTimestamp)
+    val claims = parseToken(jwt, decoderSet, tokenType, validateTimestamp)
 
     val tokenIssuer = claims.claims["iss"]?.toString()
     val tokenServiceName = claims.claims["service_name"]?.toString()
@@ -210,12 +264,64 @@ class JwtProvider(
 
   private fun parseToken(
       jwt: String,
-      decoder: JwtDecoder,
+      decoderSet: JwtDecoderSet,
       tokenType: String,
       validateTimestamp: Boolean,
   ): Jwt {
+    val keyId = resolveKeyId(jwt)
+    if (!keyId.isNullOrBlank()) {
+      val decoder =
+          decoderSet.byKeyId[keyId]
+              ?: throw HttpInvalidTokenException("Token key id is not recognized.")
+      return decodeWithDecoder(
+          jwt = jwt,
+          decoder = decoder,
+          tokenType = tokenType,
+          validateTimestamp = validateTimestamp,
+          selectedKeyId = keyId,
+      )
+    }
+
+    var lastFailure: Exception? = null
+    for ((index, decoder) in decoderSet.fallback.withIndex()) {
+      try {
+        log.trace(
+            "Parsing legacy token without kid: type={}, decoderIndex={}, {}",
+            tokenType,
+            index,
+            tokenSummary(jwt),
+        )
+        val claims = decoder.decode(jwt)
+        if (validateTimestamp) {
+          validateTimestamps(claims)
+        }
+        return claims
+      } catch (e: HttpStatusException) {
+        throw e
+      } catch (e: HttpInvalidTokenException) {
+        throw e
+      } catch (e: Exception) {
+        lastFailure = e
+      }
+    }
+
+    log.warn("Token parsing failed: type={}, {}", tokenType, tokenSummary(jwt), lastFailure)
+    throw HttpInvalidTokenException("Token parsing failed.", lastFailure)
+  }
+
+  private fun decodeWithDecoder(
+      jwt: String,
+      decoder: JwtDecoder,
+      tokenType: String,
+      validateTimestamp: Boolean,
+      selectedKeyId: String,
+  ): Jwt {
     return try {
-      log.trace("Parsing signed token: {}", tokenSummary(jwt))
+      log.trace(
+          "Parsing signed token: type={}, keyId={}, {}",
+          tokenType,
+          selectedKeyId,
+          tokenSummary(jwt))
       decoder.decode(jwt).also {
         if (validateTimestamp) {
           validateTimestamps(it)
@@ -223,13 +329,44 @@ class JwtProvider(
       }
     } catch (e: HttpStatusException) {
       throw e
+    } catch (e: HttpInvalidTokenException) {
+      throw e
     } catch (e: Exception) {
       if (isExpiredTokenError(e)) {
         log.debug("Token is expired: {}", tokenSummary(jwt))
         throw HttpInvalidTokenException("Token is expired.", e)
       }
-      log.warn("Token parsing failed: type={}, {}", tokenType, tokenSummary(jwt), e)
+      log.warn(
+          "Token parsing failed: type={}, keyId={}, {}",
+          tokenType,
+          selectedKeyId,
+          tokenSummary(jwt),
+          e)
       throw HttpInvalidTokenException("Token parsing failed.", e)
+    }
+  }
+
+  private fun buildKeyMaterials(keyRing: JwtKeyRing): List<JwtKeyMaterial> =
+      (listOf(keyRing.active) + keyRing.previous).map { key ->
+        JwtKeyMaterial(keyId = key.keyId, secretKey = toSecretKey(key.secret))
+      }
+
+  private fun buildDecoderSet(materials: List<JwtKeyMaterial>): JwtDecoderSet {
+    val decoders = materials.map { it.keyId to createDecoder(it.secretKey) }
+    return JwtDecoderSet(
+        byKeyId = linkedMapOf(*decoders.toTypedArray()), fallback = decoders.map { it.second })
+  }
+
+  private fun toSecretKey(value: String): SecretKey {
+    val encoded = Base64.getEncoder().encode(value.toByteArray(StandardCharsets.UTF_8))
+    return SecretKeySpec(encoded, algorithmSpec.jcaName)
+  }
+
+  private fun resolveKeyId(jwt: String): String? {
+    return try {
+      SignedJWT.parse(jwt).header.keyID
+    } catch (_: Exception) {
+      null
     }
   }
 
@@ -303,5 +440,10 @@ class JwtProvider(
   private fun tokenSummary(jwt: String): String {
     if (jwt.isBlank()) return "blank"
     return "len=${jwt.length}"
+  }
+
+  companion object {
+    const val DEFAULT_ACCESS_KEY_ID = "access-current"
+    const val DEFAULT_REFRESH_KEY_ID = "refresh-current"
   }
 }

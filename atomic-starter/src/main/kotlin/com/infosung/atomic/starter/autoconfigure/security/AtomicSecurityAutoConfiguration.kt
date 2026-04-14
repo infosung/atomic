@@ -72,6 +72,24 @@ class AtomicSecurityAutoConfiguration {
     require(!accessKey.isNullOrBlank()) { "atomic.security.jwt.access-key must not be blank." }
     require(!refreshKey.isNullOrBlank()) { "atomic.security.jwt.refresh-key must not be blank." }
 
+    val accessKeyId = properties.jwt.accessKeyId.trim()
+    val refreshKeyId = properties.jwt.refreshKeyId.trim()
+    require(accessKeyId.isNotBlank()) { "atomic.security.jwt.access-key-id must not be blank." }
+    require(refreshKeyId.isNotBlank()) { "atomic.security.jwt.refresh-key-id must not be blank." }
+
+    val previousAccessKeys =
+        normalizePreviousKeys(
+            raw = properties.jwt.previousAccessKeys,
+            activeKeyId = accessKeyId,
+            propertyName = "atomic.security.jwt.previous-access-keys",
+        )
+    val previousRefreshKeys =
+        normalizePreviousKeys(
+            raw = properties.jwt.previousRefreshKeys,
+            activeKeyId = refreshKeyId,
+            propertyName = "atomic.security.jwt.previous-refresh-keys",
+        )
+
     return JwtProvider(
         accessKey = accessKey,
         refreshKey = refreshKey,
@@ -80,6 +98,10 @@ class AtomicSecurityAutoConfiguration {
         accessExpiredSecond = properties.jwt.accessExpiredSecond,
         refreshExpiredSecond = properties.jwt.refreshExpiredSecond,
         timeProvider = timeProvider,
+        accessKeyId = accessKeyId,
+        refreshKeyId = refreshKeyId,
+        previousAccessKeys = previousAccessKeys,
+        previousRefreshKeys = previousRefreshKeys,
     )
   }
 
@@ -122,5 +144,26 @@ class AtomicSecurityAutoConfiguration {
         cookiePolicy = cookiePolicy,
         timeProvider = timeProvider,
     )
+  }
+
+  private fun normalizePreviousKeys(
+      raw: Map<String, String>,
+      activeKeyId: String,
+      propertyName: String,
+  ): Map<String, String> {
+    val normalized = linkedMapOf<String, String>()
+    raw.forEach { (rawKeyId, rawSecret) ->
+      val keyId = rawKeyId.trim()
+      val secret = rawSecret.trim()
+      require(keyId.isNotBlank()) { "$propertyName contains a blank key id." }
+      require(secret.isNotBlank()) { "$propertyName[$keyId] must not be blank." }
+      require(keyId != activeKeyId) {
+        "$propertyName must not reuse the active key id `$activeKeyId`."
+      }
+      require(normalized.putIfAbsent(keyId, secret) == null) {
+        "$propertyName contains duplicate key id `$keyId`."
+      }
+    }
+    return normalized
   }
 }

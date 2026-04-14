@@ -39,6 +39,7 @@ class PublishMavenCentralWorkflowContractTest {
             "atomic-event-log:spring-web",
             "atomic-event-log:ingest-api",
             "atomic-contract",
+            "atomic-crypto",
             "atomic-storage",
             "atomic-spring-web",
             "atomic-spring-security",

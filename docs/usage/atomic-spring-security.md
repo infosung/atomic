@@ -10,6 +10,7 @@ It provides:
 - `JwtSecurityConfigurerAdapter`: filter registration helper
 - channel-aware token resolution (`WEB`, `APP`, `UNKNOWN`)
 - refresh-cookie based access token re-issue flow
+- key-rotation-friendly verification via current + previous signing keys
 
 ## Quick Start (10 Minutes)
 
@@ -28,6 +29,7 @@ Required:
 - `JwtProvider`
 - `SecurityFilterChain` with `JwtSecurityConfigurerAdapter`
 - `ObjectMapper` bean for auto-configured `JwtSecurityConfigurerAdapter` path (usually provided by Spring Boot web stack)
+- if you need the same cryptographic primitives outside `JwtProvider`, add `atomic.crypto` alongside this module
 
 Recommended:
 
@@ -84,6 +86,8 @@ class AtomicSecurityConfig {
       JwtProvider(
           accessKey = "CHANGE_ME_WITH_STRONG_RANDOM_ACCESS_KEY_64B",
           refreshKey = "CHANGE_ME_WITH_STRONG_RANDOM_REFRESH_KEY_64B",
+          previousAccessKeys = listOf("OPTIONAL_OLD_ACCESS_KEY_64B"),
+          previousRefreshKeys = listOf("OPTIONAL_OLD_REFRESH_KEY_64B"),
           accessExpiredSecond = 60 * 15,
           refreshExpiredSecond = 60L * 60L * 24L * 14L,
           serviceName = "MyService",
@@ -176,6 +180,7 @@ Useful notes:
 - `serviceName` blank -> default `InfosungAtomic`
 - `getExpiredClaims(...)` is for already-expired access token handling use cases
 - use long random keys for `accessKey` and `refreshKey`
+- `previousAccessKeys` and `previousRefreshKeys` are verification-only rotation lanes; signing always uses the current key
 - token summary logs include only token length (no raw token / suffix output)
 
 ## Operational Checklist
