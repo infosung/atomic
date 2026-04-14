@@ -33,6 +33,8 @@ internal class RoutedOauthProvider(
           "defaultClientKey '$defaultClientKey' is not registered for provider $providerName"
         }
       }
+  private val sortedProvidersByClientKey: Map<String, OauthProvider> =
+      this.providersByClientKey.toSortedMap()
 
   private val capabilitySet: Set<OauthProviderCapability> =
       this.providersByClientKey.values.first().capabilities().also { baseCapabilitySet ->
@@ -119,7 +121,7 @@ internal class RoutedOauthProvider(
     if ((request.strategy == OauthIdentityStrategy.AUTO ||
         request.strategy == OauthIdentityStrategy.ID_TOKEN) && !request.idToken.isNullOrBlank()) {
       var lastRoutingError: Exception? = null
-      for ((clientKey, provider) in providersByClientKey.toSortedMap()) {
+      for ((clientKey, provider) in sortedProvidersByClientKey) {
         try {
           return stampSelectedClientKey(provider.resolveIdentity(sanitizedRequest), clientKey)
         } catch (e: HttpJwtVerifyException) {

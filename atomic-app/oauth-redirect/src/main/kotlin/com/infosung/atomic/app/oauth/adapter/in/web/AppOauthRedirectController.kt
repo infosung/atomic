@@ -536,11 +536,13 @@ class AppOauthRedirectController(
             codeVerifier = codeVerifier,
             maxAgeSeconds = properties.callbackBinding.cookieMaxAgeSeconds)
     response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString())
-    log.debug(
-        "Set OAuth PKCE verifier cookie: cookieName={}, maxAgeSeconds={}",
-        buildPkceCodeVerifierCookieName(state),
-        properties.callbackBinding.cookieMaxAgeSeconds,
-    )
+    if (log.isDebugEnabled) {
+      log.debug(
+          "Set OAuth PKCE verifier cookie: cookieName={}, maxAgeSeconds={}",
+          buildPkceCodeVerifierCookieName(state),
+          properties.callbackBinding.cookieMaxAgeSeconds,
+      )
+    }
   }
 
   private fun clearPkceCodeVerifierCookie(
@@ -549,10 +551,12 @@ class AppOauthRedirectController(
   ) {
     val cookie = buildPkceCodeVerifierCookie(state = state, codeVerifier = "", maxAgeSeconds = 0)
     response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString())
-    log.debug(
-        "Cleared OAuth PKCE verifier cookie after callback: cookieName={}",
-        buildPkceCodeVerifierCookieName(state),
-    )
+    if (log.isDebugEnabled) {
+      log.debug(
+          "Cleared OAuth PKCE verifier cookie after callback: cookieName={}",
+          buildPkceCodeVerifierCookieName(state),
+      )
+    }
   }
 
   private fun buildPkceCodeVerifierCookie(
