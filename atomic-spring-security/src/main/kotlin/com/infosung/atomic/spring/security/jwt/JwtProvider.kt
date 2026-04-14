@@ -1,7 +1,6 @@
 package com.infosung.atomic.spring.security.jwt
 
 import com.infosung.atomic.contract.exception.HttpInvalidTokenException
-import com.infosung.atomic.contract.exception.HttpStatusException
 import com.infosung.atomic.contract.exception.HttpTokenNotExpiredException
 import com.infosung.atomic.contract.time.TimeProvider
 import com.nimbusds.jose.JOSEException
@@ -9,22 +8,18 @@ import com.nimbusds.jose.JOSEObjectType
 import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.JWSHeader
 import com.nimbusds.jose.crypto.MACSigner
+import com.nimbusds.jose.crypto.MACVerifier
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import java.nio.charset.StandardCharsets
 import java.time.Instant
 import java.util.Base64
 import java.util.Date
+import java.util.LinkedHashMap
 import javax.crypto.SecretKey
 import javax.crypto.spec.SecretKeySpec
 import org.slf4j.LoggerFactory
-import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator
-import org.springframework.security.oauth2.core.OAuth2Error
-import org.springframework.security.oauth2.core.OAuth2TokenValidator
-import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult
 import org.springframework.security.oauth2.jwt.Jwt
-import org.springframework.security.oauth2.jwt.JwtDecoder
-import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
 
 /**
  * HMAC-based JWT issuer and validator.
@@ -74,7 +69,6 @@ class JwtProvider(
   private data class JwtAlgorithmSpec(
       val jcaName: String,
       val jwsAlgorithm: JWSAlgorithm,
-      val macAlgorithm: org.springframework.security.oauth2.jose.jws.MacAlgorithm,
   )
 
   private data class JwtKeyMaterial(
@@ -82,9 +76,9 @@ class JwtProvider(
       val secretKey: SecretKey,
   )
 
-  private data class JwtDecoderSet(
-      val byKeyId: Map<String, JwtDecoder>,
-      val fallback: List<JwtDecoder>,
+  private data class JwtVerifierSet(
+      val byKeyId: Map<String, JwtKeyMaterial>,
+      val fallback: List<JwtKeyMaterial>,
   )
 
   private val serviceName: String = serviceName.ifBlank { "InfosungAtomic" }
@@ -92,9 +86,9 @@ class JwtProvider(
   private val algorithmSpec = resolveAlgorithmSpec(algorithm)
   private val accessKeyMaterials = buildKeyMaterials(accessKeys)
   private val refreshKeyMaterials = buildKeyMaterials(refreshKeys)
-  private val accessDecoderSet = buildDecoderSet(accessKeyMaterials)
-  private val refreshDecoderSet = buildDecoderSet(refreshKeyMaterials)
-  private val relaxedAccessDecoderSet = buildDecoderSet(accessKeyMaterials)
+  private val accessVerifierSet = buildVerifierSet(accessKeyMaterials)
+  private val refreshVerifierSet = buildVerifierSet(refreshKeyMaterials)
+  private val relaxedAccessVerifierSet = buildVerifierSet(accessKeyMaterials)
 
   private val log = LoggerFactory.getLogger(JwtProvider::class.java)
 
@@ -156,11 +150,11 @@ class JwtProvider(
 
   /** Decodes and validates access-token claims. */
   fun getAccessClaims(jwt: String): Jwt =
-      getUserClaims(jwt, accessDecoderSet, tokenType = "access", validateTimestamp = true)
+      getUserClaims(jwt, accessVerifierSet, tokenType = "access", validateTimestamp = true)
 
   /** Decodes and validates refresh-token claims. */
   fun getRefreshClaims(jwt: String): Jwt =
-      getUserClaims(jwt, refreshDecoderSet, tokenType = "refresh", validateTimestamp = true)
+      getUserClaims(jwt, refreshVerifierSet, tokenType = "refresh", validateTimestamp = true)
 
   /**
    * Decodes expired access-token claims without timestamp validator.
@@ -172,7 +166,7 @@ class JwtProvider(
     val claims =
         parseToken(
             jwt = jwt,
-            decoderSet = relaxedAccessDecoderSet,
+            verifierSet = relaxedAccessVerifierSet,
             tokenType = "access",
             validateTimestamp = false,
         )
@@ -228,11 +222,11 @@ class JwtProvider(
 
   private fun getUserClaims(
       jwt: String,
-      decoderSet: JwtDecoderSet,
+      verifierSet: JwtVerifierSet,
       tokenType: String,
       validateTimestamp: Boolean,
   ): Jwt {
-    val claims = parseToken(jwt, decoderSet, tokenType, validateTimestamp)
+    val claims = parseToken(jwt, verifierSet, tokenType, validateTimestamp)
 
     val tokenIssuer = claims.claims["iss"]?.toString()
     val tokenServiceName = claims.claims["service_name"]?.toString()
@@ -264,85 +258,74 @@ class JwtProvider(
 
   private fun parseToken(
       jwt: String,
-      decoderSet: JwtDecoderSet,
+      verifierSet: JwtVerifierSet,
       tokenType: String,
       validateTimestamp: Boolean,
   ): Jwt {
-    val keyId = resolveKeyId(jwt)
+    val signedJwt = parseSignedJwt(jwt)
+    validateHeaderAlgorithm(signedJwt, tokenType)
+    val keyId = signedJwt.header.keyID
     if (!keyId.isNullOrBlank()) {
-      val decoder =
-          decoderSet.byKeyId[keyId]
+      val keyMaterial =
+          verifierSet.byKeyId[keyId]
               ?: throw HttpInvalidTokenException("Token key id is not recognized.")
-      return decodeWithDecoder(
+      return verifyAndBuildJwt(
+          signedJwt = signedJwt,
           jwt = jwt,
-          decoder = decoder,
+          keyMaterial = keyMaterial,
           tokenType = tokenType,
           validateTimestamp = validateTimestamp,
           selectedKeyId = keyId,
       )
     }
 
-    var lastFailure: Exception? = null
-    for ((index, decoder) in decoderSet.fallback.withIndex()) {
-      try {
+    for ((index, keyMaterial) in verifierSet.fallback.withIndex()) {
+      if (verifySignature(signedJwt, keyMaterial)) {
         log.trace(
-            "Parsing legacy token without kid: type={}, decoderIndex={}, {}",
+            "Parsing legacy token without kid: type={}, keyIndex={}, {}",
             tokenType,
             index,
             tokenSummary(jwt),
         )
-        val claims = decoder.decode(jwt)
-        if (validateTimestamp) {
-          validateTimestamps(claims)
+        return buildJwt(jwt, signedJwt).also {
+          if (validateTimestamp) {
+            validateTimestamps(it)
+          }
         }
-        return claims
-      } catch (e: HttpStatusException) {
-        throw e
-      } catch (e: HttpInvalidTokenException) {
-        throw e
-      } catch (e: Exception) {
-        lastFailure = e
       }
     }
 
-    log.warn("Token parsing failed: type={}, {}", tokenType, tokenSummary(jwt), lastFailure)
-    throw HttpInvalidTokenException("Token parsing failed.", lastFailure)
+    log.warn("Token parsing failed: type={}, {}", tokenType, tokenSummary(jwt))
+    throw HttpInvalidTokenException("Token parsing failed.")
   }
 
-  private fun decodeWithDecoder(
+  private fun verifyAndBuildJwt(
+      signedJwt: SignedJWT,
       jwt: String,
-      decoder: JwtDecoder,
+      keyMaterial: JwtKeyMaterial,
       tokenType: String,
       validateTimestamp: Boolean,
       selectedKeyId: String,
   ): Jwt {
-    return try {
-      log.trace(
-          "Parsing signed token: type={}, keyId={}, {}",
-          tokenType,
-          selectedKeyId,
-          tokenSummary(jwt))
-      decoder.decode(jwt).also {
-        if (validateTimestamp) {
-          validateTimestamps(it)
-        }
-      }
-    } catch (e: HttpStatusException) {
-      throw e
-    } catch (e: HttpInvalidTokenException) {
-      throw e
-    } catch (e: Exception) {
-      if (isExpiredTokenError(e)) {
-        log.debug("Token is expired: {}", tokenSummary(jwt))
-        throw HttpInvalidTokenException("Token is expired.", e)
-      }
+    log.trace(
+        "Parsing signed token: type={}, keyId={}, {}",
+        tokenType,
+        selectedKeyId,
+        tokenSummary(jwt),
+    )
+    if (!verifySignature(signedJwt, keyMaterial)) {
       log.warn(
           "Token parsing failed: type={}, keyId={}, {}",
           tokenType,
           selectedKeyId,
           tokenSummary(jwt),
-          e)
-      throw HttpInvalidTokenException("Token parsing failed.", e)
+      )
+      throw HttpInvalidTokenException("Token parsing failed.")
+    }
+    return buildJwt(jwt, signedJwt).also {
+      if (validateTimestamp) {
+        validateTimestamps(it)
+      }
     }
   }
 
@@ -351,46 +334,91 @@ class JwtProvider(
         JwtKeyMaterial(keyId = key.keyId, secretKey = toSecretKey(key.secret))
       }
 
-  private fun buildDecoderSet(materials: List<JwtKeyMaterial>): JwtDecoderSet {
-    val decoders = materials.map { it.keyId to createDecoder(it.secretKey) }
-    return JwtDecoderSet(
-        byKeyId = linkedMapOf(*decoders.toTypedArray()), fallback = decoders.map { it.second })
-  }
+  private fun buildVerifierSet(materials: List<JwtKeyMaterial>): JwtVerifierSet =
+      JwtVerifierSet(
+          byKeyId = linkedMapOf(*materials.map { it.keyId to it }.toTypedArray()),
+          fallback = materials,
+      )
 
   private fun toSecretKey(value: String): SecretKey {
     val encoded = Base64.getEncoder().encode(value.toByteArray(StandardCharsets.UTF_8))
     return SecretKeySpec(encoded, algorithmSpec.jcaName)
   }
 
-  private fun resolveKeyId(jwt: String): String? {
+  private fun parseSignedJwt(jwt: String): SignedJWT {
     return try {
-      SignedJWT.parse(jwt).header.keyID
-    } catch (_: Exception) {
-      null
+      SignedJWT.parse(jwt)
+    } catch (e: Exception) {
+      throw HttpInvalidTokenException("Token parsing failed.", e)
     }
   }
 
-  private fun createDecoder(key: SecretKey): JwtDecoder {
-    val decoder =
-        NimbusJwtDecoder.withSecretKey(key).macAlgorithm(algorithmSpec.macAlgorithm).build()
-    decoder.setJwtValidator(DelegatingOAuth2TokenValidator(issuerValidator()))
-    return decoder
+  private fun validateHeaderAlgorithm(
+      signedJwt: SignedJWT,
+      tokenType: String,
+  ) {
+    if (signedJwt.header.algorithm != algorithmSpec.jwsAlgorithm) {
+      log.warn(
+          "Token algorithm mismatch: type={}, actual={}, expected={}",
+          tokenType,
+          signedJwt.header.algorithm.name,
+          algorithmSpec.jwsAlgorithm.name,
+      )
+      throw HttpInvalidTokenException("Token algorithm is not supported.")
+    }
   }
 
-  private fun issuerValidator(): OAuth2TokenValidator<Jwt> {
-    return OAuth2TokenValidator { token ->
-      val tokenIssuer = token.claims["iss"]?.toString()
-      if (tokenIssuer == issuer) {
-        OAuth2TokenValidatorResult.success()
-      } else {
-        OAuth2TokenValidatorResult.failure(
-            OAuth2Error(
-                "invalid_token",
-                "Token issuer does not match configured issuer.",
-                null,
-            ),
-        )
-      }
+  private fun verifySignature(
+      signedJwt: SignedJWT,
+      keyMaterial: JwtKeyMaterial,
+  ): Boolean {
+    return try {
+      signedJwt.verify(MACVerifier(keyMaterial.secretKey.encoded))
+    } catch (_: JOSEException) {
+      false
+    }
+  }
+
+  private fun buildJwt(
+      tokenValue: String,
+      signedJwt: SignedJWT,
+  ): Jwt {
+    val claimsSet = signedJwt.jwtClaimsSet
+    val headers =
+        LinkedHashMap<String, Any>().apply {
+          signedJwt.header.toJSONObject().forEach { (key, value) ->
+            normalizeValue(value)?.let { put(key, it) }
+          }
+        }
+    val claims =
+        LinkedHashMap<String, Any>().apply {
+          claimsSet.claims.forEach { (key, value) ->
+            normalizeValue(value)?.let { put(key, it) }
+          }
+        }
+    return Jwt(
+        tokenValue,
+        claimsSet.issueTime?.toInstant(),
+        claimsSet.expirationTime?.toInstant(),
+        headers,
+        claims,
+    )
+  }
+
+  private fun normalizeValue(value: Any?): Any? {
+    return when (value) {
+      null -> null
+      is Date -> value.toInstant()
+      is Map<*, *> ->
+          LinkedHashMap<String, Any>().apply {
+            value.forEach { (key, nestedValue) ->
+              if (key is String) {
+                normalizeValue(nestedValue)?.let { put(key, it) }
+              }
+            }
+          }
+      is List<*> -> value.mapNotNull(::normalizeValue)
+      else -> value
     }
   }
 
@@ -400,27 +428,19 @@ class JwtProvider(
           JwtAlgorithmSpec(
               jcaName = "HmacSHA256",
               jwsAlgorithm = JWSAlgorithm.HS256,
-              macAlgorithm = org.springframework.security.oauth2.jose.jws.MacAlgorithm.HS256,
           )
       "HMACSHA384" ->
           JwtAlgorithmSpec(
               jcaName = "HmacSHA384",
               jwsAlgorithm = JWSAlgorithm.HS384,
-              macAlgorithm = org.springframework.security.oauth2.jose.jws.MacAlgorithm.HS384,
           )
       "HMACSHA512" ->
           JwtAlgorithmSpec(
               jcaName = "HmacSHA512",
               jwsAlgorithm = JWSAlgorithm.HS512,
-              macAlgorithm = org.springframework.security.oauth2.jose.jws.MacAlgorithm.HS512,
           )
       else -> throw IllegalArgumentException("Unsupported algorithm: $algorithm")
     }
-  }
-
-  private fun isExpiredTokenError(e: Throwable): Boolean {
-    val message = e.message?.lowercase() ?: return false
-    return message.contains("expired") || message.contains("jwt expired")
   }
 
   private fun validateTimestamps(jwt: Jwt) {
