@@ -7,6 +7,9 @@ import com.infosung.atomic.app.oauth.application.port.out.IssueOauthRelayCodePor
 import com.infosung.atomic.app.oauth.application.port.out.OauthProviderOperationsPort
 import com.infosung.atomic.app.oauth.application.port.out.ValidateOauthRedirectUriPort
 import com.infosung.atomic.app.oauth.application.port.out.VerifyOauthStatePort
+import com.infosung.atomic.oauth.api.OauthIdentityRequest
+import com.infosung.atomic.oauth.api.OauthIdentityResult
+import com.infosung.atomic.oauth.api.OauthIdentityStrategy
 import com.infosung.atomic.oauth.api.OauthProviderName
 import com.infosung.atomic.oauth.api.OauthTokenResult
 import org.slf4j.LoggerFactory
@@ -48,6 +51,12 @@ internal class BuildAppleCallbackRedirectService(
     user?.takeIf { it.isNotBlank() }?.let { raw["user"] = it }
     raw.putAll(additionalParameters)
 
+    val resolvedIdentity =
+        resolveIdentitySnapshot(
+            providerName = providerName,
+            idToken = idToken,
+            verifiedState = verifiedState,
+        )
     val redirectUri =
         validateOauthRedirectUriPort.validateRedirectUri(
             OauthRedirectUseCaseSupport.readRedirectUri(verifiedState),
@@ -62,6 +71,10 @@ internal class BuildAppleCallbackRedirectService(
                         raw = raw,
                     ),
                 verifiedState = verifiedState,
+                internalStateAttributeKeys =
+                    OauthRedirectUseCaseSupport.internalStateAttributeKeys(
+                        callbackBindingStateAttributeKey),
+                resolvedIdentity = resolvedIdentity,
             ),
         )
     val queryParameterName =
@@ -73,18 +86,49 @@ internal class BuildAppleCallbackRedirectService(
             value = relayCode,
         )
     val redirectTargetType = OauthRedirectClientTargetClassifier.classify(redirectUri)
-    log.debug(
-        "Built Apple oauth callback frontend redirect via use-case: redirectUri={}, redirectTargetType={}, relayCodeLength={}, additionalParameterKeys={}",
-        redirectUri,
-        redirectTargetType,
-        relayCode.length,
-        additionalParameters.keys.sorted(),
-    )
+    if (log.isDebugEnabled) {
+      log.debug(
+          "Built Apple oauth callback frontend redirect via use-case: redirectUri={}, redirectTargetType={}, relayCodeLength={}, hasResolvedIdentity={}, additionalParameterKeys={}",
+          redirectUri,
+          redirectTargetType,
+          relayCode.length,
+          resolvedIdentity != null,
+          additionalParameters.keys.sorted(),
+      )
+    }
     return CallbackRedirectResult(
         providerName = providerName,
         frontendRedirectUrl = frontendRedirectUrl,
         redirectTargetType = redirectTargetType,
         relayCodeLength = relayCode.length,
     )
+  }
+
+  private fun resolveIdentitySnapshot(
+      providerName: OauthProviderName,
+      idToken: String,
+      verifiedState: com.infosung.atomic.app.oauth.application.model.OauthVerifiedState,
+  ): OauthIdentityResult? {
+    return runCatching {
+          oauthProviderOperationsPort
+              .resolveIdentity(
+                  provider = providerName.name,
+                  request =
+                      OauthIdentityRequest(
+                          strategy = OauthIdentityStrategy.ID_TOKEN,
+                          idToken = idToken,
+                          nonce = verifiedState.nonce,
+                      ),
+              )
+              .identityResult
+        }
+        .onFailure {
+          log.warn(
+              "Failed to resolve optional Apple identity snapshot during callback: provider={}, message={}",
+              providerName,
+              it.message,
+          )
+        }
+        .getOrNull()
   }
 }

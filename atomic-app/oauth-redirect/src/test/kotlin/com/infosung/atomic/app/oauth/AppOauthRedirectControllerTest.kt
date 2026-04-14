@@ -22,7 +22,9 @@ import com.infosung.atomic.oauth.exception.HttpIOException
 import com.infosung.atomic.oauth.state.OauthStateClaims
 import com.infosung.atomic.oauth.state.OauthStateManager
 import jakarta.servlet.http.Cookie
+import java.security.MessageDigest
 import java.time.Instant
+import java.util.HexFormat
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -398,6 +400,206 @@ class AppOauthRedirectControllerTest {
     assertNull(response.getHeader("Set-Cookie"))
   }
 
+  @Test
+  fun `redirect should reject client supplied pkce verifier parameter`() {
+    val properties = configuredProperties()
+    val provider = CapturingOauthProvider()
+    val stateManager = mock(OauthStateManager::class.java)
+    val controller =
+        newController(
+            properties = properties,
+            providers = listOf(provider),
+            stateManager = stateManager,
+        )
+
+    val request = MockHttpServletRequest("GET", "/oauth/redirect/google")
+    request.addParameter(
+        "codeVerifier",
+        "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
+    )
+    val response = MockHttpServletResponse()
+
+    val exception =
+        assertFailsWith<HttpStatusException> {
+          controller.redirect(
+              provider = "google",
+              redirectUri = "https://client.example.com/oauth/callback",
+              nonce = null,
+              prompt = null,
+              loginHint = null,
+              responseMode = null,
+              request = request,
+              response = response,
+          )
+        }
+
+    assertEquals(400, exception.status)
+    assertEquals("OAUTH_REDIRECT_INVALID_REQUEST", exception.code)
+    assertEquals(
+        "Client supplied PKCE parameter 'codeVerifier' is not supported on redirect endpoint. Use codeChallengeMethod only.",
+        exception.message,
+    )
+  }
+
+  @Test
+  fun `redirect should set pkce verifier cookie when code challenge method is requested`() {
+    val properties = configuredProperties().apply { callbackBinding.enabled = false }
+    val provider =
+        object : CapturingOauthProvider() {
+          override fun buildAuthorizationUrl(request: OauthAuthorizationRequest): String {
+            lastAuthorizationRequest = request
+            return "https://provider.example.com/auth?state=state-for-pkce"
+          }
+        }
+    val stateManager = mock(OauthStateManager::class.java)
+    val controller =
+        newController(
+            properties = properties,
+            providers = listOf(provider),
+            stateManager = stateManager,
+        )
+
+    val request = MockHttpServletRequest("GET", "/oauth/redirect/google")
+    val response = MockHttpServletResponse()
+    val result =
+        controller.redirect(
+            provider = "google",
+            redirectUri = "https://client.example.com/oauth/callback",
+            nonce = null,
+            prompt = null,
+            loginHint = null,
+            responseMode = null,
+            codeChallengeMethod = "S256",
+            request = request,
+            response = response,
+        )
+
+    assertEquals("redirect:https://provider.example.com/auth?state=state-for-pkce", result)
+    assertEquals(
+        "true", provider.lastAuthorizationRequest?.stateAttributes?.get("__atomicPkceRequired"))
+    assertEquals(
+        com.infosung.atomic.oauth.api.OauthCodeChallengeMethod.S256,
+        provider.lastAuthorizationRequest?.codeChallengeMethod,
+    )
+    val setCookieHeaders = response.getHeaders("Set-Cookie")
+    assertTrue(setCookieHeaders.any { it.contains("${pkceCookieName("state-for-pkce")}=") })
+  }
+
+  @Test
+  fun `callback should read pkce verifier cookie and clear it after success`() {
+    val properties = configuredProperties().apply { callbackBinding.enabled = false }
+    val provider = CapturingOauthProvider()
+    val stateManager = mock(OauthStateManager::class.java)
+    val controller =
+        newController(
+            properties = properties,
+            providers = listOf(provider),
+            stateManager = stateManager,
+        )
+
+    `when`(
+            stateManager.verifyStateClaims(
+                "state-with-pkce",
+                OauthProviderName.GOOGLE,
+                null,
+                null,
+            ),
+        )
+        .thenReturn(
+            stateClaims(
+                provider = "GOOGLE",
+                redirectUri = "https://client.example.com/oauth/callback",
+                attributes = mapOf("__atomicPkceRequired" to "true"),
+            ),
+        )
+
+    val request = MockHttpServletRequest("GET", "/oauth/callback/google")
+    request.setCookies(
+        Cookie(
+            pkceCookieName("state-with-pkce"),
+            "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
+        ),
+    )
+    val response = MockHttpServletResponse()
+
+    val result =
+        controller.callback(
+            provider = "google",
+            code = "code-value",
+            state = "state-with-pkce",
+            request = request,
+            response = response,
+        )
+
+    assertTrue(result.startsWith("redirect:https://client.example.com/oauth/callback?relayCode="))
+    assertEquals(
+        "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
+        provider.lastExchangeRequest?.codeVerifier,
+    )
+    assertTrue(
+        response.getHeaders("Set-Cookie").any {
+          it.contains("${pkceCookieName("state-with-pkce")}=") && it.contains("Max-Age=0")
+        },
+    )
+  }
+
+  @Test
+  fun `callback should reject ambiguous pkce verifier cookie`() {
+    val properties = configuredProperties().apply { callbackBinding.enabled = false }
+    val provider = CapturingOauthProvider()
+    val stateManager = mock(OauthStateManager::class.java)
+    val controller =
+        newController(
+            properties = properties,
+            providers = listOf(provider),
+            stateManager = stateManager,
+        )
+
+    `when`(
+            stateManager.verifyStateClaims(
+                "state-with-pkce",
+                OauthProviderName.GOOGLE,
+                null,
+                null,
+            ),
+        )
+        .thenReturn(
+            stateClaims(
+                provider = "GOOGLE",
+                redirectUri = "https://client.example.com/oauth/callback",
+                attributes = mapOf("__atomicPkceRequired" to "true"),
+            ),
+        )
+
+    val request = MockHttpServletRequest("GET", "/oauth/callback/google")
+    request.setCookies(
+        Cookie(
+            pkceCookieName("state-with-pkce"),
+            "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
+        ),
+        Cookie(
+            pkceCookieName("state-with-pkce"),
+            "second-verifier-value-that-should-not-be-accepted",
+        ),
+    )
+    val response = MockHttpServletResponse()
+
+    val exception =
+        assertFailsWith<HttpStatusException> {
+          controller.callback(
+              provider = "google",
+              code = "code-value",
+              state = "state-with-pkce",
+              request = request,
+              response = response,
+          )
+        }
+
+    assertEquals(400, exception.status)
+    assertEquals("OAUTH_CALLBACK_INVALID_REQUEST", exception.code)
+    assertEquals("OAuth PKCE verifier cookie is ambiguous.", exception.message)
+  }
+
   private fun configuredProperties(): AtomicAppOauthRedirectProperties {
     return AtomicAppOauthRedirectProperties().apply {
       allowedRedirectUriPrefixes = listOf("https://client.example.com")
@@ -460,8 +662,9 @@ class AppOauthRedirectControllerTest {
   private fun stateClaims(
       provider: String,
       redirectUri: String,
-      callbackBindingKey: String,
-      callbackBindingToken: String,
+      callbackBindingKey: String? = null,
+      callbackBindingToken: String? = null,
+      attributes: Map<String, String> = emptyMap(),
   ): OauthStateClaims {
     val now = Instant.now()
     return OauthStateClaims(
@@ -471,8 +674,20 @@ class AppOauthRedirectControllerTest {
         expiresAt = now.plusSeconds(300),
         provider = OauthProviderName.valueOf(provider),
         redirectUri = redirectUri,
-        attributes = mapOf(callbackBindingKey to callbackBindingToken),
+        attributes =
+            buildMap {
+              callbackBindingKey?.let { key ->
+                callbackBindingToken?.let { token -> put(key, token) }
+              }
+              putAll(attributes)
+            },
     )
+  }
+
+  private fun pkceCookieName(state: String): String {
+    val digest = MessageDigest.getInstance("SHA-256").digest(state.toByteArray(Charsets.UTF_8))
+    val suffix = HexFormat.of().formatHex(digest, 0, 16)
+    return "atomic_oauth_pkce_$suffix"
   }
 
   private open class CapturingOauthProvider : OauthProvider {

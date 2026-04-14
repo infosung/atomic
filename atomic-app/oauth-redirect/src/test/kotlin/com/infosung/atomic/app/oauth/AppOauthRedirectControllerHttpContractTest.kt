@@ -21,6 +21,8 @@ import com.infosung.atomic.oauth.exception.HttpIOException
 import com.infosung.atomic.oauth.state.InMemoryOauthStateStore
 import com.infosung.atomic.oauth.state.OauthStateManager
 import com.infosung.atomic.spring.web.exception.AtomicHttpExceptionHandler
+import java.security.MessageDigest
+import java.util.HexFormat
 import kotlin.test.Test
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -68,6 +70,85 @@ class AppOauthRedirectControllerHttpContractTest {
         authorizationRequest.stateAttributes.containsKey(
             properties.callbackBinding.stateAttributeKey),
     )
+  }
+
+  @Test
+  fun `redirect endpoint should reject client supplied codeVerifier with documented 400 envelope`() {
+    val properties = configuredProperties()
+    val provider = ContractOauthProvider(providerName = OauthProviderName.GOOGLE)
+    val controller = newController(properties = properties, providers = listOf(provider))
+    val mockMvc = newMockMvc(controller = controller, properties = properties)
+
+    mockMvc
+        .perform(
+            get("/oauth/redirect/google")
+                .param("redirectUri", "https://app.example.com/oauth/callback")
+                .param("codeVerifier", "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"),
+        )
+        .andExpect(status().isBadRequest)
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+        .andExpect(jsonPath("$.code").value("OAUTH_REDIRECT_INVALID_REQUEST"))
+        .andExpect(
+            jsonPath("$.message")
+                .value(
+                    "Client supplied PKCE parameter 'codeVerifier' is not supported on redirect endpoint. Use codeChallengeMethod only.",
+                ),
+        )
+  }
+
+  @Test
+  fun `redirect endpoint should reject invalid codeChallengeMethod with documented 400 envelope`() {
+    val properties = configuredProperties()
+    val provider = ContractOauthProvider(providerName = OauthProviderName.GOOGLE)
+    val controller = newController(properties = properties, providers = listOf(provider))
+    val mockMvc = newMockMvc(controller = controller, properties = properties)
+
+    mockMvc
+        .perform(
+            get("/oauth/redirect/google")
+                .param("redirectUri", "https://app.example.com/oauth/callback")
+                .param("codeChallengeMethod", "SHA512"),
+        )
+        .andExpect(status().isBadRequest)
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+        .andExpect(jsonPath("$.code").value("OAUTH_REDIRECT_INVALID_REQUEST"))
+        .andExpect(
+            jsonPath("$.message").value("Unsupported PKCE codeChallengeMethod: SHA512"),
+        )
+  }
+
+  @Test
+  fun `redirect endpoint should set server managed pkce cookie when code challenge method is requested`() {
+    val properties = configuredProperties().apply { callbackBinding.enabled = false }
+    val provider =
+        object : ContractOauthProvider(providerName = OauthProviderName.GOOGLE) {
+          override fun buildAuthorizationUrl(request: OauthAuthorizationRequest): String {
+            lastAuthorizationRequest = request
+            return "https://provider.example.com/auth?state=state-http-pkce"
+          }
+        }
+    val controller = newController(properties = properties, providers = listOf(provider))
+    val mockMvc = newMockMvc(controller = controller, properties = properties)
+
+    val response =
+        mockMvc
+            .perform(
+                get("/oauth/redirect/google")
+                    .param("redirectUri", "https://app.example.com/oauth/callback")
+                    .param("codeChallengeMethod", "S256"),
+            )
+            .andExpect(status().isFound)
+            .andExpect(redirectedUrl("https://provider.example.com/auth?state=state-http-pkce"))
+            .andReturn()
+            .response
+
+    assertTrue(
+        response.getHeaders(HttpHeaders.SET_COOKIE).any {
+          it.contains("${pkceCookieName("state-http-pkce")}=")
+        },
+    )
+    assertTrue(
+        provider.lastAuthorizationRequest!!.stateAttributes["__atomicPkceRequired"] == "true")
   }
 
   @Test
@@ -867,5 +948,11 @@ class AppOauthRedirectControllerHttpContractTest {
     override fun resolveIdentity(request: OauthIdentityRequest): OauthIdentityResult {
       return OauthIdentityResult(provider = providerName, userId = "user-1")
     }
+  }
+
+  private fun pkceCookieName(state: String): String {
+    val digest = MessageDigest.getInstance("SHA-256").digest(state.toByteArray(Charsets.UTF_8))
+    val suffix = HexFormat.of().formatHex(digest, 0, 16)
+    return "atomic_oauth_pkce_$suffix"
   }
 }

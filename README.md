@@ -518,7 +518,16 @@ OAuth relay option (without token in callback query):
 - callback redirects frontend with `relayCode` only (no raw `id_token`/`access_token` in URL).
 - login API consumes relay payload via `ConsumeOauthRelayCodeUseCase.consume(relayCode)`.
 - the relay module does not issue your app session or JWT for you; treat `relayCode` consumption as an input to your own login flow.
+- redirect endpoint accepts optional `codeChallengeMethod` for browser-based native/web flows, but does not accept client-supplied `codeVerifier`.
+- when PKCE is requested on the redirect API, Atomic generates the verifier server-side, derives the provider-facing challenge, and keeps the verifier only in a short-lived HttpOnly cookie keyed by callback state.
+- the PKCE verifier cookie reuses the callback-binding cookie policy, so local HTTP testing with PKCE still needs HTTPS, `callback-binding.cookie-secure=false`, or callback binding disabled.
+- relay payload can include optional `resolvedIdentity` when callback identity can be resolved from `id_token` without forcing extra remote calls.
+- when you bind or upsert your own account, prefer `resolvedIdentity.providerSubject` as the provider account key. `userId` remains for compatibility but is not the clearer binding field.
+- `resolvedIdentity` is a convenience snapshot, not a persistence contract. Persist the fields you own instead of storing the entire object shape blindly.
 - internally, oauth redirect now consumes typed OAuth state claims from `atomic.spring.oauth2` and translates them into an application-owned verified-state model before callback use-cases read redirect URI, nonce, or callback-binding attributes.
+- boundary note:
+  - `AppOauthRedirectController` is the documented HTTP contract and manages callback-binding / PKCE cookies itself.
+  - exported redirect/callback use-cases remain lower-level override seams for hosts that intentionally replace the default controller and own those secrets directly.
 - for mobile/desktop clients, the intended path is system browser login -> server callback -> allowlisted app URI/deep link with `relayCode`.
 - supported client handoff patterns:
   - web: browser -> server callback -> `https://frontend.example.com/...?...relayCode=...`

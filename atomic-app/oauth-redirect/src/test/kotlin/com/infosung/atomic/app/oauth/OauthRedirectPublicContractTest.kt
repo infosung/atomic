@@ -58,6 +58,7 @@ class OauthRedirectPublicContractTest {
             "raw",
             "nonce",
             "stateAttributes",
+            "resolvedIdentity",
         ),
         OauthRelayPayload::class.primaryConstructor!!.parameters.mapNotNull { it.name },
     )
@@ -118,13 +119,13 @@ class OauthRedirectPublicContractTest {
   fun `oauth redirect use-case public methods should remain stable`() {
     assertEquals(
         listOf(
-            "build(String, String, String, String, String, String, Map, String):AuthorizationRedirectResult",
+            "build(String, String, String, String, String, String, String, OauthCodeChallengeMethod, Map, String):AuthorizationRedirectResult",
         ),
         publicSignatures(BuildAuthorizationRedirectUseCase::class.java),
     )
     assertEquals(
         listOf(
-            "build(String, String, String, Map, String):CallbackRedirectResult",
+            "build(String, String, String, Map, String, String):CallbackRedirectResult",
         ),
         publicSignatures(BuildOauthCallbackRedirectUseCase::class.java),
     )

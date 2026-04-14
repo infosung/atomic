@@ -376,6 +376,10 @@ Behavior:
 
 - callback does not append raw token to URL.
 - callback appends only `relayCode` to frontend redirect URI.
+- redirect endpoint accepts optional `codeChallengeMethod` for PKCE-based native/browser flows.
+- redirect endpoint rejects client-supplied `codeVerifier`, `codeChallenge`, and provider-style PKCE parameters.
+- when PKCE is used on the redirect API, Atomic generates the verifier server-side, derives the provider-facing `code_challenge`, and keeps the raw verifier only in a short-lived HttpOnly cookie keyed by callback `state`.
+- the PKCE verifier cookie reuses the callback-binding cookie policy (`cookieSameSite`, `cookiePath`, `cookieSecure`, `cookieMaxAgeSeconds`), so local HTTP testing with PKCE still needs HTTPS or `callback-binding.cookie-secure=false`.
 - frontend sends `relayCode` to your login API.
 - login API consumes relay payload using `ConsumeOauthRelayCodeUseCase.consume(relayCode)`.
 - the relay module stops at this handoff; your app still issues its own session/JWT/cookie after relay consumption.
@@ -383,8 +387,12 @@ Behavior:
 - state verification is also translated at the adapter boundary into an application-owned verified-state model before callback use-cases read `redirect_uri`, `nonce`, or callback-binding attributes.
 - internal composition/support beans may appear in the Spring context, but host apps should not customize those directly. The build redirect use cases are the one exception: they are exported override seams for hosts that intentionally replace the default redirect/callback orchestration.
 - the exported `AppOauthRedirectController` type lives on the web adapter boundary.
+- boundary note:
+  - `AppOauthRedirectController` is the documented HTTP contract. It rejects client-supplied `codeVerifier` and manages callback-binding / PKCE cookies itself.
+  - exported build use-cases are a lower-level override seam. If a host intentionally replaces the controller, it may still pass caller-managed `codeVerifier` / `callbackBindingToken` directly.
 - default HTTP envelope rendering now flows through the shared `atomic.spring.web` handler instead of a module-local oauth advice bean.
 - browser initiation is the intended model for non-web clients too: mobile and desktop apps should normally start the provider flow in the system browser or a system-browser-based tab, let the server receive the provider callback, and then return to an allowlisted app URI with `relayCode`.
+- if your client owns a provider SDK-native flow and keeps PKCE/token exchange outside the redirect relay, use `atomic.spring.oauth2` directly instead of forcing that flow through `atomic-app/oauth-redirect`.
 - redirect endpoint input `redirectUri` must be an absolute URI and must not include user-info.
 - callback binding validates redirect/callback continuity using one-time state attribute + cookie token.
 - callback-binding mode can be selected with `atomic.app.oauth.redirect.callback-binding.mode`:
@@ -454,12 +462,18 @@ Relay payload:
 
 - provider name
 - `idToken` / `accessToken` / `refreshToken` (when present)
+- optional `resolvedIdentity` snapshot when callback can resolve identity cheaply from `id_token`
 - token metadata (`expiresInSeconds`, scopes, raw payload, nonce, state attributes)
+- `stateAttributes` exclude Atomic internal keys such as callback-binding and PKCE control metadata
+- when you bind a host-app account, prefer `resolvedIdentity.providerSubject` as the provider account key. `resolvedIdentity.userId` remains for compatibility.
+- `resolvedIdentity` is a convenience snapshot, not a storage schema contract. Persist the fields you own instead of coupling your database schema to the full object.
 
 Provider callback differences:
 
 - Google/Kakao: `code/state` query callback -> provider `exchangeCode(...)`
+- Google/Kakao callback resolves optional relay `resolvedIdentity` from `id_token` when present, but relay success does not depend on that enrichment
 - Apple: `form_post` callback -> `id_token` is received directly and stored in relay payload
+- Apple callback also resolves optional relay `resolvedIdentity` from `id_token`
 - Apple callback accepts optional `user` and stores it in relay raw payload.
 - Additional callback parameters are merged into relay raw payload for Apple callback.
 - For Google/Kakao callback, additional parameters are forwarded to token exchange request but not guaranteed in relay raw payload.

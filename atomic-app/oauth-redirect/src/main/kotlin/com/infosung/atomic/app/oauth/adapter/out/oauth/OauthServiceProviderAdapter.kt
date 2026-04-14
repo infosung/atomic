@@ -4,9 +4,11 @@ import com.infosung.atomic.app.oauth.application.exception.OauthRedirectErrorCod
 import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRemoteFailureException
 import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRequestException
 import com.infosung.atomic.app.oauth.application.port.out.OauthProviderAuthorization
+import com.infosung.atomic.app.oauth.application.port.out.OauthProviderIdentityResolution
 import com.infosung.atomic.app.oauth.application.port.out.OauthProviderOperationsPort
 import com.infosung.atomic.app.oauth.application.port.out.OauthProviderTokenExchange
 import com.infosung.atomic.oauth.api.OauthAuthorizationRequest
+import com.infosung.atomic.oauth.api.OauthIdentityRequest
 import com.infosung.atomic.oauth.api.OauthProviderName
 import com.infosung.atomic.oauth.api.OauthServiceProvider
 import com.infosung.atomic.oauth.api.OauthTokenExchangeRequest
@@ -98,14 +100,59 @@ internal class OauthServiceProviderAdapter(
               e,
           )
         }
-    log.trace(
-        "Resolved oauth token exchange through adapter: provider={}, additionalParameterKeys={}",
-        oauthProvider.providerName,
-        request.additionalParameters.keys.sorted(),
-    )
+    if (log.isTraceEnabled) {
+      log.trace(
+          "Resolved oauth token exchange through adapter: provider={}, additionalParameterKeys={}",
+          oauthProvider.providerName,
+          request.additionalParameters.keys.sorted(),
+      )
+    }
     return OauthProviderTokenExchange(
         providerName = oauthProvider.providerName,
         tokenResult = tokenResult,
+    )
+  }
+
+  override fun resolveIdentity(
+      provider: String,
+      request: OauthIdentityRequest,
+  ): OauthProviderIdentityResolution {
+    val oauthProvider =
+        oauthServiceProvider.getService(provider)
+            ?: throw OauthRedirectRequestException(
+                message = "Unsupported provider: $provider",
+                errorCode = OauthRedirectErrorCode.OAUTH_PROVIDER_UNSUPPORTED,
+            )
+    val identityResult =
+        try {
+          oauthProvider.resolveIdentity(request)
+        } catch (e: HttpIOException) {
+          throw OauthRedirectRemoteFailureException(
+              e.message
+                  ?: "Upstream OAuth provider identity resolution failed for provider: $provider",
+              e,
+          )
+        } catch (e: OauthException) {
+          throw OauthRedirectRequestException(
+              e.message ?: "Invalid OAuth identity request for provider: $provider",
+              e,
+          )
+        } catch (e: IllegalArgumentException) {
+          throw OauthRedirectRequestException(
+              e.message ?: "Invalid OAuth identity request for provider: $provider",
+              e,
+          )
+        }
+    log.trace(
+        "Resolved oauth identity through adapter: provider={}, strategy={}, hasIdToken={}, hasAccessToken={}",
+        oauthProvider.providerName,
+        request.strategy,
+        !request.idToken.isNullOrBlank(),
+        !request.accessToken.isNullOrBlank(),
+    )
+    return OauthProviderIdentityResolution(
+        providerName = oauthProvider.providerName,
+        identityResult = identityResult,
     )
   }
 }

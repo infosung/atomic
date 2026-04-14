@@ -3,9 +3,11 @@ package com.infosung.atomic.app.oauth.adapter.`in`.web
 import com.infosung.atomic.app.oauth.application.exception.OauthRedirectApplicationException
 import com.infosung.atomic.app.oauth.application.exception.OauthRedirectErrorCode
 import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRemoteFailureException
+import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRequestException
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildAppleCallbackRedirectUseCase
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildAuthorizationRedirectUseCase
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildOauthCallbackRedirectUseCase
+import com.infosung.atomic.app.oauth.application.service.OauthRedirectUseCaseSupport
 import com.infosung.atomic.app.oauth.autoconfigure.AtomicAppOauthRedirectProperties
 import com.infosung.atomic.contract.exception.HttpStatusException
 import com.infosung.atomic.oauth.api.OauthProviderName
@@ -13,8 +15,10 @@ import com.infosung.atomic.oauth.exception.HttpIOException
 import com.infosung.atomic.oauth.exception.OauthException
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64
+import java.util.HexFormat
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
@@ -44,18 +48,41 @@ class AppOauthRedirectController(
       @RequestParam(name = "prompt", required = false) prompt: String?,
       @RequestParam(name = "loginHint", required = false) loginHint: String?,
       @RequestParam(name = "responseMode", required = false) responseMode: String?,
+      @RequestParam(name = "codeChallengeMethod", required = false)
+      codeChallengeMethod: String? = null,
       request: HttpServletRequest,
       response: HttpServletResponse,
   ): String {
     val callbackBindingMode = properties.callbackBinding.resolvedMode()
     val callbackBindingToken = resolveCallbackBindingTokenForRedirect(request)
+    var serverManagedPkceCodeVerifier: String? = null
     val additionalParameters =
         readAdditionalParameters(
             request = request,
-            reservedKeys = setOf("redirectUri", "nonce", "prompt", "loginHint", "responseMode"),
+            reservedKeys =
+                setOf(
+                    "redirectUri",
+                    "nonce",
+                    "prompt",
+                    "loginHint",
+                    "responseMode",
+                    "codeVerifier",
+                    "codeChallenge",
+                    "code_challenge",
+                    "code_challenge_method",
+                    "codeChallengeMethod",
+                ),
         )
     val authorization =
         mapApplicationErrors(provider = provider, action = "oauth authorization redirect") {
+          val resolvedCodeChallengeMethod =
+              OauthRedirectUseCaseSupport.parseCodeChallengeMethod(codeChallengeMethod)
+          val resolvedCodeVerifier =
+              resolvedCodeChallengeMethod?.let {
+                OauthRedirectUseCaseSupport.generatePkceCodeVerifier(secureRandom)
+              }
+          rejectClientSuppliedPkceParameters(request)
+          serverManagedPkceCodeVerifier = resolvedCodeVerifier
           buildAuthorizationRedirectUseCase.build(
               provider = provider,
               redirectUri = redirectUri,
@@ -63,6 +90,8 @@ class AppOauthRedirectController(
               prompt = prompt,
               loginHint = loginHint,
               responseMode = responseMode,
+              codeVerifier = resolvedCodeVerifier,
+              codeChallengeMethod = resolvedCodeChallengeMethod,
               additionalParameters = additionalParameters,
               callbackBindingToken = callbackBindingToken.token,
           )
@@ -70,14 +99,28 @@ class AppOauthRedirectController(
     if (callbackBindingToken.shouldSetCookie) {
       setCallbackBindingTokenIfEnabled(response = response, token = callbackBindingToken.token)
     }
-    log.debug(
-        "OAuth redirect completed at web adapter: provider={}, callbackBindingMode={}, callbackBindingCookieIssued={}, redirectTargetType={}, additionalParameterKeys={}",
-        provider,
-        callbackBindingMode,
-        callbackBindingToken.shouldSetCookie,
-        authorization.redirectTargetType,
-        additionalParameters.keys.sorted(),
-    )
+    serverManagedPkceCodeVerifier?.let { codeVerifier ->
+      val state =
+          OauthRedirectUseCaseSupport.extractQueryParameter(
+              authorization.authorizationUrl,
+              "state",
+          )
+              ?: throw IllegalStateException(
+                  "OAuth authorization URL must include state when PKCE is enabled.",
+              )
+      setPkceCodeVerifierCookie(response = response, state = state, codeVerifier = codeVerifier)
+    }
+    if (log.isDebugEnabled) {
+      log.debug(
+          "OAuth redirect completed at web adapter: provider={}, callbackBindingMode={}, callbackBindingCookieIssued={}, redirectTargetType={}, hasServerManagedPkce={}, additionalParameterKeys={}",
+          provider,
+          callbackBindingMode,
+          callbackBindingToken.shouldSetCookie,
+          authorization.redirectTargetType,
+          serverManagedPkceCodeVerifier != null,
+          additionalParameters.keys.sorted(),
+      )
+    }
     return "redirect:${authorization.authorizationUrl}"
   }
 
@@ -96,6 +139,7 @@ class AppOauthRedirectController(
             request = request,
             reservedKeys = setOf("code", "state"),
         )
+    val pkceCodeVerifier = readPkceCodeVerifier(request = request, state = state)
     val result =
         mapCallbackErrors(provider = provider) {
           buildOauthCallbackRedirectUseCase.build(
@@ -104,17 +148,23 @@ class AppOauthRedirectController(
               state = state,
               additionalParameters = additionalParameters,
               callbackBindingToken = callbackBindingToken,
+              codeVerifier = pkceCodeVerifier,
           )
         }
     clearCallbackBindingTokenIfEnabled(response)
-    log.debug(
-        "OAuth callback completed at web adapter: provider={}, callbackBindingMode={}, callbackBindingCookieCleared={}, redirectTargetType={}, additionalParameterKeys={}",
-        provider,
-        callbackBindingMode,
-        properties.callbackBinding.shouldClearCookieOnSuccess(),
-        result.redirectTargetType,
-        additionalParameters.keys.sorted(),
-    )
+    if (pkceCodeVerifier != null) {
+      clearPkceCodeVerifierCookie(response = response, state = state)
+    }
+    if (log.isDebugEnabled) {
+      log.debug(
+          "OAuth callback completed at web adapter: provider={}, callbackBindingMode={}, callbackBindingCookieCleared={}, redirectTargetType={}, additionalParameterKeys={}",
+          provider,
+          callbackBindingMode,
+          properties.callbackBinding.shouldClearCookieOnSuccess(),
+          result.redirectTargetType,
+          additionalParameters.keys.sorted(),
+      )
+    }
     return "redirect:${result.frontendRedirectUrl}"
   }
 
@@ -159,13 +209,15 @@ class AppOauthRedirectController(
           )
         }
     clearCallbackBindingTokenIfEnabled(response)
-    log.debug(
-        "Apple OAuth callback completed at web adapter: callbackBindingMode={}, callbackBindingCookieCleared={}, redirectTargetType={}, additionalParameterKeys={}",
-        callbackBindingMode,
-        properties.callbackBinding.shouldClearCookieOnSuccess(),
-        result.redirectTargetType,
-        additionalParameters.keys.sorted(),
-    )
+    if (log.isDebugEnabled) {
+      log.debug(
+          "Apple OAuth callback completed at web adapter: callbackBindingMode={}, callbackBindingCookieCleared={}, redirectTargetType={}, additionalParameterKeys={}",
+          callbackBindingMode,
+          properties.callbackBinding.shouldClearCookieOnSuccess(),
+          result.redirectTargetType,
+          additionalParameters.keys.sorted(),
+      )
+    }
     return "redirect:${result.frontendRedirectUrl}"
   }
 
@@ -440,6 +492,93 @@ class AppOauthRedirectController(
       )
     }
     return matchedCookies.firstOrNull()?.value?.trim()?.takeIf { it.isNotBlank() }
+  }
+
+  private fun rejectClientSuppliedPkceParameters(request: HttpServletRequest) {
+    val forbiddenKeys =
+        setOf("codeVerifier", "codeChallenge", "code_challenge", "code_challenge_method")
+    val presentForbiddenKey =
+        forbiddenKeys.firstOrNull { key ->
+          request.getParameterValues(key)?.any { it.isNotBlank() } == true
+        } ?: return
+    throw OauthRedirectRequestException(
+        message =
+            "Client supplied PKCE parameter '$presentForbiddenKey' is not supported on redirect endpoint. Use codeChallengeMethod only.",
+        errorCode = OauthRedirectErrorCode.OAUTH_REDIRECT_INVALID_REQUEST,
+    )
+  }
+
+  private fun readPkceCodeVerifier(
+      request: HttpServletRequest,
+      state: String,
+  ): String? {
+    val cookieName = buildPkceCodeVerifierCookieName(state)
+    val matchedCookies = request.cookies?.filter { it.name == cookieName }.orEmpty()
+    if (matchedCookies.size > 1) {
+      log.warn("Rejected OAuth callback due to ambiguous PKCE cookie: cookieName={}", cookieName)
+      throw HttpStatusException(
+          status = OauthRedirectErrorCode.OAUTH_CALLBACK_INVALID_REQUEST.defaultHttpStatus,
+          message = "OAuth PKCE verifier cookie is ambiguous.",
+          code = OauthRedirectErrorCode.OAUTH_CALLBACK_INVALID_REQUEST.name,
+      )
+    }
+    return matchedCookies.firstOrNull()?.value?.trim()?.takeIf { it.isNotBlank() }
+  }
+
+  private fun setPkceCodeVerifierCookie(
+      response: HttpServletResponse,
+      state: String,
+      codeVerifier: String,
+  ) {
+    val cookie =
+        buildPkceCodeVerifierCookie(
+            state = state,
+            codeVerifier = codeVerifier,
+            maxAgeSeconds = properties.callbackBinding.cookieMaxAgeSeconds)
+    response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString())
+    if (log.isDebugEnabled) {
+      log.debug(
+          "Set OAuth PKCE verifier cookie: cookieName={}, maxAgeSeconds={}",
+          buildPkceCodeVerifierCookieName(state),
+          properties.callbackBinding.cookieMaxAgeSeconds,
+      )
+    }
+  }
+
+  private fun clearPkceCodeVerifierCookie(
+      response: HttpServletResponse,
+      state: String,
+  ) {
+    val cookie = buildPkceCodeVerifierCookie(state = state, codeVerifier = "", maxAgeSeconds = 0)
+    response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString())
+    if (log.isDebugEnabled) {
+      log.debug(
+          "Cleared OAuth PKCE verifier cookie after callback: cookieName={}",
+          buildPkceCodeVerifierCookieName(state),
+      )
+    }
+  }
+
+  private fun buildPkceCodeVerifierCookie(
+      state: String,
+      codeVerifier: String,
+      maxAgeSeconds: Long,
+  ): ResponseCookie {
+    val sameSite = properties.callbackBinding.cookieSameSite.trim().ifBlank { "None" }
+    val path = properties.callbackBinding.cookiePath.trim().ifBlank { "/" }
+    return ResponseCookie.from(buildPkceCodeVerifierCookieName(state), codeVerifier)
+        .httpOnly(true)
+        .secure(properties.callbackBinding.cookieSecure)
+        .sameSite(sameSite)
+        .path(path)
+        .maxAge(maxAgeSeconds)
+        .build()
+  }
+
+  private fun buildPkceCodeVerifierCookieName(state: String): String {
+    val digest = MessageDigest.getInstance("SHA-256").digest(state.toByteArray(Charsets.UTF_8))
+    val suffix = HexFormat.of().formatHex(digest, 0, 16)
+    return "atomic_oauth_pkce_$suffix"
   }
 
   private fun buildCallbackBindingCookie(

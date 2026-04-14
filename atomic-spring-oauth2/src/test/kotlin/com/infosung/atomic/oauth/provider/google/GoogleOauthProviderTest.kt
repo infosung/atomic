@@ -6,6 +6,7 @@ import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.client.json.webtoken.JsonWebSignature
 import com.infosung.atomic.oauth.api.OauthAuthorizationRequest
+import com.infosung.atomic.oauth.api.OauthCodeChallengeMethod
 import com.infosung.atomic.oauth.api.OauthIdentityPayloadMode
 import com.infosung.atomic.oauth.api.OauthIdentityRequest
 import com.infosung.atomic.oauth.api.OauthIdentityStrategy
@@ -45,6 +46,8 @@ class GoogleOauthProviderTest {
     assertTrue(provider.supports(OauthProviderCapability.EXCHANGE_TOKEN))
     assertTrue(provider.supports(OauthProviderCapability.REFRESH_TOKEN))
     assertTrue(provider.supports(OauthProviderCapability.REVOKE_TOKEN))
+    assertTrue(provider.supports(OauthProviderCapability.AUTHORIZATION_PKCE_PLAIN))
+    assertTrue(provider.supports(OauthProviderCapability.AUTHORIZATION_PKCE_S256))
     assertTrue(provider.supports(OauthProviderCapability.RESOLVE_IDENTITY_WITH_ID_TOKEN))
     assertTrue(provider.supports(OauthProviderCapability.RESOLVE_IDENTITY_WITH_USER_INFO))
     assertTrue(provider.supports(OauthProviderCapability.RESOLVE_IDENTITY_ID_ONLY))
@@ -63,6 +66,8 @@ class GoogleOauthProviderTest {
             OauthAuthorizationRequest(
                 redirectUri = clientRedirectUri,
                 prompt = "consent",
+                codeChallenge = "challenge-value",
+                codeChallengeMethod = OauthCodeChallengeMethod.S256,
             ),
         )
 
@@ -75,6 +80,8 @@ class GoogleOauthProviderTest {
     assertTrue(
         url.contains("redirect_uri=https%3A%2F%2Fapi.example.com%2Foauth%2Fgoogle%2Fcallback"))
     assertTrue(url.contains("prompt=consent"))
+    assertTrue(url.contains("code_challenge=challenge-value"))
+    assertTrue(url.contains("code_challenge_method=S256"))
 
     val state = extractQueryParam(url, "state")
     val verified =
@@ -132,6 +139,7 @@ class GoogleOauthProviderTest {
         .andExpect(method(HttpMethod.POST))
         .andExpect(content().string(containsString("grant_type=authorization_code")))
         .andExpect(content().string(containsString("code=auth-code")))
+        .andExpect(content().string(containsString("code_verifier=verifier-value")))
         .andExpect(
             content()
                 .string(
@@ -153,6 +161,7 @@ class GoogleOauthProviderTest {
             OauthTokenExchangeRequest(
                 code = "auth-code",
                 state = state,
+                codeVerifier = "verifier-value",
                 scopes = setOf("openid", "email"),
             ),
         )

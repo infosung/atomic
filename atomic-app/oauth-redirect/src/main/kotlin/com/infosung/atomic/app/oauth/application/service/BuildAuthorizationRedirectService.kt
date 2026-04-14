@@ -6,6 +6,7 @@ import com.infosung.atomic.app.oauth.application.port.`in`.BuildAuthorizationRed
 import com.infosung.atomic.app.oauth.application.port.out.OauthProviderOperationsPort
 import com.infosung.atomic.app.oauth.application.port.out.ValidateOauthRedirectUriPort
 import com.infosung.atomic.oauth.api.OauthAuthorizationRequest
+import com.infosung.atomic.oauth.api.OauthCodeChallengeMethod
 import org.slf4j.LoggerFactory
 
 internal class BuildAuthorizationRedirectService(
@@ -23,15 +24,23 @@ internal class BuildAuthorizationRedirectService(
       prompt: String?,
       loginHint: String?,
       responseMode: String?,
+      codeVerifier: String?,
+      codeChallengeMethod: OauthCodeChallengeMethod?,
       additionalParameters: Map<String, String>,
       callbackBindingToken: String?,
   ): AuthorizationRedirectResult {
     val normalizedRedirectUri = validateOauthRedirectUriPort.validateRedirectUri(redirectUri)
+    val resolvedPkce =
+        OauthRedirectUseCaseSupport.resolvePkce(
+            codeVerifier = codeVerifier,
+            codeChallengeMethod = codeChallengeMethod,
+        )
     val stateAttributes =
-        OauthRedirectUseCaseSupport.buildCallbackBindingStateAttributes(
+        OauthRedirectUseCaseSupport.buildStateAttributes(
             callbackBindingEnabled = callbackBindingEnabled,
             callbackBindingStateAttributeKey = callbackBindingStateAttributeKey,
             callbackBindingToken = callbackBindingToken,
+            resolvedPkce = resolvedPkce,
         )
     val providerAuthorization =
         oauthProviderOperationsPort.buildAuthorizationUrl(
@@ -43,18 +52,23 @@ internal class BuildAuthorizationRedirectService(
                     prompt = prompt?.takeIf { it.isNotBlank() },
                     loginHint = loginHint?.takeIf { it.isNotBlank() },
                     responseMode = responseMode?.takeIf { it.isNotBlank() },
+                    codeChallenge = resolvedPkce?.codeChallenge,
+                    codeChallengeMethod = resolvedPkce?.codeChallengeMethod,
                     stateAttributes = stateAttributes,
                     additionalParameters = additionalParameters,
                 ),
         )
     val redirectTargetType = OauthRedirectClientTargetClassifier.classify(normalizedRedirectUri)
-    log.debug(
-        "Built oauth authorization URL via use-case: provider={}, redirectUri={}, redirectTargetType={}, additionalParameterKeys={}",
-        providerAuthorization.providerName,
-        normalizedRedirectUri,
-        redirectTargetType,
-        additionalParameters.keys.sorted(),
-    )
+    if (log.isDebugEnabled) {
+      log.debug(
+          "Built oauth authorization URL via use-case: provider={}, redirectUri={}, redirectTargetType={}, hasPkce={}, additionalParameterKeys={}",
+          providerAuthorization.providerName,
+          normalizedRedirectUri,
+          redirectTargetType,
+          resolvedPkce != null,
+          additionalParameters.keys.sorted(),
+      )
+    }
     return AuthorizationRedirectResult(
         providerName = providerAuthorization.providerName,
         authorizationUrl = providerAuthorization.authorizationUrl,

@@ -2,6 +2,7 @@ package com.infosung.atomic.starter.autoconfigure.oauth2
 
 import com.infosung.atomic.oauth.api.OauthAuthorizationRequest
 import com.infosung.atomic.oauth.api.OauthIdentityRequest
+import com.infosung.atomic.oauth.api.OauthIdentityResult
 import com.infosung.atomic.oauth.api.OauthIdentityStrategy
 import com.infosung.atomic.oauth.api.OauthProvider
 import com.infosung.atomic.oauth.api.OauthProviderCapability
@@ -32,6 +33,8 @@ internal class RoutedOauthProvider(
           "defaultClientKey '$defaultClientKey' is not registered for provider $providerName"
         }
       }
+  private val sortedProvidersByClientKey: Map<String, OauthProvider> =
+      this.providersByClientKey.toSortedMap()
 
   private val capabilitySet: Set<OauthProviderCapability> =
       this.providersByClientKey.values.first().capabilities().also { baseCapabilitySet ->
@@ -98,8 +101,9 @@ internal class RoutedOauthProvider(
         request.copy(additionalParameters = request.additionalParameters - routeAttributeKey)
 
     if (!requestedClientKey.isNullOrBlank()) {
-      return delegate(resolveClientKeyOrDefault(requestedClientKey))
-          .resolveIdentity(sanitizedRequest)
+      val clientKey = resolveClientKeyOrDefault(requestedClientKey)
+      return stampSelectedClientKey(
+          delegate(clientKey).resolveIdentity(sanitizedRequest), clientKey)
     }
 
     val audience = request.audience?.takeIf { it.isNotBlank() }
@@ -109,16 +113,17 @@ internal class RoutedOauthProvider(
               .firstOrNull { (_, audiences) -> audiences.contains(audience) }
               ?.key
       if (matchedClientKey != null) {
-        return delegate(matchedClientKey).resolveIdentity(sanitizedRequest)
+        return stampSelectedClientKey(
+            delegate(matchedClientKey).resolveIdentity(sanitizedRequest), matchedClientKey)
       }
     }
 
     if ((request.strategy == OauthIdentityStrategy.AUTO ||
         request.strategy == OauthIdentityStrategy.ID_TOKEN) && !request.idToken.isNullOrBlank()) {
       var lastRoutingError: Exception? = null
-      for ((clientKey, provider) in providersByClientKey) {
+      for ((clientKey, provider) in sortedProvidersByClientKey) {
         try {
-          return provider.resolveIdentity(sanitizedRequest)
+          return stampSelectedClientKey(provider.resolveIdentity(sanitizedRequest), clientKey)
         } catch (e: HttpJwtVerifyException) {
           lastRoutingError =
               InvalidOauthRequestException(
@@ -136,7 +141,8 @@ internal class RoutedOauthProvider(
       }
     }
 
-    return delegate(defaultClientKey).resolveIdentity(sanitizedRequest)
+    return stampSelectedClientKey(
+        delegate(defaultClientKey).resolveIdentity(sanitizedRequest), defaultClientKey)
   }
 
   private fun requireClientKeyFromStateForExchange(state: String): String {
@@ -201,5 +207,12 @@ internal class RoutedOauthProvider(
     return providersByClientKey[clientKey]
         ?: throw InvalidOauthRequestException(
             "Unknown oauth client key for $providerName: $clientKey")
+  }
+
+  private fun stampSelectedClientKey(
+      identityResult: OauthIdentityResult,
+      clientKey: String,
+  ): OauthIdentityResult {
+    return identityResult.copy(selectedClientKey = clientKey)
   }
 }

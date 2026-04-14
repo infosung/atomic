@@ -19,6 +19,8 @@ class OauthPublicApiContractTest {
             "scopes",
             "scopePreset",
             "nonce",
+            "codeChallenge",
+            "codeChallengeMethod",
             "prompt",
             "loginHint",
             "responseMode",
@@ -28,7 +30,7 @@ class OauthPublicApiContractTest {
     )
     assertConstructorFields(
         OauthTokenExchangeRequest::class,
-        listOf("code", "state", "scopes", "scopePreset", "additionalParameters"),
+        listOf("code", "state", "codeVerifier", "scopes", "scopePreset", "additionalParameters"),
     )
     assertConstructorFields(
         OauthTokenRefreshRequest::class,
@@ -71,11 +73,15 @@ class OauthPublicApiContractTest {
         listOf(
             "provider",
             "userId",
+            "providerSubject",
             "email",
+            "emailVerified",
             "displayName",
             "pictureUrl",
+            "selectedClientKey",
             "scopes",
             "payloadMode",
+            "normalizedProfileMetadata",
             "claims",
             "rawProfile",
         ),

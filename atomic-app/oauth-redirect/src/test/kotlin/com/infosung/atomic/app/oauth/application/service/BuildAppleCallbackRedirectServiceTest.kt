@@ -3,22 +3,27 @@ package com.infosung.atomic.app.oauth.application.service
 import com.infosung.atomic.app.oauth.adapter.out.redirect.OauthRedirectClientTarget
 import com.infosung.atomic.app.oauth.application.model.OauthVerifiedState
 import com.infosung.atomic.app.oauth.application.port.out.IssueOauthRelayCodePort
+import com.infosung.atomic.app.oauth.application.port.out.OauthProviderIdentityResolution
 import com.infosung.atomic.app.oauth.application.port.out.OauthProviderOperationsPort
 import com.infosung.atomic.app.oauth.application.port.out.ValidateOauthRedirectUriPort
 import com.infosung.atomic.app.oauth.application.port.out.VerifyOauthStatePort
 import com.infosung.atomic.app.oauth.domain.OauthRelayPayload
+import com.infosung.atomic.oauth.api.OauthIdentityRequest
+import com.infosung.atomic.oauth.api.OauthIdentityResult
 import com.infosung.atomic.oauth.api.OauthProviderName
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 class BuildAppleCallbackRedirectServiceTest {
   @Test
   fun `build should return desktop loopback redirect with relayCode`() {
     val relayPort = FakeIssueOauthRelayCodePort()
+    val oauthProviderOperationsPort = FakeOauthProviderOperationsPort()
     val service =
         BuildAppleCallbackRedirectService(
-            oauthProviderOperationsPort = FakeOauthProviderOperationsPort(),
+            oauthProviderOperationsPort = oauthProviderOperationsPort,
             verifyOauthStatePort =
                 FakeVerifyOauthStatePort(
                     verifiedState =
@@ -57,10 +62,27 @@ class BuildAppleCallbackRedirectServiceTest {
     assertEquals("id-token", relayPort.lastPayload!!.idToken)
     assertEquals("code-123", raw.get("code"))
     assertEquals("ko-KR", raw.get("locale"))
+    assertEquals("apple-user", relayPort.lastPayload!!.resolvedIdentity!!.providerSubject)
+    assertTrue("atomicCallbackBinding" !in relayPort.lastPayload!!.stateAttributes)
   }
 
   private class FakeOauthProviderOperationsPort : OauthProviderOperationsPort {
     override fun requireProviderName(provider: String): OauthProviderName = OauthProviderName.APPLE
+
+    override fun resolveIdentity(
+        provider: String,
+        request: OauthIdentityRequest,
+    ): OauthProviderIdentityResolution {
+      return OauthProviderIdentityResolution(
+          providerName = OauthProviderName.APPLE,
+          identityResult =
+              OauthIdentityResult(
+                  provider = OauthProviderName.APPLE,
+                  userId = "apple-user",
+                  providerSubject = "apple-user",
+              ),
+      )
+    }
   }
 
   private class FakeVerifyOauthStatePort(

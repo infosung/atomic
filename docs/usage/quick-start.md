@@ -180,6 +180,10 @@ Notes:
 - `allowed-redirect-uri-prefixes` is required when `atomic.app.oauth.redirect.enabled=true`.
 - `atomic.app.oauth.redirect.enabled=true` also requires both `OauthServiceProvider` and a store-backed `OauthStateManager`. The easiest path is `atomic-starter` plus `atomic-spring-oauth2` with both `atomic.oauth2.state.signing-secret` and `atomic.oauth2.state.in-memory-store.enabled=true`.
 - This module ends at relay handoff. Your app must still expose a login/session endpoint that consumes `relayCode` and issues your own cookie/JWT/session.
+- If your web/mobile/desktop client uses the redirect relay with PKCE, call `GET /oauth/redirect/{provider}` with optional `codeChallengeMethod` only.
+- The redirect relay does not accept client-supplied `codeVerifier`; Atomic generates it server-side and keeps it in a short-lived HttpOnly cookie until callback exchange.
+- relay payload can include optional `resolvedIdentity` when provider callback includes an `id_token`; treat it as a convenience snapshot, not as a replacement for your own final login/session policy.
+- If you consume `resolvedIdentity`, prefer `providerSubject` for account binding and uniqueness.
 - For mobile and desktop, prefer launching the provider flow in the system browser or a system-browser-based tab (`Custom Tabs`, `SFSafariViewController`, default desktop browser), then return to the app with an allowlisted deep link/app link. Treat embedded webviews as an exception path you review explicitly with the provider and cookie/state policy.
 - Supported client handoff patterns:
   - web: `https://frontend.example.com/...`
@@ -194,7 +198,8 @@ Notes:
 - desktop loopback return is also supported when you explicitly allowlist the exact host/port/path prefix your app listens on
   - this line assumes a fixed pre-allowlisted loopback port; random ephemeral callback ports are not matched
 - Default callback-binding uses hardened cookie constraints (`cookie-name` with `__Host-` prefix, `cookie-secure=true`, `cookie-path=/`), so local plain HTTP callbacks can fail with `OAuth callback binding cookie is missing.`
-  - For local HTTP-only testing, use HTTPS tunneling or set `atomic.app.oauth.redirect.callback-binding.mode=disabled` (legacy `callback-binding.enabled=false` still works).
+  - The same cookie policy is also reused for the PKCE verifier cookie when you call the redirect API with `codeChallengeMethod`.
+  - For local HTTP-only testing, use HTTPS tunneling, or set `atomic.app.oauth.redirect.callback-binding.cookie-secure=false`, or set `atomic.app.oauth.redirect.callback-binding.mode=disabled` (legacy `callback-binding.enabled=false` still works).
 - Default callback-binding mode is `strict`, so a successful callback clears the callback-binding cookie and the callback must complete with the cookie minted during redirect.
 - If your UX prefers multi-tab/back-navigation tolerance, set `atomic.app.oauth.redirect.callback-binding.mode=relaxed`.
 - `spring.autoconfigure.exclude` is a temporary quick-start shortcut for non-DB environments. For production, configure DataSource/store policy explicitly (`entity/cache/custom`).
