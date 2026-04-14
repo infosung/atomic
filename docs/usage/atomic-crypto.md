@@ -37,28 +37,24 @@ This module is a good fit when you want:
 ## Quick Start
 
 ```kotlin
-import com.infosung.atomic.crypto.aead.Aes256GcmCipher
+import com.infosung.atomic.crypto.aead.AesGcmAead
+import com.infosung.atomic.crypto.hmac.HmacAlgorithm
 import com.infosung.atomic.crypto.hmac.HmacSigner
-import com.infosung.atomic.crypto.hmac.HmacVerifier
-import com.infosung.atomic.crypto.key.HmacSecretKeyRing
+import com.infosung.atomic.crypto.kdf.HkdfSha256
+import com.infosung.atomic.crypto.random.SecureRandoms
 
-val ring =
-    HmacSecretKeyRing(
-        currentKey = "CHANGE_ME_WITH_A_STRONG_CURRENT_KEY",
-        previousKeys = listOf("OPTIONAL_OLD_KEY"),
-    )
-
-val signer = HmacSigner(ring.algorithm, ring.currentSecretKey())
-val verifier = HmacVerifier(ring.algorithm, ring.candidateSecretKeys())
-
+val signer = HmacSigner(HmacAlgorithm.HS512, "CHANGE_ME_WITH_A_STRONG_CURRENT_KEY".toByteArray())
 val message = "atomic-crypto".toByteArray()
 val signature = signer.sign(message)
-check(verifier.verify(message, signature))
+check(signer.verify(message, signature))
 
-val cipher = Aes256GcmCipher()
-val key = ByteArray(32) { index -> (index + 1).toByte() }
-val encrypted = cipher.encryptToString(message, key)
-val decrypted = cipher.decryptFromString(encrypted, key)
+val salt = SecureRandoms.nextBytes(16)
+val derivedKey = HkdfSha256.derive("ikm".toByteArray(), salt, info = "example".toByteArray(), length = 32)
+
+val aead = AesGcmAead()
+val encrypted = aead.encrypt(message, derivedKey)
+val decrypted = aead.decrypt(encrypted, derivedKey)
+check(message.contentEquals(decrypted))
 ```
 
 ## Rotation Notes

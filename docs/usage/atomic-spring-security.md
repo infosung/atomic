@@ -85,9 +85,11 @@ class AtomicSecurityConfig {
   fun jwtProvider(timeProvider: TimeProvider): JwtProvider =
       JwtProvider(
           accessKey = "CHANGE_ME_WITH_STRONG_RANDOM_ACCESS_KEY_64B",
+          accessKeyId = "access-v3",
           refreshKey = "CHANGE_ME_WITH_STRONG_RANDOM_REFRESH_KEY_64B",
-          previousAccessKeys = listOf("OPTIONAL_OLD_ACCESS_KEY_64B"),
-          previousRefreshKeys = listOf("OPTIONAL_OLD_REFRESH_KEY_64B"),
+          refreshKeyId = "refresh-v3",
+          previousAccessKeys = mapOf("access-v2" to "OPTIONAL_OLD_ACCESS_KEY_64B"),
+          previousRefreshKeys = mapOf("refresh-v2" to "OPTIONAL_OLD_REFRESH_KEY_64B"),
           accessExpiredSecond = 60 * 15,
           refreshExpiredSecond = 60L * 60L * 24L * 14L,
           serviceName = "MyService",
@@ -180,7 +182,10 @@ Useful notes:
 - `serviceName` blank -> default `InfosungAtomic`
 - `getExpiredClaims(...)` is for already-expired access token handling use cases
 - use long random keys for `accessKey` and `refreshKey`
-- `previousAccessKeys` and `previousRefreshKeys` are verification-only rotation lanes; signing always uses the current key
+- `accessKeyId` and `refreshKeyId` become the JWT `kid` for newly issued tokens
+- `previousAccessKeys` and `previousRefreshKeys` are `kid -> secret` maps used only for verification
+- signing always uses the current key; previous keys never sign new tokens
+- legacy tokens without `kid` remain readable through bounded fallback verification for migration windows
 - token summary logs include only token length (no raw token / suffix output)
 
 ## Operational Checklist
