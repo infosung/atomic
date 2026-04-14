@@ -1,6 +1,7 @@
 package com.infosung.atomic.oauth.provider.kakao
 
 import com.infosung.atomic.oauth.api.OauthAuthorizationRequest
+import com.infosung.atomic.oauth.api.OauthCodeChallengeMethod
 import com.infosung.atomic.oauth.api.OauthIdentityPayloadMode
 import com.infosung.atomic.oauth.api.OauthIdentityRequest
 import com.infosung.atomic.oauth.api.OauthIdentityStrategy
@@ -40,6 +41,8 @@ class KakaoOauthProviderTest {
     assertTrue(provider.supports(OauthProviderCapability.AUTHORIZATION_URL))
     assertTrue(provider.supports(OauthProviderCapability.EXCHANGE_TOKEN))
     assertTrue(provider.supports(OauthProviderCapability.REFRESH_TOKEN))
+    assertTrue(provider.supports(OauthProviderCapability.AUTHORIZATION_PKCE_S256))
+    assertTrue(!provider.supports(OauthProviderCapability.AUTHORIZATION_PKCE_PLAIN))
     assertTrue(provider.supports(OauthProviderCapability.RESOLVE_IDENTITY_WITH_ID_TOKEN))
     assertTrue(provider.supports(OauthProviderCapability.RESOLVE_IDENTITY_WITH_USER_INFO))
     assertTrue(provider.supports(OauthProviderCapability.RESOLVE_IDENTITY_ID_ONLY))
@@ -59,6 +62,8 @@ class KakaoOauthProviderTest {
             OauthAuthorizationRequest(
                 redirectUri = clientRedirectUri,
                 prompt = "login",
+                codeChallenge = "challenge-value",
+                codeChallengeMethod = OauthCodeChallengeMethod.S256,
             ),
         )
 
@@ -68,6 +73,8 @@ class KakaoOauthProviderTest {
     assertTrue(
         url.contains("redirect_uri=https%3A%2F%2Fapi.example.com%2Foauth%2Fkakao%2Fcallback"))
     assertTrue(url.contains("prompt=login"))
+    assertTrue(url.contains("code_challenge=challenge-value"))
+    assertTrue(url.contains("code_challenge_method=S256"))
 
     val state = extractQueryParam(url, "state")
     val verified =
@@ -125,6 +132,7 @@ class KakaoOauthProviderTest {
         .andExpect(method(HttpMethod.POST))
         .andExpect(content().string(containsString("grant_type=authorization_code")))
         .andExpect(content().string(containsString("code=auth-code")))
+        .andExpect(content().string(containsString("code_verifier=verifier-value")))
         .andExpect(
             content()
                 .string(
@@ -147,6 +155,7 @@ class KakaoOauthProviderTest {
             OauthTokenExchangeRequest(
                 code = "auth-code",
                 state = state,
+                codeVerifier = "verifier-value",
             ),
         )
 

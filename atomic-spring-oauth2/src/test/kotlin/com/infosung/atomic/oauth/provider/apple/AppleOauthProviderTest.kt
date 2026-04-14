@@ -1,6 +1,7 @@
 package com.infosung.atomic.oauth.provider.apple
 
 import com.infosung.atomic.oauth.api.OauthAuthorizationRequest
+import com.infosung.atomic.oauth.api.OauthCodeChallengeMethod
 import com.infosung.atomic.oauth.api.OauthIdentityPayloadMode
 import com.infosung.atomic.oauth.api.OauthIdentityRequest
 import com.infosung.atomic.oauth.api.OauthIdentityStrategy
@@ -29,6 +30,8 @@ class AppleOauthProviderTest {
     assertTrue(provider.supports(OauthProviderCapability.RESOLVE_IDENTITY_ID_ONLY))
     assertTrue(provider.supports(OauthProviderCapability.RESOLVE_IDENTITY_BASIC_PROFILE))
     assertTrue(provider.supports(OauthProviderCapability.RESOLVE_IDENTITY_FULL_PROFILE))
+    assertTrue(!provider.supports(OauthProviderCapability.AUTHORIZATION_PKCE_S256))
+    assertTrue(!provider.supports(OauthProviderCapability.AUTHORIZATION_PKCE_PLAIN))
     assertTrue(!provider.supports(OauthProviderCapability.EXCHANGE_TOKEN))
     assertTrue(!provider.supports(OauthProviderCapability.REFRESH_TOKEN))
     assertTrue(!provider.supports(OauthProviderCapability.REVOKE_TOKEN))
@@ -93,6 +96,23 @@ class AppleOauthProviderTest {
     assertTrue(url.contains("response_type=code+id_token"))
     assertTrue(!url.contains("response_type=token"))
     assertTrue(url.contains("foo=bar"))
+  }
+
+  @Test
+  fun `buildAuthorizationUrl should reject pkce because apple runtime capability does not expose it`() {
+    val provider = createProvider()
+
+    val exception =
+        assertFailsWith<UnsupportedOauthOperationException> {
+          provider.buildAuthorizationUrl(
+              OauthAuthorizationRequest(
+                  codeChallenge = "challenge-value",
+                  codeChallengeMethod = OauthCodeChallengeMethod.S256,
+              ),
+          )
+        }
+
+    assertEquals(OauthProviderCapability.AUTHORIZATION_PKCE_S256, exception.capability)
   }
 
   @Test

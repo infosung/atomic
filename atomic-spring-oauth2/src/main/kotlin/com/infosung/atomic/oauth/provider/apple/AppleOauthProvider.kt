@@ -1,6 +1,7 @@
 package com.infosung.atomic.oauth.provider.apple
 
 import com.infosung.atomic.oauth.api.OauthAuthorizationRequest
+import com.infosung.atomic.oauth.api.OauthCodeChallengeMethod
 import com.infosung.atomic.oauth.api.OauthIdentityPayloadMode
 import com.infosung.atomic.oauth.api.OauthIdentityRequest
 import com.infosung.atomic.oauth.api.OauthIdentityResult
@@ -54,6 +55,7 @@ class AppleOauthProvider(
 
   override fun buildAuthorizationUrl(request: OauthAuthorizationRequest): String {
     requireCapability(OauthProviderCapability.AUTHORIZATION_URL)
+    validatePkceUnsupported(request)
     val scopes = resolveScopes(request.scopes, request.scopePreset)
     // Client redirect target is stored in state for your callback controller logic.
     val clientRedirectUri = request.redirectUri
@@ -159,6 +161,7 @@ class AppleOauthProvider(
     log.debug("Resolved Apple OAuth identity for userId={}.", userId)
 
     val email = getEmail(claimsMap)
+    val emailVerified = getEmailVerified(claimsMap)
     val displayName = verifiedClaims.stringClaim("name")
     val pictureUrl = verifiedClaims.stringClaim("picture")
 
@@ -166,6 +169,7 @@ class AppleOauthProvider(
         request = request,
         userId = userId,
         email = email,
+        emailVerified = emailVerified,
         displayName = displayName,
         pictureUrl = pictureUrl,
         fullClaims = claimsMap,
@@ -176,6 +180,7 @@ class AppleOauthProvider(
       request: OauthIdentityRequest,
       userId: String,
       email: String?,
+      emailVerified: Boolean? = null,
       displayName: String?,
       pictureUrl: String?,
       fullClaims: Map<String, Any?>,
@@ -183,10 +188,17 @@ class AppleOauthProvider(
     val payloadMode = request.payloadMode
     val scopes = resolveScopes(request.scopes, request.scopePreset)
     val idOnlyClaims = mapOf("sub" to userId)
+    val normalizedProfileMetadata =
+        linkedMapOf<String, Any?>().apply {
+          fullClaims["given_name"]?.let { put("given_name", it) }
+          fullClaims["family_name"]?.let { put("family_name", it) }
+          fullClaims["locale"]?.let { put("locale", it) }
+        }
     val basicClaims =
         linkedMapOf<String, Any?>(
             "sub" to userId,
             "email" to email,
+            "email_verified" to emailVerified,
             "name" to displayName,
             "picture" to pictureUrl,
         )
@@ -196,6 +208,7 @@ class AppleOauthProvider(
           OauthIdentityResult(
               provider = providerName,
               userId = userId,
+              providerSubject = userId,
               scopes = scopes,
               payloadMode = payloadMode,
               claims = idOnlyClaims,
@@ -205,11 +218,14 @@ class AppleOauthProvider(
           OauthIdentityResult(
               provider = providerName,
               userId = userId,
+              providerSubject = userId,
               email = email,
+              emailVerified = emailVerified,
               displayName = displayName,
               pictureUrl = pictureUrl,
               scopes = scopes,
               payloadMode = payloadMode,
+              normalizedProfileMetadata = normalizedProfileMetadata,
               claims = basicClaims,
               rawProfile = basicClaims,
           )
@@ -217,11 +233,14 @@ class AppleOauthProvider(
           OauthIdentityResult(
               provider = providerName,
               userId = userId,
+              providerSubject = userId,
               email = email,
+              emailVerified = emailVerified,
               displayName = displayName,
               pictureUrl = pictureUrl,
               scopes = scopes,
               payloadMode = payloadMode,
+              normalizedProfileMetadata = normalizedProfileMetadata,
               claims = fullClaims,
               rawProfile = fullClaims,
           )
@@ -264,6 +283,26 @@ class AppleOauthProvider(
       log.warn("Failed to read email from Apple id token claims.", e)
       null
     }
+  }
+
+  private fun getEmailVerified(claims: Map<String, Any?>): Boolean? {
+    return when (val value = claims["email_verified"]) {
+      is Boolean -> value
+      is String -> value.equals("true", ignoreCase = true)
+      else -> null
+    }
+  }
+
+  private fun validatePkceUnsupported(request: OauthAuthorizationRequest) {
+    if (request.codeChallenge == null && request.codeChallengeMethod == null) {
+      return
+    }
+    val capability =
+        when (request.codeChallengeMethod ?: OauthCodeChallengeMethod.S256) {
+          OauthCodeChallengeMethod.S256 -> OauthProviderCapability.AUTHORIZATION_PKCE_S256
+          OauthCodeChallengeMethod.PLAIN -> OauthProviderCapability.AUTHORIZATION_PKCE_PLAIN
+        }
+    throw unsupported(capability)
   }
 
   private fun unsupported(capability: OauthProviderCapability): UnsupportedOauthOperationException {

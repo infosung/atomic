@@ -7,6 +7,7 @@ import com.infosung.atomic.app.oauth.application.port.out.OauthProviderAuthoriza
 import com.infosung.atomic.app.oauth.application.port.out.OauthProviderOperationsPort
 import com.infosung.atomic.app.oauth.application.port.out.ValidateOauthRedirectUriPort
 import com.infosung.atomic.oauth.api.OauthAuthorizationRequest
+import com.infosung.atomic.oauth.api.OauthCodeChallengeMethod
 import com.infosung.atomic.oauth.api.OauthProviderName
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -37,6 +38,8 @@ class BuildAuthorizationRedirectServiceTest {
             prompt = "consent",
             loginHint = "user@example.com",
             responseMode = "query",
+            codeVerifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
+            codeChallengeMethod = OauthCodeChallengeMethod.S256,
             additionalParameters = mapOf("scope" to "profile"),
             callbackBindingToken = "binding-token",
         )
@@ -48,6 +51,18 @@ class BuildAuthorizationRedirectServiceTest {
     assertEquals(
         "binding-token",
         providerPort.lastAuthorizationRequest!!.stateAttributes["atomicCallbackBinding"],
+    )
+    assertEquals(
+        "true",
+        providerPort.lastAuthorizationRequest!!.stateAttributes["__atomicPkceRequired"],
+    )
+    assertEquals(
+        OauthCodeChallengeMethod.S256,
+        providerPort.lastAuthorizationRequest!!.codeChallengeMethod,
+    )
+    assertEquals(
+        "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+        providerPort.lastAuthorizationRequest!!.codeChallenge,
     )
   }
 
@@ -71,12 +86,45 @@ class BuildAuthorizationRedirectServiceTest {
             prompt = null,
             loginHint = null,
             responseMode = null,
+            codeVerifier = null,
+            codeChallengeMethod = null,
             additionalParameters = emptyMap(),
             callbackBindingToken = null,
         )
 
     assertEquals(OauthRedirectClientTarget.WEB, result.redirectTargetType)
     assertTrue(providerPort.lastAuthorizationRequest!!.stateAttributes.isEmpty())
+  }
+
+  @Test
+  fun `build should store only pkce metadata in state attributes`() {
+    val providerPort = FakeOauthProviderOperationsPort()
+    val service =
+        BuildAuthorizationRedirectService(
+            oauthProviderOperationsPort = providerPort,
+            validateOauthRedirectUriPort =
+                FakeValidateOauthRedirectUriPort("https://frontend.example.com/oauth/callback"),
+            callbackBindingEnabled = false,
+            callbackBindingStateAttributeKey = "atomicCallbackBinding",
+        )
+
+    service.build(
+        provider = "google",
+        redirectUri = "https://frontend.example.com/oauth/callback",
+        nonce = null,
+        prompt = null,
+        loginHint = null,
+        responseMode = null,
+        codeVerifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
+        codeChallengeMethod = OauthCodeChallengeMethod.S256,
+        additionalParameters = emptyMap(),
+        callbackBindingToken = null,
+    )
+
+    assertEquals(
+        mapOf("__atomicPkceRequired" to "true"),
+        providerPort.lastAuthorizationRequest!!.stateAttributes,
+    )
   }
 
   @Test
@@ -99,6 +147,8 @@ class BuildAuthorizationRedirectServiceTest {
               prompt = null,
               loginHint = null,
               responseMode = null,
+              codeVerifier = null,
+              codeChallengeMethod = null,
               additionalParameters = emptyMap(),
               callbackBindingToken = null,
           )
@@ -106,6 +156,37 @@ class BuildAuthorizationRedirectServiceTest {
 
     assertEquals("OAuth callback binding token is required.", error.message)
     assertEquals(OauthRedirectErrorCode.OAUTH_CALLBACK_BINDING_INVALID, error.errorCode)
+  }
+
+  @Test
+  fun `build should reject too short PKCE verifier`() {
+    val service =
+        BuildAuthorizationRedirectService(
+            oauthProviderOperationsPort = FakeOauthProviderOperationsPort(),
+            validateOauthRedirectUriPort =
+                FakeValidateOauthRedirectUriPort("https://frontend.example.com/oauth/callback"),
+            callbackBindingEnabled = false,
+            callbackBindingStateAttributeKey = "atomicCallbackBinding",
+        )
+
+    val error =
+        assertFailsWith<OauthRedirectRequestException> {
+          service.build(
+              provider = "google",
+              redirectUri = "https://frontend.example.com/oauth/callback",
+              nonce = null,
+              prompt = null,
+              loginHint = null,
+              responseMode = null,
+              codeVerifier = "short-verifier",
+              codeChallengeMethod = OauthCodeChallengeMethod.S256,
+              additionalParameters = emptyMap(),
+              callbackBindingToken = null,
+          )
+        }
+
+    assertEquals("PKCE codeVerifier must be 43..128 RFC7636 characters.", error.message)
+    assertEquals(OauthRedirectErrorCode.OAUTH_REDIRECT_INVALID_REQUEST, error.errorCode)
   }
 
   private class FakeOauthProviderOperationsPort : OauthProviderOperationsPort {

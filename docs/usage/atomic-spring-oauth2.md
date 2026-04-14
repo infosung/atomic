@@ -35,6 +35,54 @@ In short:
 - provider `redirect_uri` parameter -> `serverRedirectUri`
 - signed state claim `redirect_uri` -> final client redirect destination
 
+## Multi-Platform Redirect Model
+
+This module should be treated as a server-side OAuth foundation for:
+
+- web
+- iOS
+- Android
+- macOS
+- Windows
+
+The common model is:
+
+- client opens provider login in browser or browser-based tab
+- provider returns to your server callback
+- your server verifies/exchanges and then hands control back to the client redirect URI you stored in signed state
+
+For native/mobile/desktop flows, PKCE is usually required on the client side. `atomic.spring.oauth2` now exposes this explicitly through:
+
+- `OauthAuthorizationRequest.codeChallenge`
+- `OauthAuthorizationRequest.codeChallengeMethod`
+- `OauthTokenExchangeRequest.codeVerifier`
+
+If your host app or redirect relay layer generates/stores the verifier, pass those fields through instead of hiding them in provider-specific parameters.
+
+Boundary note:
+
+- `atomic.spring.oauth2` is the low-level seam that accepts caller-managed PKCE material.
+- `atomic-app/oauth-redirect` uses a stricter server-managed PKCE model on its web API and does not accept client-supplied `codeVerifier`.
+- choose `atomic.spring.oauth2` directly when your host app owns provider SDK/native orchestration or token exchange itself.
+- choose `atomic-app/oauth-redirect` when you want Atomic to run the browser/server relay and hand the host only a `relayCode`.
+
+## Normalized Identity Output
+
+`OauthIdentityResult` is intentionally richer than just `userId`.
+
+Prefer these fields in new code:
+
+- `providerSubject`: normalized provider-side subject identifier
+- `emailVerified`: provider-level email verification signal when available
+- `selectedClientKey`: routed client key stamped by multi-client routing
+- `normalizedProfileMetadata`: normalized profile extras that are useful across providers without forcing every host app to parse raw claim maps first
+
+Compatibility note:
+
+- `userId` still exists and defaults to the same value as `providerSubject` in the base model for compatibility.
+- For account binding, uniqueness checks, and external identity references, prefer `providerSubject` over `userId`.
+- In multi-client routing, prefer an explicit route key or audience whenever possible. The fallback path is deterministic, but it should not be treated as a business contract for account resolution.
+
 ## Quick Start (First Working Flow)
 
 1. Register `OauthStateManager` with strong signing secret.
@@ -236,11 +284,17 @@ Upgrade note:
 
 ## Provider Capability Notes
 
-- Google: authorization URL, exchange, refresh, revoke, identity(id token/userinfo)
-- Kakao: authorization URL, exchange, refresh, identity(id token/userinfo), revoke unsupported
-- Apple: authorization URL + id token identity-centric flow; exchange/refresh/revoke are unsupported in current implementation
+- Google: full browser/server flow, exchange, refresh, revoke, identity (`id_token` / `userinfo`), PKCE `S256` and `PLAIN`
+- Kakao: exchange, refresh, identity (`id_token` / `userinfo`), PKCE `S256`, revoke unsupported
+- Apple: authorization + `id_token` identity-centric flow; exchange/refresh/revoke unsupported in current implementation, PKCE not exposed in the current runtime capability set
 
 Use `provider.supports(...)` if your service needs runtime capability checks.
+
+Practical service guidance:
+
+- Google: best fit when you need the broadest provider feature surface, including refresh/revoke and browser/native PKCE lanes.
+- Kakao: similar to Google for login and identity, but do not assume revoke support.
+- Apple: treat it as an authorization + `id_token` identity path. Do not assume token exchange, refresh, revoke, or PKCE support unless the runtime capability set changes in a future release.
 
 ## Operational Checklist
 

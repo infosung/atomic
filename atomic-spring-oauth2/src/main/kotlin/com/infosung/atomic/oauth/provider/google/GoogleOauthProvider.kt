@@ -2,6 +2,7 @@ package com.infosung.atomic.oauth.provider.google
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
 import com.infosung.atomic.oauth.api.OauthAuthorizationRequest
+import com.infosung.atomic.oauth.api.OauthCodeChallengeMethod
 import com.infosung.atomic.oauth.api.OauthIdentityPayloadMode
 import com.infosung.atomic.oauth.api.OauthIdentityRequest
 import com.infosung.atomic.oauth.api.OauthIdentityResult
@@ -55,6 +56,8 @@ class GoogleOauthProvider(
   private val capabilitySet =
       setOf(
           OauthProviderCapability.AUTHORIZATION_URL,
+          OauthProviderCapability.AUTHORIZATION_PKCE_S256,
+          OauthProviderCapability.AUTHORIZATION_PKCE_PLAIN,
           OauthProviderCapability.EXCHANGE_TOKEN,
           OauthProviderCapability.REFRESH_TOKEN,
           OauthProviderCapability.REVOKE_TOKEN,
@@ -66,10 +69,19 @@ class GoogleOauthProvider(
       )
 
   private val authorizationReservedKeys =
-      setOf("client_id", "redirect_uri", "response_type", "scope", "access_type", "state")
+      setOf(
+          "client_id",
+          "redirect_uri",
+          "response_type",
+          "scope",
+          "access_type",
+          "state",
+          "code_challenge",
+          "code_challenge_method",
+      )
 
   private val exchangeReservedKeys =
-      setOf("client_id", "client_secret", "redirect_uri", "grant_type", "code")
+      setOf("client_id", "client_secret", "redirect_uri", "grant_type", "code", "code_verifier")
 
   private val refreshReservedKeys =
       setOf("grant_type", "client_id", "client_secret", "refresh_token", "scope")
@@ -112,6 +124,10 @@ class GoogleOauthProvider(
     request.loginHint?.let { params["login_hint"] = it }
     request.nonce?.let { params["nonce"] = it }
     request.responseMode?.let { params["response_mode"] = it }
+    resolvePkce(request)?.let { pkce ->
+      params["code_challenge"] = pkce.challenge
+      params["code_challenge_method"] = pkce.method.name
+    }
     putAdditionalQueryParams(
         params, request.additionalParameters, authorizationReservedKeys, "auth")
 
@@ -139,6 +155,7 @@ class GoogleOauthProvider(
     tokenBody.add("redirect_uri", providerRedirectUri)
     tokenBody.add("grant_type", authorizationGrantType)
     tokenBody.add("code", request.code)
+    request.codeVerifier?.takeIf { it.isNotBlank() }?.let { tokenBody.add("code_verifier", it) }
     putAdditionalFormParams(
         tokenBody, request.additionalParameters, exchangeReservedKeys, "exchange")
 
@@ -297,6 +314,7 @@ class GoogleOauthProvider(
         request = request,
         userId = userId,
         email = email,
+        emailVerified = payload.emailVerified,
         displayName = displayName,
         pictureUrl = pictureUrl,
         fullClaims = claims,
@@ -354,6 +372,7 @@ class GoogleOauthProvider(
         request = request,
         userId = userId,
         email = response.email,
+        emailVerified = emailVerified,
         displayName = response.name,
         pictureUrl = response.picture,
         fullClaims = rawProfile,
@@ -364,6 +383,7 @@ class GoogleOauthProvider(
       request: OauthIdentityRequest,
       userId: String,
       email: String?,
+      emailVerified: Boolean? = null,
       displayName: String?,
       pictureUrl: String?,
       fullClaims: Map<String, Any?>,
@@ -371,10 +391,18 @@ class GoogleOauthProvider(
     val payloadMode = request.payloadMode
     val scopes = resolveScopes(request.scopes, request.scopePreset)
     val idOnlyClaims = mapOf("sub" to userId)
+    val normalizedProfileMetadata =
+        linkedMapOf<String, Any?>().apply {
+          fullClaims["given_name"]?.let { put("given_name", it) }
+          fullClaims["family_name"]?.let { put("family_name", it) }
+          fullClaims["locale"]?.let { put("locale", it) }
+          fullClaims["hd"]?.let { put("hosted_domain", it) }
+        }
     val basicClaims =
         linkedMapOf<String, Any?>(
             "sub" to userId,
             "email" to email,
+            "email_verified" to emailVerified,
             "name" to displayName,
             "picture" to pictureUrl,
         )
@@ -384,6 +412,7 @@ class GoogleOauthProvider(
           OauthIdentityResult(
               provider = providerName,
               userId = userId,
+              providerSubject = userId,
               scopes = scopes,
               payloadMode = payloadMode,
               claims = idOnlyClaims,
@@ -393,11 +422,14 @@ class GoogleOauthProvider(
           OauthIdentityResult(
               provider = providerName,
               userId = userId,
+              providerSubject = userId,
               email = email,
+              emailVerified = emailVerified,
               displayName = displayName,
               pictureUrl = pictureUrl,
               scopes = scopes,
               payloadMode = payloadMode,
+              normalizedProfileMetadata = normalizedProfileMetadata,
               claims = basicClaims,
               rawProfile = basicClaims,
           )
@@ -405,16 +437,44 @@ class GoogleOauthProvider(
           OauthIdentityResult(
               provider = providerName,
               userId = userId,
+              providerSubject = userId,
               email = email,
+              emailVerified = emailVerified,
               displayName = displayName,
               pictureUrl = pictureUrl,
               scopes = scopes,
               payloadMode = payloadMode,
+              normalizedProfileMetadata = normalizedProfileMetadata,
               claims = fullClaims,
               rawProfile = fullClaims,
           )
     }
   }
+
+  private fun resolvePkce(request: OauthAuthorizationRequest): GooglePkceRequest? {
+    val challenge = request.codeChallenge?.trim()?.takeIf { it.isNotBlank() }
+    val method = request.codeChallengeMethod
+    if (challenge == null && method == null) {
+      return null
+    }
+    if (challenge == null || method == null) {
+      throw InvalidOauthRequestException(
+          "codeChallenge and codeChallengeMethod must be provided together for GOOGLE.",
+      )
+    }
+    val requiredCapability =
+        when (method) {
+          OauthCodeChallengeMethod.S256 -> OauthProviderCapability.AUTHORIZATION_PKCE_S256
+          OauthCodeChallengeMethod.PLAIN -> OauthProviderCapability.AUTHORIZATION_PKCE_PLAIN
+        }
+    requireCapability(requiredCapability)
+    return GooglePkceRequest(challenge = challenge, method = method)
+  }
+
+  private data class GooglePkceRequest(
+      val challenge: String,
+      val method: OauthCodeChallengeMethod,
+  )
 
   private fun resolveScopes(
       requestScopes: Set<String>,

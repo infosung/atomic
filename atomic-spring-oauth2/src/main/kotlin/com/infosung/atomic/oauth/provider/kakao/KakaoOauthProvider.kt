@@ -1,6 +1,7 @@
 package com.infosung.atomic.oauth.provider.kakao
 
 import com.infosung.atomic.oauth.api.OauthAuthorizationRequest
+import com.infosung.atomic.oauth.api.OauthCodeChallengeMethod
 import com.infosung.atomic.oauth.api.OauthIdentityPayloadMode
 import com.infosung.atomic.oauth.api.OauthIdentityRequest
 import com.infosung.atomic.oauth.api.OauthIdentityResult
@@ -50,6 +51,7 @@ class KakaoOauthProvider(
   private val capabilitySet =
       setOf(
           OauthProviderCapability.AUTHORIZATION_URL,
+          OauthProviderCapability.AUTHORIZATION_PKCE_S256,
           OauthProviderCapability.EXCHANGE_TOKEN,
           OauthProviderCapability.REFRESH_TOKEN,
           OauthProviderCapability.RESOLVE_IDENTITY_WITH_ID_TOKEN,
@@ -60,10 +62,27 @@ class KakaoOauthProvider(
       )
 
   private val authorizationReservedKeys =
-      setOf("client_id", "redirect_uri", "response_type", "scope", "state")
+      setOf(
+          "client_id",
+          "redirect_uri",
+          "response_type",
+          "scope",
+          "state",
+          "code_challenge",
+          "code_challenge_method",
+      )
 
   private val exchangeReservedKeys =
-      setOf("grant_type", "client_id", "redirect_uri", "code", "state", "client_secret", "scope")
+      setOf(
+          "grant_type",
+          "client_id",
+          "redirect_uri",
+          "code",
+          "state",
+          "client_secret",
+          "scope",
+          "code_verifier",
+      )
 
   private val refreshReservedKeys =
       setOf("grant_type", "client_id", "refresh_token", "client_secret", "scope")
@@ -99,6 +118,10 @@ class KakaoOauthProvider(
     request.loginHint?.let { params["login_hint"] = it }
     request.nonce?.let { params["nonce"] = it }
     request.responseMode?.let { params["response_mode"] = it }
+    resolvePkce(request)?.let { pkce ->
+      params["code_challenge"] = pkce.challenge
+      params["code_challenge_method"] = pkce.method.name
+    }
     putAdditionalQueryParams(
         params, request.additionalParameters, authorizationReservedKeys, "auth")
 
@@ -125,6 +148,7 @@ class KakaoOauthProvider(
     requestBody.add("redirect_uri", providerRedirectUri)
     requestBody.add("code", request.code)
     requestBody.add("state", state)
+    request.codeVerifier?.takeIf { it.isNotBlank() }?.let { requestBody.add("code_verifier", it) }
     clientSecret?.let { requestBody.add("client_secret", it) }
 
     val requestedScopes = resolveOptionalScopes(request.scopes, request.scopePreset)
@@ -246,12 +270,14 @@ class KakaoOauthProvider(
     log.debug("Resolved Kakao OAuth identity from id token for userId={}.", userId)
 
     val email = getEmailFromClaims(claimsMap)
+    val emailVerified = parseBooleanClaim(claimsMap["email_verified"])
     val displayName = verifiedClaims.stringClaim("nickname")
     val pictureUrl = verifiedClaims.stringClaim("picture")
     return buildIdentityResult(
         request = request,
         userId = userId,
         email = email,
+        emailVerified = emailVerified,
         displayName = displayName,
         pictureUrl = pictureUrl,
         fullClaims = claimsMap,
@@ -297,6 +323,9 @@ class KakaoOauthProvider(
     val kakaoAccount = response["kakao_account"] as? Map<String, Any?>
     val properties = response["properties"] as? Map<String, Any?>
     val email = (response["email"] as? String) ?: kakaoAccount?.get("email") as? String
+    val emailVerified =
+        parseBooleanClaim(kakaoAccount?.get("is_email_verified"))
+            ?: parseBooleanClaim(response["email_verified"])
     val displayName = (response["nickname"] as? String) ?: (properties?.get("nickname") as? String)
     val pictureUrl =
         (response["picture"] as? String)
@@ -307,6 +336,7 @@ class KakaoOauthProvider(
         request = request,
         userId = userId,
         email = email,
+        emailVerified = emailVerified,
         displayName = displayName,
         pictureUrl = pictureUrl,
         fullClaims = response,
@@ -317,6 +347,7 @@ class KakaoOauthProvider(
       request: OauthIdentityRequest,
       userId: String,
       email: String?,
+      emailVerified: Boolean? = null,
       displayName: String?,
       pictureUrl: String?,
       fullClaims: Map<String, Any?>,
@@ -324,10 +355,22 @@ class KakaoOauthProvider(
     val payloadMode = request.payloadMode
     val scopes = resolveScopes(request.scopes, request.scopePreset)
     val idOnlyClaims = mapOf("sub" to userId)
+    val normalizedProfileMetadata =
+        linkedMapOf<String, Any?>().apply {
+          fullClaims["nickname"]?.let { put("nickname", it) }
+          fullClaims["profile_image"]?.let { put("profile_image", it) }
+          (fullClaims["kakao_account"] as? Map<*, *>)?.get("is_email_valid")?.let {
+            put("is_email_valid", it)
+          }
+          (fullClaims["kakao_account"] as? Map<*, *>)?.get("is_email_verified")?.let {
+            put("is_email_verified", it)
+          }
+        }
     val basicClaims =
         linkedMapOf<String, Any?>(
             "sub" to userId,
             "email" to email,
+            "email_verified" to emailVerified,
             "nickname" to displayName,
             "picture" to pictureUrl,
         )
@@ -337,6 +380,7 @@ class KakaoOauthProvider(
           OauthIdentityResult(
               provider = providerName,
               userId = userId,
+              providerSubject = userId,
               scopes = scopes,
               payloadMode = payloadMode,
               claims = idOnlyClaims,
@@ -346,11 +390,14 @@ class KakaoOauthProvider(
           OauthIdentityResult(
               provider = providerName,
               userId = userId,
+              providerSubject = userId,
               email = email,
+              emailVerified = emailVerified,
               displayName = displayName,
               pictureUrl = pictureUrl,
               scopes = scopes,
               payloadMode = payloadMode,
+              normalizedProfileMetadata = normalizedProfileMetadata,
               claims = basicClaims,
               rawProfile = basicClaims,
           )
@@ -358,16 +405,42 @@ class KakaoOauthProvider(
           OauthIdentityResult(
               provider = providerName,
               userId = userId,
+              providerSubject = userId,
               email = email,
+              emailVerified = emailVerified,
               displayName = displayName,
               pictureUrl = pictureUrl,
               scopes = scopes,
               payloadMode = payloadMode,
+              normalizedProfileMetadata = normalizedProfileMetadata,
               claims = fullClaims,
               rawProfile = fullClaims,
           )
     }
   }
+
+  private fun resolvePkce(request: OauthAuthorizationRequest): KakaoPkceRequest? {
+    val challenge = request.codeChallenge?.trim()?.takeIf { it.isNotBlank() }
+    val method = request.codeChallengeMethod
+    if (challenge == null && method == null) {
+      return null
+    }
+    if (challenge == null || method == null) {
+      throw InvalidOauthRequestException(
+          "codeChallenge and codeChallengeMethod must be provided together for KAKAO.",
+      )
+    }
+    if (method != OauthCodeChallengeMethod.S256) {
+      throw InvalidOauthRequestException("KAKAO supports only S256 PKCE code challenge method.")
+    }
+    requireCapability(OauthProviderCapability.AUTHORIZATION_PKCE_S256)
+    return KakaoPkceRequest(challenge = challenge, method = method)
+  }
+
+  private data class KakaoPkceRequest(
+      val challenge: String,
+      val method: OauthCodeChallengeMethod,
+  )
 
   private fun validateNonceRequired(expectedNonce: String?) {
     if (requireNonceValidation && expectedNonce.isNullOrBlank()) {
@@ -461,6 +534,14 @@ class KakaoOauthProvider(
     } catch (e: Exception) {
       log.warn("Failed to read email from Kakao id token claims.", e)
       null
+    }
+  }
+
+  private fun parseBooleanClaim(value: Any?): Boolean? {
+    return when (value) {
+      is Boolean -> value
+      is String -> value.equals("true", ignoreCase = true)
+      else -> null
     }
   }
 

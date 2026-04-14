@@ -1,6 +1,8 @@
 package com.infosung.atomic.app.oauth.application.port.out
 
 import com.infosung.atomic.oauth.api.OauthAuthorizationRequest
+import com.infosung.atomic.oauth.api.OauthIdentityRequest
+import com.infosung.atomic.oauth.api.OauthIdentityResult
 import com.infosung.atomic.oauth.api.OauthProviderName
 import com.infosung.atomic.oauth.api.OauthTokenExchangeRequest
 import com.infosung.atomic.oauth.api.OauthTokenResult
@@ -23,6 +25,13 @@ internal interface OauthProviderOperationsPort {
   ): OauthProviderTokenExchange {
     throw UnsupportedOperationException("exchangeCode is not implemented.")
   }
+
+  fun resolveIdentity(
+      provider: String,
+      request: OauthIdentityRequest,
+  ): OauthProviderIdentityResolution {
+    throw UnsupportedOperationException("resolveIdentity is not implemented.")
+  }
 }
 
 internal data class OauthProviderAuthorization(
@@ -33,4 +42,9 @@ internal data class OauthProviderAuthorization(
 internal data class OauthProviderTokenExchange(
     val providerName: OauthProviderName,
     val tokenResult: OauthTokenResult,
+)
+
+internal data class OauthProviderIdentityResolution(
+    val providerName: OauthProviderName,
+    val identityResult: OauthIdentityResult,
 )

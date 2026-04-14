@@ -3,12 +3,16 @@ package com.infosung.atomic.app.oauth.application.service
 import com.infosung.atomic.app.oauth.adapter.out.redirect.OauthRedirectClientTargetClassifier
 import com.infosung.atomic.app.oauth.application.exception.OauthRedirectErrorCode
 import com.infosung.atomic.app.oauth.application.exception.OauthRedirectRequestException
+import com.infosung.atomic.app.oauth.application.model.OauthVerifiedState
 import com.infosung.atomic.app.oauth.application.port.`in`.BuildOauthCallbackRedirectUseCase
 import com.infosung.atomic.app.oauth.application.port.`in`.CallbackRedirectResult
 import com.infosung.atomic.app.oauth.application.port.out.IssueOauthRelayCodePort
 import com.infosung.atomic.app.oauth.application.port.out.OauthProviderOperationsPort
 import com.infosung.atomic.app.oauth.application.port.out.ValidateOauthRedirectUriPort
 import com.infosung.atomic.app.oauth.application.port.out.VerifyOauthStatePort
+import com.infosung.atomic.oauth.api.OauthIdentityRequest
+import com.infosung.atomic.oauth.api.OauthIdentityResult
+import com.infosung.atomic.oauth.api.OauthIdentityStrategy
 import com.infosung.atomic.oauth.api.OauthProviderName
 import com.infosung.atomic.oauth.api.OauthTokenExchangeRequest
 import java.util.Locale
@@ -32,6 +36,7 @@ internal class BuildOauthCallbackRedirectService(
       state: String,
       additionalParameters: Map<String, String>,
       callbackBindingToken: String?,
+      codeVerifier: String?,
   ): CallbackRedirectResult {
     val providerName = parseProviderName(provider)
     if (providerName == OauthProviderName.APPLE) {
@@ -49,6 +54,14 @@ internal class BuildOauthCallbackRedirectService(
         callbackBindingStateAttributeKey = callbackBindingStateAttributeKey,
         callbackBindingToken = callbackBindingToken,
     )
+    val normalizedCodeVerifier = OauthRedirectUseCaseSupport.normalizePkceCodeVerifier(codeVerifier)
+    if (OauthRedirectUseCaseSupport.requiresPkceCodeVerifier(verifiedState) &&
+        normalizedCodeVerifier == null) {
+      throw OauthRedirectRequestException(
+          message = "OAuth PKCE verifier cookie is missing or invalid.",
+          errorCode = OauthRedirectErrorCode.OAUTH_CALLBACK_INVALID_REQUEST,
+      )
+    }
     val tokenExchange =
         oauthProviderOperationsPort.exchangeCode(
             provider = provider,
@@ -56,8 +69,15 @@ internal class BuildOauthCallbackRedirectService(
                 OauthTokenExchangeRequest(
                     code = code,
                     state = state,
+                    codeVerifier = normalizedCodeVerifier,
                     additionalParameters = additionalParameters,
                 ),
+        )
+    val resolvedIdentity =
+        resolveIdentitySnapshot(
+            provider = provider,
+            tokenExchange = tokenExchange,
+            verifiedState = verifiedState,
         )
     val redirectUri =
         validateOauthRedirectUriPort.validateRedirectUri(
@@ -69,6 +89,10 @@ internal class BuildOauthCallbackRedirectService(
                 provider = tokenExchange.providerName,
                 tokenResult = tokenExchange.tokenResult,
                 verifiedState = verifiedState,
+                internalStateAttributeKeys =
+                    OauthRedirectUseCaseSupport.internalStateAttributeKeys(
+                        callbackBindingStateAttributeKey),
+                resolvedIdentity = resolvedIdentity,
             ),
         )
     val queryParameterName =
@@ -80,14 +104,17 @@ internal class BuildOauthCallbackRedirectService(
             value = relayCode,
         )
     val redirectTargetType = OauthRedirectClientTargetClassifier.classify(redirectUri)
-    log.debug(
-        "Built oauth callback frontend redirect via use-case: provider={}, redirectUri={}, redirectTargetType={}, relayCodeLength={}, additionalParameterKeys={}",
-        tokenExchange.providerName,
-        redirectUri,
-        redirectTargetType,
-        relayCode.length,
-        additionalParameters.keys.sorted(),
-    )
+    if (log.isDebugEnabled) {
+      log.debug(
+          "Built oauth callback frontend redirect via use-case: provider={}, redirectUri={}, redirectTargetType={}, relayCodeLength={}, hasResolvedIdentity={}, additionalParameterKeys={}",
+          tokenExchange.providerName,
+          redirectUri,
+          redirectTargetType,
+          relayCode.length,
+          resolvedIdentity != null,
+          additionalParameters.keys.sorted(),
+      )
+    }
     return CallbackRedirectResult(
         providerName = tokenExchange.providerName,
         frontendRedirectUrl = frontendRedirectUrl,
@@ -99,6 +126,35 @@ internal class BuildOauthCallbackRedirectService(
   private fun resolveAppleCallbackPath(): String {
     val normalizedPath = callbackEndpointPath.trim().ifBlank { "/oauth/callback" }
     return "$normalizedPath/apple"
+  }
+
+  private fun resolveIdentitySnapshot(
+      provider: String,
+      tokenExchange: com.infosung.atomic.app.oauth.application.port.out.OauthProviderTokenExchange,
+      verifiedState: OauthVerifiedState,
+  ): OauthIdentityResult? {
+    val idToken = tokenExchange.tokenResult.idToken?.takeIf { it.isNotBlank() } ?: return null
+    return runCatching {
+          oauthProviderOperationsPort
+              .resolveIdentity(
+                  provider = provider,
+                  request =
+                      OauthIdentityRequest(
+                          strategy = OauthIdentityStrategy.ID_TOKEN,
+                          idToken = idToken,
+                          nonce = verifiedState.nonce,
+                      ),
+              )
+              .identityResult
+        }
+        .onFailure {
+          log.warn(
+              "Failed to resolve optional oauth identity snapshot during callback: provider={}, message={}",
+              tokenExchange.providerName,
+              it.message,
+          )
+        }
+        .getOrNull()
   }
 
   private fun parseProviderName(provider: String): OauthProviderName {

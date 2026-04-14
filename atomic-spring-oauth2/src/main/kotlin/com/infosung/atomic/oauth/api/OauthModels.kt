@@ -28,6 +28,12 @@ enum class OauthIdentityPayloadMode {
   FULL_PROFILE,
 }
 
+/** PKCE code challenge method. */
+enum class OauthCodeChallengeMethod {
+  S256,
+  PLAIN,
+}
+
 /** Request model for authorization URL creation. */
 data class OauthAuthorizationRequest(
     // Client destination URI to store in signed state.
@@ -36,6 +42,8 @@ data class OauthAuthorizationRequest(
     val scopes: Set<String> = emptySet(),
     val scopePreset: OauthScopePreset? = null,
     val nonce: String? = null,
+    val codeChallenge: String? = null,
+    val codeChallengeMethod: OauthCodeChallengeMethod? = null,
     val prompt: String? = null,
     val loginHint: String? = null,
     val responseMode: String? = null,
@@ -48,6 +56,7 @@ data class OauthTokenExchangeRequest(
     val code: String,
     // Required callback state to prevent CSRF and correlate signed state payload.
     val state: String,
+    val codeVerifier: String? = null,
     val scopes: Set<String> = emptySet(),
     val scopePreset: OauthScopePreset? = null,
     val additionalParameters: Map<String, String> = emptyMap(),
@@ -98,11 +107,15 @@ data class OauthTokenResult(
 data class OauthIdentityResult(
     val provider: OauthProviderName,
     val userId: String,
+    val providerSubject: String = userId,
     val email: String? = null,
+    val emailVerified: Boolean? = null,
     val displayName: String? = null,
     val pictureUrl: String? = null,
+    val selectedClientKey: String? = null,
     val scopes: Set<String> = emptySet(),
     val payloadMode: OauthIdentityPayloadMode = OauthIdentityPayloadMode.FULL_PROFILE,
+    val normalizedProfileMetadata: Map<String, Any?> = emptyMap(),
     val claims: Map<String, Any?> = emptyMap(),
     val rawProfile: Map<String, Any?> = emptyMap(),
 )
