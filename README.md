@@ -525,7 +525,8 @@ OAuth relay option (without token in callback query):
 - the relay module does not issue your app session or JWT for you; treat `relayCode` consumption as an input to your own login flow.
 - redirect endpoint accepts optional `codeChallengeMethod` for browser-based native/web flows, but does not accept client-supplied `codeVerifier`.
 - when PKCE is requested on the redirect API, Atomic generates the verifier server-side, derives the provider-facing challenge, and keeps the verifier only in a short-lived HttpOnly cookie keyed by callback state.
-- the PKCE verifier cookie reuses the callback-binding cookie policy, so local HTTP testing with PKCE still needs HTTPS, `callback-binding.cookie-secure=false`, or callback binding disabled.
+- the PKCE verifier cookie reuses the callback-binding cookie policy, so local HTTP testing with PKCE still needs HTTPS or `callback-binding.cookie-secure=false`
+  - disabling callback binding alone does not make the PKCE verifier cookie writable on plain HTTP
 - relay payload can include optional `resolvedIdentity` when callback identity can be resolved from `id_token` without forcing extra remote calls.
 - when you bind or upsert your own account, prefer `resolvedIdentity.providerSubject` as the provider account key. `userId` remains for compatibility but is not the clearer binding field.
 - `resolvedIdentity` is a convenience snapshot, not a persistence contract. Persist the fields you own instead of storing the entire object shape blindly.
@@ -554,7 +555,8 @@ OAuth relay option (without token in callback query):
 - empty `allowed-redirect-uri-prefixes` fails startup (fail-fast).
 - callback binding is enabled by default and validates redirect/callback flow using state-attribute + cookie token match.
   - hardened defaults require `cookie-name` with `__Host-` prefix, `cookie-secure=true`, and `cookie-path=/`.
-  - local plain HTTP callbacks can fail unless you use HTTPS or set `atomic.app.oauth.redirect.callback-binding.mode=disabled` for local-only testing (legacy `callback-binding.enabled=false` still works).
+  - local plain HTTP callbacks can fail unless you use HTTPS or set `atomic.app.oauth.redirect.callback-binding.cookie-secure=false` for local-only testing
+  - disabling callback binding alone is not enough when PKCE is enabled because the verifier cookie still follows the same secure-cookie policy (legacy `callback-binding.enabled=false` still works)
   - default `strict` mode clears the callback-binding cookie immediately.
   - `relaxed` mode preserves the cookie after success for multi-tab/back-navigation-friendly UX.
 - relay store type default is `entity` (`atomic.app.oauth.redirect.store.type=entity`).

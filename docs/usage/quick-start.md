@@ -200,7 +200,8 @@ Notes:
   - this line assumes a fixed pre-allowlisted loopback port; random ephemeral callback ports are not matched
 - Default callback-binding uses hardened cookie constraints (`cookie-name` with `__Host-` prefix, `cookie-secure=true`, `cookie-path=/`), so local plain HTTP callbacks can fail with `OAuth callback binding cookie is missing.`
   - The same cookie policy is also reused for the PKCE verifier cookie when you call the redirect API with `codeChallengeMethod`.
-  - For local HTTP-only testing, use HTTPS tunneling, or set `atomic.app.oauth.redirect.callback-binding.cookie-secure=false`, or set `atomic.app.oauth.redirect.callback-binding.mode=disabled` (legacy `callback-binding.enabled=false` still works).
+  - For local HTTP-only testing, use HTTPS tunneling, or set `atomic.app.oauth.redirect.callback-binding.cookie-secure=false`.
+  - Disabling callback binding alone is not enough when PKCE is enabled because the verifier cookie still follows the same secure-cookie policy (legacy `callback-binding.enabled=false` still works).
 - Default callback-binding mode is `strict`, so a successful callback clears the callback-binding cookie and the callback must complete with the cookie minted during redirect.
 - If your UX prefers multi-tab/back-navigation tolerance, set `atomic.app.oauth.redirect.callback-binding.mode=relaxed`.
 - `spring.autoconfigure.exclude` is a temporary quick-start shortcut for non-DB environments. For production, configure DataSource/store policy explicitly (`entity/cache/custom`).

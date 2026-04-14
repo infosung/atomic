@@ -30,9 +30,9 @@ This module is a good fit when you want:
 | `HmacVerifier` | HMAC signature verification across the key ring |
 | `HkdfSha256` | HKDF-SHA256 key derivation |
 | `Pbkdf2HmacSha256` | PBKDF2-HMAC-SHA256 key derivation |
-| `Aes256GcmCipher` | AES-256-GCM encryption/decryption |
-| `VersionedCryptoEnvelope` | structured envelope metadata |
-| `VersionedCryptoEnvelopeCodec` | text codec for versioned envelopes |
+| `AesGcmAead` | AES-256-GCM authenticated encryption/decryption |
+| `VersionedAeadEnvelope` | structured envelope metadata |
+| `VersionedAeadEnvelopeCodec` | text codec for versioned AEAD envelopes |
 
 ## Quick Start
 
@@ -49,11 +49,17 @@ val signature = signer.sign(message)
 check(signer.verify(message, signature))
 
 val salt = SecureRandoms.nextBytes(16)
-val derivedKey = HkdfSha256.derive("ikm".toByteArray(), salt, info = "example".toByteArray(), length = 32)
+val derivedKey =
+    HkdfSha256.derive(
+        ikm = "ikm".toByteArray(),
+        salt = salt,
+        info = "example".toByteArray(),
+        length = 32,
+    )
 
-val aead = AesGcmAead()
-val encrypted = aead.encrypt(message, derivedKey)
-val decrypted = aead.decrypt(encrypted, derivedKey)
+val aead = AesGcmAead(derivedKey)
+val encrypted = aead.encrypt(message)
+val decrypted = aead.decrypt(encrypted)
 check(message.contentEquals(decrypted))
 ```
 

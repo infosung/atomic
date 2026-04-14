@@ -392,9 +392,7 @@ class JwtProvider(
         }
     val claims =
         LinkedHashMap<String, Any>().apply {
-          claimsSet.claims.forEach { (key, value) ->
-            normalizeValue(value)?.let { put(key, it) }
-          }
+          claimsSet.claims.forEach { (key, value) -> normalizeValue(value)?.let { put(key, it) } }
         }
     return Jwt(
         tokenValue,
