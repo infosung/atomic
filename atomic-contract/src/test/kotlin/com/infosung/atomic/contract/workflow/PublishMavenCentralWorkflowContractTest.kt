@@ -119,6 +119,10 @@ class PublishMavenCentralWorkflowContractTest {
         "publish workflow should keep an explicit Oracle-focused release gate step",
     )
     assertTrue(
+        workflow.contains("ATOMIC_RUN_ORACLE_COMPATIBILITY: \"true\""),
+        "publish workflow should explicitly opt into Oracle-only compatibility tests for the release gate",
+    )
+    assertTrue(
         workflow.contains("JdbcTableMetadataLoaderVendorCompatibilityTest"),
         "publish workflow should verify JDBC metadata compatibility in the release gate",
     )
@@ -127,12 +131,24 @@ class PublishMavenCentralWorkflowContractTest {
         "publish workflow should verify app-version Oracle compatibility in the release gate",
     )
     assertTrue(
+        workflow.contains("ServiceVersionSqlAssetVendorCompatibilityTest"),
+        "publish workflow should verify app-version Oracle SQL assets in the release gate",
+    )
+    assertTrue(
         workflow.contains("AppImageOracleCompatibilityContractTest"),
         "publish workflow should verify storage-api Oracle compatibility in the release gate",
     )
     assertTrue(
+        workflow.contains("ImageSqlAssetVendorCompatibilityTest"),
+        "publish workflow should verify storage-api Oracle SQL assets in the release gate",
+    )
+    assertTrue(
         workflow.contains("JpaOauthRelayCodeStoreOracleCompatibilityTest"),
         "publish workflow should verify oauth-redirect Oracle compatibility in the release gate",
+    )
+    assertTrue(
+        workflow.contains("OauthRelaySqlAssetVendorCompatibilityTest"),
+        "publish workflow should verify oauth-redirect Oracle SQL assets in the release gate",
     )
   }
 }

@@ -15,6 +15,7 @@ import com.infosung.atomic.oauth.exception.InvalidOauthRequestException
 import com.infosung.atomic.oauth.state.OauthStateClaims
 import com.infosung.atomic.oauth.state.OauthStateManager
 import java.time.Instant
+import java.util.Base64
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
@@ -216,5 +217,104 @@ class RoutedOauthProviderTest {
         )
 
     assertEquals("zzz", actual.selectedClientKey)
+  }
+
+  @Test
+  fun `resolveIdentity should route by id token audience before fallback scan`() {
+    val oauthStateManager = mock(OauthStateManager::class.java)
+    val idToken = jwtWithAudience("mobile-aud")
+    var webResolveIdentityCount = 0
+    var mobileResolveIdentityCount = 0
+    val webProvider =
+        object : OauthProvider {
+          override val providerName: OauthProviderName = OauthProviderName.GOOGLE
+
+          override fun capabilities(): Set<OauthProviderCapability> =
+              setOf(OauthProviderCapability.RESOLVE_IDENTITY_WITH_ID_TOKEN)
+
+          override fun resolveIdentity(request: OauthIdentityRequest): OauthIdentityResult {
+            webResolveIdentityCount += 1
+            return OauthIdentityResult(
+                provider = OauthProviderName.GOOGLE,
+                userId = "user-web",
+                providerSubject = "user-web",
+            )
+          }
+
+          override fun buildAuthorizationUrl(request: OauthAuthorizationRequest): String {
+            throw UnsupportedOperationException("Not used in this test")
+          }
+
+          override fun exchangeCode(request: OauthTokenExchangeRequest): OauthTokenResult {
+            throw UnsupportedOperationException("Not used in this test")
+          }
+
+          override fun refreshToken(request: OauthTokenRefreshRequest): OauthTokenResult {
+            throw UnsupportedOperationException("Not used in this test")
+          }
+
+          override fun revokeToken(request: OauthTokenRevokeRequest) {
+            throw UnsupportedOperationException("Not used in this test")
+          }
+        }
+    val mobileProvider =
+        object : OauthProvider {
+          override val providerName: OauthProviderName = OauthProviderName.GOOGLE
+
+          override fun capabilities(): Set<OauthProviderCapability> =
+              setOf(OauthProviderCapability.RESOLVE_IDENTITY_WITH_ID_TOKEN)
+
+          override fun resolveIdentity(request: OauthIdentityRequest): OauthIdentityResult {
+            mobileResolveIdentityCount += 1
+            return OauthIdentityResult(
+                provider = OauthProviderName.GOOGLE,
+                userId = "user-mobile",
+                providerSubject = "user-mobile",
+            )
+          }
+
+          override fun buildAuthorizationUrl(request: OauthAuthorizationRequest): String {
+            throw UnsupportedOperationException("Not used in this test")
+          }
+
+          override fun exchangeCode(request: OauthTokenExchangeRequest): OauthTokenResult {
+            throw UnsupportedOperationException("Not used in this test")
+          }
+
+          override fun refreshToken(request: OauthTokenRefreshRequest): OauthTokenResult {
+            throw UnsupportedOperationException("Not used in this test")
+          }
+
+          override fun revokeToken(request: OauthTokenRevokeRequest) {
+            throw UnsupportedOperationException("Not used in this test")
+          }
+        }
+
+    val routedProvider =
+        RoutedOauthProvider(
+            providerName = OauthProviderName.GOOGLE,
+            providersByClientKey = mapOf("web" to webProvider, "mobile" to mobileProvider),
+            defaultClientKey = "web",
+            routeAttributeKey = "clientKey",
+            oauthStateManager = oauthStateManager,
+            audiencesByClientKey =
+                mapOf(
+                    "web" to setOf("web-aud"),
+                    "mobile" to setOf("mobile-aud"),
+                ),
+        )
+
+    val actual = routedProvider.resolveIdentity(OauthIdentityRequest(idToken = idToken))
+
+    assertEquals("mobile", actual.selectedClientKey)
+    assertEquals(0, webResolveIdentityCount)
+    assertEquals(1, mobileResolveIdentityCount)
+  }
+
+  private fun jwtWithAudience(audience: String): String {
+    val encoder = Base64.getUrlEncoder().withoutPadding()
+    val header = encoder.encodeToString("""{"alg":"HS256","typ":"JWT"}""".toByteArray())
+    val payload = encoder.encodeToString("""{"aud":"$audience"}""".toByteArray())
+    return "$header.$payload.signature"
   }
 }

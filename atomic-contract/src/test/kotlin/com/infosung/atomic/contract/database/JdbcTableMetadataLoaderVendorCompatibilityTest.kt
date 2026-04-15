@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
 import org.springframework.core.io.ClassPathResource
 import org.springframework.jdbc.datasource.DriverManagerDataSource
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator
@@ -13,6 +14,7 @@ import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.oracle.OracleContainer
 
+@EnabledIfEnvironmentVariable(named = "ATOMIC_RUN_ORACLE_COMPATIBILITY", matches = "true")
 @Testcontainers(disabledWithoutDocker = true)
 class JdbcTableMetadataLoaderVendorCompatibilityTest {
   @Test

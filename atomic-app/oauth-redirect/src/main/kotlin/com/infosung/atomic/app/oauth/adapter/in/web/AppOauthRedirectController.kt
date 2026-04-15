@@ -15,7 +15,6 @@ import com.infosung.atomic.oauth.exception.HttpIOException
 import com.infosung.atomic.oauth.exception.OauthException
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
-import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64
 import java.util.HexFormat
@@ -576,7 +575,7 @@ class AppOauthRedirectController(
   }
 
   private fun buildPkceCodeVerifierCookieName(state: String): String {
-    val digest = MessageDigest.getInstance("SHA-256").digest(state.toByteArray(Charsets.UTF_8))
+    val digest = OauthRedirectUseCaseSupport.sha256(state.toByteArray(Charsets.UTF_8))
     val suffix = HexFormat.of().formatHex(digest, 0, 16)
     return "atomic_oauth_pkce_$suffix"
   }

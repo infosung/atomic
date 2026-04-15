@@ -5,6 +5,7 @@ import com.infosung.atomic.contract.database.JdbcTableMetadataLoader
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
 import org.springframework.core.io.ClassPathResource
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.datasource.DriverManagerDataSource
@@ -15,6 +16,7 @@ import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.oracle.OracleContainer
 
+@EnabledIfEnvironmentVariable(named = "ATOMIC_RUN_ORACLE_COMPATIBILITY", matches = "true")
 @Testcontainers(disabledWithoutDocker = true)
 class ImageSqlAssetVendorCompatibilityTest {
   @Test

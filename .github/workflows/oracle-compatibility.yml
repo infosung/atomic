@@ -26,9 +26,21 @@ jobs:
         uses: gradle/actions/setup-gradle@v5
 
       - name: Verify Oracle compatibility contracts
+        env:
+          ATOMIC_RUN_ORACLE_COMPATIBILITY: "true"
         run: |
           ./gradlew --no-configuration-cache \
-            :atomic-contract:test --tests '*JdbcTableMetadataLoaderVendorCompatibilityTest' \
-            :atomic-app:app-version:test --tests '*AppVersionOracleCompatibilityContractTest' \
-            :atomic-app:storage-api:test --tests '*AppImageOracleCompatibilityContractTest' \
-            :atomic-app:oauth-redirect:test --tests '*JpaOauthRelayCodeStoreOracleCompatibilityTest'
+            :atomic-contract:test \
+            --tests '*JdbcTableMetadataLoaderVendorCompatibilityTest'
+          ./gradlew --no-configuration-cache \
+            :atomic-app:app-version:test \
+            --tests '*AppVersionOracleCompatibilityContractTest' \
+            --tests '*ServiceVersionSqlAssetVendorCompatibilityTest'
+          ./gradlew --no-configuration-cache \
+            :atomic-app:storage-api:test \
+            --tests '*AppImageOracleCompatibilityContractTest' \
+            --tests '*ImageSqlAssetVendorCompatibilityTest'
+          ./gradlew --no-configuration-cache \
+            :atomic-app:oauth-redirect:test \
+            --tests '*JpaOauthRelayCodeStoreOracleCompatibilityTest' \
+            --tests '*OauthRelaySqlAssetVendorCompatibilityTest'
