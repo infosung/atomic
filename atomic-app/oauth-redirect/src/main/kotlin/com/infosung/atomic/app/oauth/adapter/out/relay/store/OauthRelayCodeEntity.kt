@@ -26,15 +26,25 @@ import org.springframework.data.domain.Persistable
 )
 class OauthRelayCodeEntity(
     @Id @Column(name = "relay_code", length = 255) val relayCode: String = "",
-    @Column(name = "payload_json") @JdbcTypeCode(SqlTypes.LONGVARCHAR) val payloadJson: String = "",
-    @Column(name = "expires_at") val expiresAt: LocalDateTime = LocalDateTime.MIN,
-    @Column(name = "created_at") val createdAt: LocalDateTime = LocalDateTime.MIN,
+    @Column(name = "payload_json") @JdbcTypeCode(SqlTypes.LONGVARCHAR) var payloadJson: String = "",
+    @Column(name = "expires_at") var expiresAt: LocalDateTime = LocalDateTime.MIN,
+    @Column(name = "created_at") var createdAt: LocalDateTime = LocalDateTime.MIN,
 ) : Persistable<String> {
   @Transient private var newEntity: Boolean = true
 
   override fun getId(): String = relayCode
 
   override fun isNew(): Boolean = newEntity
+
+  fun overwrite(
+      payloadJson: String,
+      expiresAt: LocalDateTime,
+      createdAt: LocalDateTime,
+  ) {
+    this.payloadJson = payloadJson
+    this.expiresAt = expiresAt
+    this.createdAt = createdAt
+  }
 
   @PostPersist
   @PostLoad

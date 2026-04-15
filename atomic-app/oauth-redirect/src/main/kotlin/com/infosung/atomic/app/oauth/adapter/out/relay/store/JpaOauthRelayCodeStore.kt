@@ -26,14 +26,25 @@ internal class JpaOauthRelayCodeStore(
     val now = timeProvider.nowInstant()
 
     transactionTemplate.executeWithoutResult {
-      oauthRelayCodeRepository.save(
-          OauthRelayCodeEntity(
-              relayCode = relayCode,
-              payloadJson = payloadJson,
-              expiresAt = expiresAt.toUtcLocalDateTime(),
-              createdAt = now.toUtcLocalDateTime(),
-          ),
-      )
+      val expiresAtUtc = expiresAt.toUtcLocalDateTime()
+      val createdAtUtc = now.toUtcLocalDateTime()
+      val existing = oauthRelayCodeRepository.findById(relayCode).orElse(null)
+      if (existing == null) {
+        oauthRelayCodeRepository.save(
+            OauthRelayCodeEntity(
+                relayCode = relayCode,
+                payloadJson = payloadJson,
+                expiresAt = expiresAtUtc,
+                createdAt = createdAtUtc,
+            ),
+        )
+      } else {
+        existing.overwrite(
+            payloadJson = payloadJson,
+            expiresAt = expiresAtUtc,
+            createdAt = createdAtUtc,
+        )
+      }
     }
 
     log.trace("Stored oauth relayCode in JPA store: relayCodeLength={}", relayCode.length)
