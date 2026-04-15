@@ -111,6 +111,10 @@ class CiWorkflowContractTest {
         "ci workflow should pass the secure baseline skip flag through the test process environment for non-baseline lanes",
     )
     assertFalse(
+        workflow.contains("ATOMIC_RUN_ORACLE_COMPATIBILITY: \"true\""),
+        "ci workflow should not opt into Oracle-only compatibility tests in the general compatibility matrix",
+    )
+    assertFalse(
         workflow.contains("resolve-verify-matrix:"),
         "ci workflow should not use a separate dynamic matrix resolution job",
     )
