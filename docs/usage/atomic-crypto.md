@@ -90,7 +90,7 @@ Published artifact example:
 
 ```kotlin
 dependencies {
-  implementation("com.infosung:atomic.crypto:0.1.3")
+  implementation("com.infosung:atomic.crypto:0.2.0")
 }
 ```
 

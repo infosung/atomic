@@ -74,27 +74,27 @@ class ReleaseLineDocumentationContractTest {
   }
 
   @Test
-  fun `current release entry docs should point to v0_1_3 release notes and migration guide`() {
+  fun `current release entry docs should point to v0_2_0 release notes and migration guide`() {
     val readme = DocumentationContractFixtures.read("README.md")
     val overview = DocumentationContractFixtures.read("docs/usage/overview.md")
     val quickStart = DocumentationContractFixtures.read("docs/usage/quick-start.md")
     val migrationIndex = DocumentationContractFixtures.read("docs/migration/v0.0.1-to-next.md")
 
-    assertTrue(readme.contains("docs/release-notes/v0.1.3.md"))
-    assertTrue(readme.contains("docs/migration/v0.1.2-to-v0.1.3.md"))
+    assertTrue(readme.contains("docs/release-notes/v0.2.0.md"))
+    assertTrue(readme.contains("docs/migration/v0.1.2-to-v0.2.0.md"))
     assertTrue(readme.contains("docs/usage/atomic-crypto.md"))
-    assertTrue(overview.contains("../release-notes/v0.1.3.md"))
-    assertTrue(overview.contains("../migration/v0.1.2-to-v0.1.3.md"))
-    assertTrue(quickStart.contains("../migration/v0.1.2-to-v0.1.3.md"))
-    assertTrue(migrationIndex.contains("v0.1.2-to-v0.1.3.md"))
+    assertTrue(overview.contains("../release-notes/v0.2.0.md"))
+    assertTrue(overview.contains("../migration/v0.1.2-to-v0.2.0.md"))
+    assertTrue(quickStart.contains("../migration/v0.1.2-to-v0.2.0.md"))
+    assertTrue(migrationIndex.contains("v0.1.2-to-v0.2.0.md"))
   }
 
   @Test
-  fun `v0_1_3 release notes should summarize crypto and key-rotation scope`() {
-    val markdown = DocumentationContractFixtures.read("docs/release-notes/v0.1.3.md")
+  fun `v0_2_0 release notes should summarize crypto oauth and key-rotation scope`() {
+    val markdown = DocumentationContractFixtures.read("docs/release-notes/v0.2.0.md")
 
     listOf(
-            "0.1.3",
+            "0.2.0",
             "atomic.crypto",
             "key rotation",
             "access-key-id",
@@ -102,8 +102,11 @@ class ReleaseLineDocumentationContractTest {
             "previous-access-keys",
             "previous-refresh-keys",
             "kid",
+            "PKCE",
+            "providerSubject",
+            "resolvedIdentity",
             "Spring Boot `4.0.5`",
-            "docs/release-notes/v0.1.3.md",
+            "docs/release-notes/v0.2.0.md",
         )
         .forEach { marker ->
           assertTrue(markdown.contains(marker), "release notes should mention $marker")
@@ -111,18 +114,21 @@ class ReleaseLineDocumentationContractTest {
   }
 
   @Test
-  fun `v0_1_2 to v0_1_3 migration guide should document crypto module and security rotation`() {
-    val markdown = DocumentationContractFixtures.read("docs/migration/v0.1.2-to-v0.1.3.md")
+  fun `v0_1_2 to v0_2_0 migration guide should document crypto oauth and security changes`() {
+    val markdown = DocumentationContractFixtures.read("docs/migration/v0.1.2-to-v0.2.0.md")
 
     listOf(
             "0.1.2",
-            "0.1.3",
+            "0.2.0",
             "atomic.crypto",
             "access-key-id",
             "refresh-key-id",
             "previous-access-keys",
             "previous-refresh-keys",
             "kid",
+            "PKCE",
+            "providerSubject",
+            "resolvedIdentity",
             "Spring Boot `4.0.5`",
             "actions/checkout@v5",
         )
