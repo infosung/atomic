@@ -336,7 +336,7 @@ class JwtProvider(
 
   private fun buildVerifierSet(materials: List<JwtKeyMaterial>): JwtVerifierSet =
       JwtVerifierSet(
-          byKeyId = linkedMapOf(*materials.map { it.keyId to it }.toTypedArray()),
+          byKeyId = materials.associateBy { it.keyId },
           fallback = materials,
       )
 
