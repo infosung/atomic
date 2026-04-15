@@ -19,6 +19,8 @@ import java.util.Locale
 internal object OauthRedirectUseCaseSupport {
   internal const val INTERNAL_PKCE_REQUIRED_ATTRIBUTE_KEY = "__atomicPkceRequired"
   private val PKCE_CODE_VERIFIER_PATTERN = Regex("^[A-Za-z0-9._~\\-]{43,128}$")
+  private val sha256Digest: ThreadLocal<MessageDigest> =
+      ThreadLocal.withInitial { MessageDigest.getInstance("SHA-256") }
 
   fun buildStateAttributes(
       callbackBindingEnabled: Boolean,
@@ -81,9 +83,7 @@ internal object OauthRedirectUseCaseSupport {
               Base64.getUrlEncoder()
                   .withoutPadding()
                   .encodeToString(
-                      MessageDigest.getInstance("SHA-256")
-                          .digest(normalizedCodeVerifier.toByteArray(StandardCharsets.US_ASCII)),
-                  )
+                      sha256(normalizedCodeVerifier.toByteArray(StandardCharsets.US_ASCII)))
           OauthCodeChallengeMethod.PLAIN -> normalizedCodeVerifier
         }
     return ResolvedPkce(
@@ -120,6 +120,8 @@ internal object OauthRedirectUseCaseSupport {
     secureRandom.nextBytes(bytes)
     return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
   }
+
+  fun sha256(bytes: ByteArray): ByteArray = sha256Digest.get().digest(bytes)
 
   fun validateCallbackBinding(
       verifiedState: OauthVerifiedState,

@@ -14,6 +14,7 @@ import com.infosung.atomic.oauth.api.OauthTokenRevokeRequest
 import com.infosung.atomic.oauth.exception.HttpJwtVerifyException
 import com.infosung.atomic.oauth.exception.InvalidOauthRequestException
 import com.infosung.atomic.oauth.state.OauthStateManager
+import com.nimbusds.jwt.SignedJWT
 import org.slf4j.LoggerFactory
 
 /** Provider router for one OAuth provider name with multiple platform-specific clients. */
@@ -35,6 +36,11 @@ internal class RoutedOauthProvider(
       }
   private val sortedProvidersByClientKey: Map<String, OauthProvider> =
       this.providersByClientKey.toSortedMap()
+  private val clientKeysByAudience: Map<String, Set<String>> =
+      audiencesByClientKey.entries
+          .flatMap { (clientKey, audiences) -> audiences.map { audience -> audience to clientKey } }
+          .groupBy(keySelector = { it.first }, valueTransform = { it.second })
+          .mapValues { (_, clientKeys) -> clientKeys.toSet() }
 
   private val capabilitySet: Set<OauthProviderCapability> =
       this.providersByClientKey.values.first().capabilities().also { baseCapabilitySet ->
@@ -108,15 +114,20 @@ internal class RoutedOauthProvider(
 
     val audience = request.audience?.takeIf { it.isNotBlank() }
     if (audience != null) {
-      val matchedClientKey =
-          audiencesByClientKey.entries
-              .firstOrNull { (_, audiences) -> audiences.contains(audience) }
-              ?.key
+      val matchedClientKey = clientKeysByAudience[audience]?.singleOrNull()
       if (matchedClientKey != null) {
         return stampSelectedClientKey(
             delegate(matchedClientKey).resolveIdentity(sanitizedRequest), matchedClientKey)
       }
     }
+
+    request.idToken
+        ?.takeIf { it.isNotBlank() }
+        ?.let { resolveClientKeyFromIdTokenAudienceOrNull(it) }
+        ?.let { matchedClientKey ->
+          return stampSelectedClientKey(
+              delegate(matchedClientKey).resolveIdentity(sanitizedRequest), matchedClientKey)
+        }
 
     if ((request.strategy == OauthIdentityStrategy.AUTO ||
         request.strategy == OauthIdentityStrategy.ID_TOKEN) && !request.idToken.isNullOrBlank()) {
@@ -207,6 +218,23 @@ internal class RoutedOauthProvider(
     return providersByClientKey[clientKey]
         ?: throw InvalidOauthRequestException(
             "Unknown oauth client key for $providerName: $clientKey")
+  }
+
+  private fun resolveClientKeyFromIdTokenAudienceOrNull(idToken: String): String? {
+    if (clientKeysByAudience.isEmpty()) {
+      return null
+    }
+    val audiences =
+        runCatching { SignedJWT.parse(idToken).jwtClaimsSet.audience }
+            .getOrNull()
+            ?.filter { it.isNotBlank() }
+            ?.toSet() ?: return null
+    val matchedClientKeys =
+        audiences
+            .asSequence()
+            .flatMap { audience -> clientKeysByAudience[audience].orEmpty().asSequence() }
+            .toSet()
+    return matchedClientKeys.singleOrNull()
   }
 
   private fun stampSelectedClientKey(

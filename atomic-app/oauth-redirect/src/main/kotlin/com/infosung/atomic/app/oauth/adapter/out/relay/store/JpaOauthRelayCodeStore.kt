@@ -26,7 +26,7 @@ internal class JpaOauthRelayCodeStore(
     val now = timeProvider.nowInstant()
 
     transactionTemplate.executeWithoutResult {
-      oauthRelayCodeRepository.saveAndFlush(
+      oauthRelayCodeRepository.save(
           OauthRelayCodeEntity(
               relayCode = relayCode,
               payloadJson = payloadJson,
@@ -47,7 +47,6 @@ internal class JpaOauthRelayCodeStore(
       val selected =
           oauthRelayCodeRepository.findLockedByRelayCode(relayCode) ?: return@execute null
       oauthRelayCodeRepository.delete(selected)
-      oauthRelayCodeRepository.flush()
 
       if (!selected.expiresAt.isAfter(now.toUtcLocalDateTime())) {
         log.debug(
