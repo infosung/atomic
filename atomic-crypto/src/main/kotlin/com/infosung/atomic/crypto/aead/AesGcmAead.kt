@@ -43,7 +43,7 @@ class AesGcmAead(
     return try {
       cipher.doFinal(ciphertext.ciphertext)
     } catch (e: GeneralSecurityException) {
-      throw GeneralSecurityException("Failed to decrypt AES-256-GCM ciphertext.", e)
+      throw IllegalArgumentException("Failed to decrypt AES-256-GCM ciphertext.", e)
     }
   }
 

@@ -21,10 +21,10 @@ object HkdfSha256 {
     var previous = ByteArray(0)
     var offset = 0
     var counter = 1
+    val mac = Mac.getInstance(HMAC_ALGORITHM)
+    mac.init(SecretKeySpec(prk, HMAC_ALGORITHM))
 
     while (offset < length) {
-      val mac = Mac.getInstance(HMAC_ALGORITHM)
-      mac.init(SecretKeySpec(prk, HMAC_ALGORITHM))
       if (previous.isNotEmpty()) {
         mac.update(previous)
       }
