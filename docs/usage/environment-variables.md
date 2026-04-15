@@ -97,7 +97,11 @@ Validation notes:
 | `atomic.security.exclude-urls` | empty | optional | Excluded request patterns (`METHOD /path` format). |
 | `atomic.security.jwt.enabled` | `true` | optional | Enables auto `JwtProvider` registration path. |
 | `atomic.security.jwt.access-key` | empty | auto `JwtProvider` path | Access token signing key (non-blank required). |
+| `atomic.security.jwt.access-key-id` | `access-current` | auto `JwtProvider` path | Active access-token `kid` written into newly issued JWT headers. |
+| `atomic.security.jwt.previous-access-keys` | empty | optional | Previous access-token verification keys stored as a `kid -> secret` map. |
 | `atomic.security.jwt.refresh-key` | empty | auto `JwtProvider` path | Refresh token signing key (non-blank required). |
+| `atomic.security.jwt.refresh-key-id` | `refresh-current` | auto `JwtProvider` path | Active refresh-token `kid` written into newly issued JWT headers. |
+| `atomic.security.jwt.previous-refresh-keys` | empty | optional | Previous refresh-token verification keys stored as a `kid -> secret` map. |
 | `atomic.security.jwt.algorithm` | `HmacSHA512` | optional | JCA HMAC algorithm name. |
 | `atomic.security.jwt.service-name` | `InfosungAtomic` | optional | Issuer/service claim value. |
 | `atomic.security.jwt.access-expired-second` | `3600` | optional | Access token expiration seconds. |
@@ -110,6 +114,13 @@ Validation notes:
 Runtime note:
 - When `atomic.security.enabled=true` and `ObjectMapper` bean exists, `JwtSecurityConfigurerAdapter` path requires `JwtProvider` (auto or custom).
 - If `ObjectMapper` is missing, `JwtSecurityConfigurerAdapter` is not auto-registered.
+- Rotation note: Atomic writes the active key id to JWT `kid`; previous-key maps are verification-only lanes for rollover windows.
+
+## `atomic.crypto`
+
+- `atomic.crypto` is a Spring-free utility module and does not expose Spring `@ConfigurationProperties`
+  in this release line.
+- There are no module-level runtime properties to configure.
 
 ## `atomic.spring.oauth2` (`atomic.oauth2`)
 
@@ -252,7 +263,7 @@ Provider registration note:
 Composition note:
 - `atomic.event.log`, `atomic.event.log.parquet`, `atomic.event.log.iceberg`,
   `atomic.event.log.duckdb`, and `atomic.event.log.spring.web` do not expose Spring
-  `@ConfigurationProperties` in `0.1.2`.
+  `@ConfigurationProperties` in `0.1.3`.
 - the only event-log property namespace in this release line is the official ingest API module.
 - Parquet export cadence, spool choice, DuckDB query execution, and Iceberg catalog wiring remain
   host-owned constructor wiring concerns.

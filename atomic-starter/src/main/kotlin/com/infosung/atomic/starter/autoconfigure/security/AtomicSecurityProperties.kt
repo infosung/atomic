@@ -1,5 +1,6 @@
 package com.infosung.atomic.starter.autoconfigure.security
 
+import com.infosung.atomic.spring.security.jwt.JwtProvider
 import org.springframework.boot.context.properties.ConfigurationProperties
 
 /** Configuration properties for atomic spring-security auto-configuration. */
@@ -29,8 +30,20 @@ class AtomicSecurityProperties {
     /** Access token signing key. */
     var accessKey: String? = null
 
+    /** Active access token key id written into `kid`. */
+    var accessKeyId: String = JwtProvider.DEFAULT_ACCESS_KEY_ID
+
+    /** Optional previous access token verification keys keyed by `kid`. */
+    var previousAccessKeys: MutableMap<String, String> = linkedMapOf()
+
     /** Refresh token signing key. */
     var refreshKey: String? = null
+
+    /** Active refresh token key id written into `kid`. */
+    var refreshKeyId: String = JwtProvider.DEFAULT_REFRESH_KEY_ID
+
+    /** Optional previous refresh token verification keys keyed by `kid`. */
+    var previousRefreshKeys: MutableMap<String, String> = linkedMapOf()
 
     /** JCA HMAC algorithm name. */
     var algorithm: String = "HmacSHA512"

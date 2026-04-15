@@ -13,17 +13,18 @@ This guide focuses only on getting a working flow quickly.
 
 Dependency notation:
 - Gradle snippets below assume a local multi-module setup (`project(":...")`).
-- Published artifact equivalents for `v0.1.2` are:
-  - version-only: `implementation("com.infosung:atomic.app.version:0.1.2")`
-  - image API: `implementation("com.infosung:atomic.starter:0.1.2")`, `implementation("com.infosung:atomic.app.storage.api:0.1.2")`, `implementation("com.infosung:atomic.storage:0.1.2")`
-  - oauth redirect relay API: `implementation("com.infosung:atomic.starter:0.1.2")`, `implementation("com.infosung:atomic.app.oauth.redirect:0.1.2")`, `implementation("com.infosung:atomic.spring.oauth2:0.1.2")`
-  - event-log ingest API: `implementation("com.infosung:atomic.event.log:0.1.2")`, `implementation("com.infosung:atomic.event.log.parquet:0.1.2")`, `implementation("com.infosung:atomic.event.log.ingest.api:0.1.2")`
-  - convenience bundle: `implementation("com.infosung:atomic.app:0.1.2")`
+- Published artifact equivalents for `v0.1.3` are:
+  - version-only: `implementation("com.infosung:atomic.app.version:0.1.3")`
+  - image API: `implementation("com.infosung:atomic.starter:0.1.3")`, `implementation("com.infosung:atomic.app.storage.api:0.1.3")`, `implementation("com.infosung:atomic.storage:0.1.3")`
+  - oauth redirect relay API: `implementation("com.infosung:atomic.starter:0.1.3")`, `implementation("com.infosung:atomic.app.oauth.redirect:0.1.3")`, `implementation("com.infosung:atomic.spring.oauth2:0.1.3")`
+  - event-log ingest API: `implementation("com.infosung:atomic.event.log:0.1.3")`, `implementation("com.infosung:atomic.event.log.parquet:0.1.3")`, `implementation("com.infosung:atomic.event.log.ingest.api:0.1.3")`
+  - Spring-free crypto helpers: `implementation("com.infosung:atomic.crypto:0.1.3")`
+  - convenience bundle: `implementation("com.infosung:atomic.app:0.1.3")`
 
 Quick decision:
 - If you are still pre-production, validate behavior first with this document.
 - For production or multi-instance deployment, continue with [advanced-playbook](advanced-playbook.md).
-- If you are upgrading an existing `0.1.x` host, review [Release Migration Guide: `v0.1.1` -> `v0.1.2`](../migration/v0.1.1-to-v0.1.2.md).
+- If you are upgrading an existing `0.1.x` host, review [Release Migration Guide: `v0.1.2` -> `v0.1.3`](../migration/v0.1.2-to-v0.1.3.md).
 - If you are coming from the pre-`0.1.x` line, also review [Release Migration Guide: `v0.0.5` -> `v0.1.1`](../migration/v0.0.5-to-v0.1.1.md).
 
 ---
@@ -61,9 +62,9 @@ Published artifact equivalent:
 
 ```kotlin
 dependencies {
-  implementation("com.infosung:atomic.event.log:0.1.2")
-  implementation("com.infosung:atomic.event.log.parquet:0.1.2")
-  implementation("com.infosung:atomic.event.log.ingest.api:0.1.2")
+  implementation("com.infosung:atomic.event.log:0.1.3")
+  implementation("com.infosung:atomic.event.log.parquet:0.1.3")
+  implementation("com.infosung:atomic.event.log.ingest.api:0.1.3")
 }
 ```
 
@@ -72,32 +73,32 @@ Published artifact equivalents for the same three tracks:
 ```kotlin
 // A. version-only
 dependencies {
-  implementation("com.infosung:atomic.app.version:0.1.2")
+  implementation("com.infosung:atomic.app.version:0.1.3")
 }
 ```
 
 ```kotlin
 // B. image API
 dependencies {
-  implementation("com.infosung:atomic.starter:0.1.2")
-  implementation("com.infosung:atomic.app.storage.api:0.1.2")
-  implementation("com.infosung:atomic.storage:0.1.2")
+  implementation("com.infosung:atomic.starter:0.1.3")
+  implementation("com.infosung:atomic.app.storage.api:0.1.3")
+  implementation("com.infosung:atomic.storage:0.1.3")
 }
 ```
 
 ```kotlin
 // C. oauth redirect relay API
 dependencies {
-  implementation("com.infosung:atomic.starter:0.1.2")
-  implementation("com.infosung:atomic.app.oauth.redirect:0.1.2")
-  implementation("com.infosung:atomic.spring.oauth2:0.1.2")
+  implementation("com.infosung:atomic.starter:0.1.3")
+  implementation("com.infosung:atomic.app.oauth.redirect:0.1.3")
+  implementation("com.infosung:atomic.spring.oauth2:0.1.3")
 }
 ```
 
 ```kotlin
 // Convenience bundle
 dependencies {
-  implementation("com.infosung:atomic.app:0.1.2")
+  implementation("com.infosung:atomic.app:0.1.3")
 }
 ```
 
@@ -199,7 +200,8 @@ Notes:
   - this line assumes a fixed pre-allowlisted loopback port; random ephemeral callback ports are not matched
 - Default callback-binding uses hardened cookie constraints (`cookie-name` with `__Host-` prefix, `cookie-secure=true`, `cookie-path=/`), so local plain HTTP callbacks can fail with `OAuth callback binding cookie is missing.`
   - The same cookie policy is also reused for the PKCE verifier cookie when you call the redirect API with `codeChallengeMethod`.
-  - For local HTTP-only testing, use HTTPS tunneling, or set `atomic.app.oauth.redirect.callback-binding.cookie-secure=false`, or set `atomic.app.oauth.redirect.callback-binding.mode=disabled` (legacy `callback-binding.enabled=false` still works).
+  - For local HTTP-only testing, use HTTPS tunneling, or set `atomic.app.oauth.redirect.callback-binding.cookie-secure=false`.
+  - Disabling callback binding alone is not enough when PKCE is enabled because the verifier cookie still follows the same secure-cookie policy (legacy `callback-binding.enabled=false` still works).
 - Default callback-binding mode is `strict`, so a successful callback clears the callback-binding cookie and the callback must complete with the cookie minted during redirect.
 - If your UX prefers multi-tab/back-navigation tolerance, set `atomic.app.oauth.redirect.callback-binding.mode=relaxed`.
 - `spring.autoconfigure.exclude` is a temporary quick-start shortcut for non-DB environments. For production, configure DataSource/store policy explicitly (`entity/cache/custom`).

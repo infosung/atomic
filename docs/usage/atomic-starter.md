@@ -7,24 +7,26 @@ Use `atomic.starter` to reduce boilerplate bean registration.
 - auto-configuration activates only when corresponding atomic module is on classpath
 - `atomic.app` is not bundled in starter (must be added separately)
 - add `atomic.contract` when app code directly uses `BaseResponse` / `HttpStatusException`
+- add `atomic.crypto` when you need Spring-free cryptographic primitives or JWT key-rotation helpers
 - you still choose feature modules explicitly (`app`, `storage`, `spring.web`, `spring.idempotency`, `spring.security`, `spring.oauth2`, `heartbeat`)
 - heavy dependencies are not forced unless you add that module
 
 ## Dependency Pattern
 
-Published artifact examples (`v0.1.2`):
+Published artifact examples (`v0.1.3`):
 
 ```kotlin
 dependencies {
-  implementation("com.infosung:atomic.contract:0.1.2")
-  implementation("com.infosung:atomic.storage:0.1.2")
-  implementation("com.infosung:atomic.spring.web:0.1.2")
-  implementation("com.infosung:atomic.spring.security:0.1.2")
-  implementation("com.infosung:atomic.spring.idempotency:0.1.2")
-  implementation("com.infosung:atomic.spring.oauth2:0.1.2")
-  implementation("com.infosung:atomic.heartbeat:0.1.2")
-  implementation("com.infosung:atomic.starter:0.1.2")
-  implementation("com.infosung:atomic.app:0.1.2")
+  implementation("com.infosung:atomic.contract:0.1.3")
+  implementation("com.infosung:atomic.crypto:0.1.3")
+  implementation("com.infosung:atomic.storage:0.1.3")
+  implementation("com.infosung:atomic.spring.web:0.1.3")
+  implementation("com.infosung:atomic.spring.security:0.1.3")
+  implementation("com.infosung:atomic.spring.idempotency:0.1.3")
+  implementation("com.infosung:atomic.spring.oauth2:0.1.3")
+  implementation("com.infosung:atomic.heartbeat:0.1.3")
+  implementation("com.infosung:atomic.starter:0.1.3")
+  implementation("com.infosung:atomic.app:0.1.3")
 }
 ```
 
@@ -37,6 +39,7 @@ Current `.github/workflows/publish-maven-central.yml` publishes:
 - `atomic-event-log:spring-web`
 - `atomic-event-log:ingest-api`
 - `atomic-contract`
+- `atomic-crypto`
 - `atomic-storage`
 - `atomic-spring-web`
 - `atomic-spring-security`
@@ -57,6 +60,7 @@ Local multi-module:
 dependencies {
   implementation(project(":atomic-starter"))
   implementation(project(":atomic-contract"))
+  implementation(project(":atomic-crypto"))
 
   // add only modules you use
   implementation(project(":atomic-app"))
