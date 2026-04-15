@@ -136,6 +136,8 @@ jobs:
   publish:
     needs: tag
     if: needs.tag.outputs.should_publish_chain == 'true'
+    permissions:
+      contents: read
     uses: ./.github/workflows/publish-maven-central.yml
     with:
       release_tag: ${{ needs.tag.outputs.tag }}
