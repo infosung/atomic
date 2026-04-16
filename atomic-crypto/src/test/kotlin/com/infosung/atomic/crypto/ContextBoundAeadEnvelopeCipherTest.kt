@@ -8,6 +8,7 @@ import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 
 class ContextBoundAeadEnvelopeCipherTest {
   private val cipher = ContextBoundAeadEnvelopeCipher()
@@ -214,11 +215,23 @@ class ContextBoundAeadEnvelopeCipherTest {
   }
 
   @Test
+  fun `key secret getter should return a defensive copy`() {
+    val originalSecret = testKey(7)
+    val key = AeadEnvelopeKey(keyId = "dek-v2", secret = originalSecret)
+
+    val secretCopy = key.secret
+    secretCopy.fill(0)
+
+    assertContentEquals(originalSecret, key.secret)
+    assertFalse(secretCopy.contentEquals(key.secret))
+  }
+
+  @Test
   fun `encrypt should reject non positive key version`() {
     assertFailsWith<IllegalArgumentException> {
       cipher.encrypt(
           plaintext = "atomic".toByteArray(),
-          key = AeadEnvelopeKey(keyId = "dek-v2", secret = testKey(7)),
+          key = AeadEnvelopeKey(keyId = "dek-v2", secret = testKey(8)),
           keyVersion = 0,
           context =
               AeadEnvelopeContext(
