@@ -184,6 +184,34 @@ class ReleaseLineDocumentationContractTest {
         }
   }
 
+  @Test
+  fun `contract and crypto guides should document readiness and context bound envelope helpers`() {
+    val readme = DocumentationContractFixtures.read("README.md")
+    val overview = DocumentationContractFixtures.read("docs/usage/overview.md")
+    val contractGuide = DocumentationContractFixtures.read("docs/usage/atomic-contract.md")
+    val cryptoGuide = DocumentationContractFixtures.read("docs/usage/atomic-crypto.md")
+
+    listOf("BootstrapReadinessResponse", "context-bound encrypted payload helpers").forEach { marker
+      ->
+      assertTrue(readme.contains(marker), "README should mention $marker")
+    }
+
+    listOf("bootstrap/readiness DTO contracts", "context-bound encrypted payload helpers")
+        .forEach { marker ->
+          assertTrue(overview.contains(marker), "overview should mention $marker")
+        }
+
+    listOf("BootstrapReadinessResponse", "BootstrapReadinessState", "read-only startup gate")
+        .forEach { marker ->
+          assertTrue(contractGuide.contains(marker), "atomic.contract guide should mention $marker")
+        }
+
+    listOf("ContextBoundAeadEnvelopeCipher", "AeadEnvelopeContext", "wrapped-DEK").forEach { marker
+      ->
+      assertTrue(cryptoGuide.contains(marker), "atomic.crypto guide should mention $marker")
+    }
+  }
+
   private fun readBulletListAfter(path: String, anchor: String): List<String> {
     val markdown = DocumentationContractFixtures.read(path)
     val lines =
