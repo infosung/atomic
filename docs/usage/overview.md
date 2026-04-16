@@ -23,7 +23,6 @@ Recommended entry docs:
 Atomic is a module set for Kotlin/Spring services that want consistent:
 
 - API response shape and shared DTO/util contracts
-- bootstrap/readiness DTO contracts for startup or sync-gate APIs
 - storage integration contracts and implementations
 - web exception handling and API logging
 - rate limiting and idempotent request control
@@ -35,7 +34,7 @@ Use only the modules you need.
 
 ## 1. Select Modules by Use Case
 
-- `atomic.contract`: shared response/header/exception/util model plus bootstrap/readiness DTO contracts
+- `atomic.contract`: shared response/header/exception/util model
 - `atomic.crypto`: Spring-free cryptographic primitives, key-rotation helpers, and context-bound encrypted payload helpers
 - `atomic.starter`: conditional Spring Boot auto-configuration entrypoint
 - `atomic.storage`: storage module (S3-compatible backends such as S3/R2/MinIO, plus media helpers)

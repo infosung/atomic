@@ -64,7 +64,7 @@ Relationship summary:
 - `atomic.event.log.duckdb`: DuckDB SQL/query helper module for event log lakehouse analysis
 - `atomic.event.log.spring.web`: adapter from `atomic.spring.web` API logs into the common event log envelope
 - `atomic.event.log.ingest.api`: official Spring MVC ingest API module with async memory-queue intake
-- `atomic.contract`: shared response/header/exception/util model plus bootstrap/readiness DTO contracts
+- `atomic.contract`: shared response/header/exception/util model
 - `atomic.crypto`: Spring-free cryptographic primitives, key-rotation helpers, and context-bound encrypted payload helpers
 - `atomic.starter`: common infra auto-config entrypoint
 - `atomic.app.version`: narrow app-level version API module
@@ -168,7 +168,7 @@ dependencies {
 | Multi-service event log lakehouse pipeline | `atomic.event.log` + `atomic.event.log.iceberg` + `atomic.event.log.parquet` + `atomic.event.log.duckdb` (+ `atomic.contract`) | none | append validated records through `SpoolBackedEventLogStore`, coordinate Parquet publication through a host-provided `EventLogParquetFileRepository`, commit files via `EventLogIcebergCatalog`, and query through `EventLogDuckDbSqlRenderer` |
 | Official HTTP event-log ingest API | `atomic.event.log.ingest.api` + `atomic.event.log` (+ `atomic.event.log.parquet` for export) | `atomic.event.log.ingest.enabled=true` | provide `EventLogStore` or custom `IngestEventLogUseCase`; choose `ASYNC` memory queue or explicit `SYNC` mode |
 | atomic.spring.web to common event log adapter | `atomic.event.log.spring.web` + `atomic.spring.web` + `atomic.event.log` | none | register `AtomicSpringWebEventLogSaver` as the `LogSaver` implementation and keep your existing `ApiLogAspect` capture layer |
-| Contract utilities (`BaseResponse`, `TimeProvider`, `TraceIdGenerator`, `BootstrapReadinessResponse`) | `atomic.contract` (starter optional) | none | In starter-based flow these are auto-configured where applicable; for direct usage, `atomic.contract` alone is enough |
+| Contract utilities (`BaseResponse`, `TimeProvider`, `TraceIdGenerator`) | `atomic.contract` (starter optional) | none | In starter-based flow these are auto-configured where applicable; for direct usage, `atomic.contract` alone is enough |
 | Storage (`storageClients`, `storageProfiles`, `ImageService`) | `atomic.starter` + `atomic.storage` | `atomic.storage.enabled=true` (default); configure at least one enabled `atomic.storage.backends.*` entry before storage API traffic | none |
 | Common version check API (`GET /api/v1/version/check`) | `atomic.app.version` (+ datasource/JPA) or convenience bundle `atomic.app` with the same datasource/JPA prerequisites | `atomic.app.version.enabled=true` | `service_version` table schema and version policy data (`store_available` defaults to `true`; set it to `false` for review/pre-rollout rows that must not become force-update targets yet) |
 | Common image upload/delete API (`POST/DELETE /api/v1/storage/image/{service}/{storageService}`) | `atomic.app.storage.api` + `atomic.starter` + `atomic.storage` + storage backend config, or convenience bundle `atomic.app` with the same storage prerequisites | `atomic.app.image.enabled=true`, `atomic.storage.enabled=true` (+ optional uploader tracking config) | `image` table schema |
