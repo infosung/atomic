@@ -19,6 +19,7 @@ This module is a good fit when you want:
 - key derivation primitives
 - AES-256-GCM envelope encryption
 - versioned payload wrappers
+- context-bound encrypted payload helpers for server-managed storage
 
 ## What It Provides
 
@@ -33,6 +34,8 @@ This module is a good fit when you want:
 | `AesGcmAead` | AES-256-GCM authenticated encryption/decryption |
 | `VersionedAeadEnvelope` | structured envelope metadata |
 | `VersionedAeadEnvelopeCodec` | text codec for versioned AEAD envelopes |
+| `AeadEnvelopeContext` | owner/purpose/metadata context bound into associated data |
+| `ContextBoundAeadEnvelopeCipher` | encrypt/decrypt helper that binds ciphertext to context and key id |
 
 ## Quick Start
 
@@ -63,6 +66,38 @@ val decrypted = aead.decrypt(encrypted)
 check(message.contentEquals(decrypted))
 ```
 
+Context-bound payload example:
+
+```kotlin
+import com.infosung.atomic.crypto.envelope.AeadEnvelopeContext
+import com.infosung.atomic.crypto.envelope.AeadEnvelopeKey
+import com.infosung.atomic.crypto.envelope.AeadEnvelopeKeyResolver
+import com.infosung.atomic.crypto.envelope.ContextBoundAeadEnvelopeCipher
+
+val cipher = ContextBoundAeadEnvelopeCipher()
+val payload =
+    cipher.encrypt(
+        plaintext = "secret-body".toByteArray(),
+        key = AeadEnvelopeKey(keyId = "dek-v2", secret = ByteArray(32) { 7 }),
+        keyVersion = 2,
+        context =
+            AeadEnvelopeContext(
+                ownerId = "account-1",
+                purpose = "sync-content",
+                metadata = mapOf("entityType" to "reflection", "entityId" to "r-1"),
+            ),
+    )
+
+val plaintext =
+    cipher.decrypt(
+        payload = payload,
+        keyResolver = AeadEnvelopeKeyResolver { keyId ->
+          if (keyId == "dek-v2") ByteArray(32) { 7 } else null
+        },
+    )
+check(String(plaintext) == "secret-body")
+```
+
 ## Rotation Notes
 
 - signing always uses the current key
@@ -78,6 +113,21 @@ Use `atomic.crypto` directly when:
 - you need envelope encryption for values outside JWT/security
 - you need HMAC primitives in a host service without Spring
 - you need deterministic key derivation for storage or relay payloads
+- you want ciphertext to fail closed when owner/purpose/context metadata no longer matches
+
+Use `ContextBoundAeadEnvelopeCipher` when your host app already owns:
+
+- a current encryption key plus key identifier
+- a stable owner scope such as `accountId` or `tenantId`
+- plaintext metadata that should be bound into AEAD associated data
+
+Keep these outside Atomic:
+
+- KMS client integration
+- wrapped-DEK persistence
+- key lineage provisioning/rotation jobs
+- re-encryption orchestration
+- product-specific decrypt authorization rules
 
 Do not use this module to model product state or workflow state.
 
@@ -107,4 +157,5 @@ dependencies {
 - use long random secrets
 - keep previous keys only as long as the old tokens must remain valid
 - write regression tests for round-trip, verification, and rotation behavior
+- bind ciphertext to stable owner/purpose metadata when encrypting stored payloads
 - never log raw keys or ciphertexts in production

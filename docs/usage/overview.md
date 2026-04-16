@@ -28,13 +28,14 @@ Atomic is a module set for Kotlin/Spring services that want consistent:
 - rate limiting and idempotent request control
 - JWT authentication filter flow
 - social OAuth provider integration
+- context-bound encrypted payload helpers for server-managed storage
 
 Use only the modules you need.
 
 ## 1. Select Modules by Use Case
 
-- `atomic.contract`: shared response/header/exception/util model used by all layers
-- `atomic.crypto`: Spring-free cryptographic primitives and key-rotation helpers
+- `atomic.contract`: shared response/header/exception/util model
+- `atomic.crypto`: Spring-free cryptographic primitives, key-rotation helpers, and context-bound encrypted payload helpers
 - `atomic.starter`: conditional Spring Boot auto-configuration entrypoint
 - `atomic.storage`: storage module (S3-compatible backends such as S3/R2/MinIO, plus media helpers)
 - `atomic.app.version`: narrow app-level version API module
