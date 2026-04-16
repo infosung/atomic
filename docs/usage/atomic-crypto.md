@@ -35,6 +35,9 @@ This module is a good fit when you want:
 | `VersionedAeadEnvelope` | structured envelope metadata |
 | `VersionedAeadEnvelopeCodec` | text codec for versioned AEAD envelopes |
 | `AeadEnvelopeContext` | owner/purpose/metadata context bound into associated data |
+| `AeadEnvelopeKey` | immutable AES-256-GCM key holder with explicit `keyId` |
+| `AeadEnvelopeKeyResolver` | key lookup seam used to resolve current or previous keys by `keyId` |
+| `ContextBoundEncryptedPayload` | persisted payload contract containing `cryptoVersion`, `keyVersion`, context, fingerprint, and ciphertext envelope |
 | `ContextBoundAeadEnvelopeCipher` | encrypt/decrypt helper that binds ciphertext to context and key id |
 
 ## Quick Start
@@ -97,6 +100,11 @@ val plaintext =
     )
 check(String(plaintext) == "secret-body")
 ```
+
+Important:
+- `keyVersion` is part of the persisted payload contract. Keep it unchanged when you store or move
+  `ContextBoundEncryptedPayload`, because decrypt binds it into associated data together with
+  `ownerId`, `purpose`, and sorted metadata.
 
 ## Rotation Notes
 

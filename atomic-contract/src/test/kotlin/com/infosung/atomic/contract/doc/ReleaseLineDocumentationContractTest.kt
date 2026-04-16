@@ -96,6 +96,9 @@ class ReleaseLineDocumentationContractTest {
     listOf(
             "0.2.0",
             "atomic.crypto",
+            "ContextBoundAeadEnvelopeCipher",
+            "AeadEnvelopeContext",
+            "keyVersion",
             "key rotation",
             "access-key-id",
             "refresh-key-id",
@@ -121,6 +124,9 @@ class ReleaseLineDocumentationContractTest {
             "0.1.2",
             "0.2.0",
             "atomic.crypto",
+            "ContextBoundEncryptedPayload",
+            "ContextBoundAeadEnvelopeCipher",
+            "keyVersion",
             "access-key-id",
             "refresh-key-id",
             "previous-access-keys",
@@ -211,10 +217,17 @@ class ReleaseLineDocumentationContractTest {
       assertTrue(contractGuide.contains(marker), "atomic.contract guide should mention $marker")
     }
 
-    listOf("ContextBoundAeadEnvelopeCipher", "AeadEnvelopeContext", "wrapped-DEK").forEach { marker
-      ->
-      assertTrue(cryptoGuide.contains(marker), "atomic.crypto guide should mention $marker")
-    }
+    listOf(
+            "ContextBoundAeadEnvelopeCipher",
+            "AeadEnvelopeContext",
+            "AeadEnvelopeKey",
+            "AeadEnvelopeKeyResolver",
+            "ContextBoundEncryptedPayload",
+            "wrapped-DEK",
+        )
+        .forEach { marker ->
+          assertTrue(cryptoGuide.contains(marker), "atomic.crypto guide should mention $marker")
+        }
   }
 
   private fun readBulletListAfter(path: String, anchor: String): List<String> {
