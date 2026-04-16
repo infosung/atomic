@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "SemVer release tag to publish, for example v0.1.3"
+        description: "SemVer release tag to publish, for example v0.2.0"
         required: true
         type: string
 
@@ -37,7 +37,7 @@ jobs:
         run: |
           REQUESTED_TAG="${{ inputs.release_tag }}"
           if ! [[ "${REQUESTED_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "release_tag input must be SemVer, for example v0.1.3: ${REQUESTED_TAG}"
+            echo "release_tag input must be SemVer, for example v0.2.0: ${REQUESTED_TAG}"
             exit 1
           fi
 

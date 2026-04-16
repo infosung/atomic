@@ -14,8 +14,8 @@
 Recommended entry docs:
 - Start with minimal setup: [Atomic Quick Start](quick-start.md)
 - Move to production criteria: [Advanced Operations Playbook](advanced-playbook.md)
-- Current release summary: [Release Notes: `v0.1.3`](../release-notes/v0.1.3.md)
-- Current patch upgrade: [Release Migration Guide: `v0.1.2` -> `v0.1.3`](../migration/v0.1.2-to-v0.1.3.md)
+- Current release summary: [Release Notes: `v0.2.0`](../release-notes/v0.2.0.md)
+- Current minor upgrade: [Release Migration Guide: `v0.1.2` -> `v0.2.0`](../migration/v0.1.2-to-v0.2.0.md)
 - First `0.1.x` adoption: [Release Migration Guide: `v0.0.5` -> `v0.1.1`](../migration/v0.0.5-to-v0.1.1.md)
 
 ## What Atomic Solves
@@ -28,13 +28,14 @@ Atomic is a module set for Kotlin/Spring services that want consistent:
 - rate limiting and idempotent request control
 - JWT authentication filter flow
 - social OAuth provider integration
+- context-bound encrypted payload helpers for server-managed storage
 
 Use only the modules you need.
 
 ## 1. Select Modules by Use Case
 
-- `atomic.contract`: shared response/header/exception/util model used by all layers
-- `atomic.crypto`: Spring-free cryptographic primitives and key-rotation helpers
+- `atomic.contract`: shared response/header/exception/util model
+- `atomic.crypto`: Spring-free cryptographic primitives, key-rotation helpers, and context-bound encrypted payload helpers
 - `atomic.starter`: conditional Spring Boot auto-configuration entrypoint
 - `atomic.storage`: storage module (S3-compatible backends such as S3/R2/MinIO, plus media helpers)
 - `atomic.app.version`: narrow app-level version API module
@@ -67,29 +68,29 @@ Recommended event-log reading order:
 
 ## 2. Dependencies
 
-Published artifact examples (`v0.1.3`):
+Published artifact examples (`v0.2.0`):
 
 ```kotlin
 dependencies {
-  implementation("com.infosung:atomic.event.log:0.1.3")
-  implementation("com.infosung:atomic.event.log.iceberg:0.1.3")
-  implementation("com.infosung:atomic.event.log.parquet:0.1.3")
-  implementation("com.infosung:atomic.event.log.duckdb:0.1.3")
-  implementation("com.infosung:atomic.event.log.spring.web:0.1.3")
-  implementation("com.infosung:atomic.event.log.ingest.api:0.1.3")
-  implementation("com.infosung:atomic.contract:0.1.3")
-  implementation("com.infosung:atomic.crypto:0.1.3")
-  implementation("com.infosung:atomic.storage:0.1.3")
-  implementation("com.infosung:atomic.spring.web:0.1.3")
-  implementation("com.infosung:atomic.spring.security:0.1.3")
-  implementation("com.infosung:atomic.spring.idempotency:0.1.3")
-  implementation("com.infosung:atomic.spring.oauth2:0.1.3")
-  implementation("com.infosung:atomic.heartbeat:0.1.3")
-  implementation("com.infosung:atomic.starter:0.1.3")
-  implementation("com.infosung:atomic.app.version:0.1.3")
-  implementation("com.infosung:atomic.app.storage.api:0.1.3")
-  implementation("com.infosung:atomic.app.oauth.redirect:0.1.3")
-  implementation("com.infosung:atomic.app:0.1.3")
+  implementation("com.infosung:atomic.event.log:0.2.0")
+  implementation("com.infosung:atomic.event.log.iceberg:0.2.0")
+  implementation("com.infosung:atomic.event.log.parquet:0.2.0")
+  implementation("com.infosung:atomic.event.log.duckdb:0.2.0")
+  implementation("com.infosung:atomic.event.log.spring.web:0.2.0")
+  implementation("com.infosung:atomic.event.log.ingest.api:0.2.0")
+  implementation("com.infosung:atomic.contract:0.2.0")
+  implementation("com.infosung:atomic.crypto:0.2.0")
+  implementation("com.infosung:atomic.storage:0.2.0")
+  implementation("com.infosung:atomic.spring.web:0.2.0")
+  implementation("com.infosung:atomic.spring.security:0.2.0")
+  implementation("com.infosung:atomic.spring.idempotency:0.2.0")
+  implementation("com.infosung:atomic.spring.oauth2:0.2.0")
+  implementation("com.infosung:atomic.heartbeat:0.2.0")
+  implementation("com.infosung:atomic.starter:0.2.0")
+  implementation("com.infosung:atomic.app.version:0.2.0")
+  implementation("com.infosung:atomic.app.storage.api:0.2.0")
+  implementation("com.infosung:atomic.app.oauth.redirect:0.2.0")
+  implementation("com.infosung:atomic.app:0.2.0")
 }
 ```
 

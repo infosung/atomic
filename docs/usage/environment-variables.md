@@ -1,6 +1,6 @@
 # Property Reference by Module
 
-This document is a code-aligned property index based on `@ConfigurationProperties` in `atomic-starter` and `atomic-app`.
+This document is a code-aligned property index based on `@ConfigurationProperties` in `atomic-starter` and `atomic-app` for the `0.2.0` release line.
 
 Column meanings:
 - `Default`: code default value.
@@ -263,7 +263,7 @@ Provider registration note:
 Composition note:
 - `atomic.event.log`, `atomic.event.log.parquet`, `atomic.event.log.iceberg`,
   `atomic.event.log.duckdb`, and `atomic.event.log.spring.web` do not expose Spring
-  `@ConfigurationProperties` in `0.1.3`.
+  `@ConfigurationProperties` in `0.2.0`.
 - the only event-log property namespace in this release line is the official ingest API module.
 - Parquet export cadence, spool choice, DuckDB query execution, and Iceberg catalog wiring remain
   host-owned constructor wiring concerns.
